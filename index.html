@@ -61,13 +61,34 @@
 
     canvas {
       border: 1px solid #ccc;
-      touch-action: none; /* important to allow drawing on touch devices */
+      touch-action: none;
     }
 
     .status {
       margin-top: 0.75rem;
       font-size: 0.85rem;
       color: #555;
+    }
+
+    .sync-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-left: 0.5rem;
+      background: #ccc;
+    }
+
+    .sync-indicator.synced {
+      background: #4CAF50;
+    }
+
+    .sync-indicator.syncing {
+      background: #FFC107;
+    }
+
+    .sync-indicator.error {
+      background: #f44336;
     }
   </style>
 </head>
@@ -101,30 +122,76 @@
       <div class="figure-label">Left</div>
       <canvas id="figure_left" width="200" height="600"></canvas>
     </div>
-
   </div>
 
-  <div class="status" id="status"></div>
+  <div class="status" id="status">
+    <span>Ready</span>
+    <span class="sync-indicator" id="syncIndicator"></span>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js"></script>
 
   <script>
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyDt82k5jJTa9Xqn6Xb2-oEoVTHOr-wgvuA",
+  authDomain: "body-map-9cdb6.firebaseapp.com",
+  databaseURL: "https://body-map-9cdb6-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "body-map-9cdb6",
+  storageBucket: "body-map-9cdb6.firebasestorage.app",
+  messagingSenderId: "86071836780",
+  appId: "1:86071836780:web:26ba38c4bfedf7d451d849",
+  measurementId: "G-GQN61BV570"
+};
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // ============ APP CODE ============
     const figureConfigs = [
-  { id: "front", canvasId: "figure_front", imageSrc: "front.png" },
-  { id: "back",  canvasId: "figure_back",  imageSrc: "back.png"  },
-  { id: "left",  canvasId: "figure_left",  imageSrc: "left.png"  },
-  { id: "right", canvasId: "figure_right", imageSrc: "right.png" },
-];
+      { id: "front", canvasId: "figure_front", imageSrc: "front.png" },
+      { id: "back",  canvasId: "figure_back",  imageSrc: "back.png"  },
+      { id: "left",  canvasId: "figure_left",  imageSrc: "left.png"  },
+      { id: "right", canvasId: "figure_right", imageSrc: "right.png" },
+    ];
 
-    // Collected data points for the current session
     const collectedPoints = [];
-
     const statusEl = document.getElementById("status");
+    const syncIndicator = document.getElementById("syncIndicator");
     const participantInput = document.getElementById("participantId");
 
     function setStatus(message) {
-      statusEl.textContent = message;
+      statusEl.childNodes[0].textContent = message;
     }
 
-    // Load each figure, draw it on its canvas, and attach handlers
+    function setSyncStatus(status) {
+      // status: 'synced', 'syncing', 'error', or null
+      syncIndicator.className = "sync-indicator";
+      if (status) {
+        syncIndicator.classList.add(status);
+      }
+    }
+
+    // Send data point to Firebase
+    async function sendToFirebase(point) {
+      try {
+        setSyncStatus("syncing");
+        const participantId = participantInput.value.trim() || "anonymous";
+        const timestamp = Date.now();
+        
+        // Store in Firebase under: data/participantId/timestamp
+        await db.ref(`data/${participantId}/${timestamp}`).set(point);
+        
+        setSyncStatus("synced");
+        setTimeout(() => setSyncStatus(null), 2000); // reset indicator after 2s
+      } catch (error) {
+        console.error("Firebase error:", error);
+        setSyncStatus("error");
+        setStatus(`Error syncing to server. Data saved locally.`);
+      }
+    }
+
     function setupFigure(figureConfig) {
       const canvas = document.getElementById(figureConfig.canvasId);
       const ctx = canvas.getContext("2d");
@@ -142,30 +209,30 @@
         const yPx = clientY - rect.top;
 
         if (xPx < 0 || xPx > rect.width || yPx < 0 || yPx > rect.height) {
-          return; // ignore clicks outside the canvas bounds
+          return;
         }
 
-        // Normalized coordinates (0..1)
         const xNorm = xPx / rect.width;
         const yNorm = yPx / rect.height;
 
-        // Draw a small marker at the clicked/tapped position
         drawMarker(ctx, xNorm * canvas.width, yNorm * canvas.height);
 
-        // Store data point
         const participantId = participantInput.value.trim() || null;
-        collectedPoints.push({
+        const point = {
           participantId: participantId,
           figure: figureConfig.id,
           xNorm: xNorm,
           yNorm: yNorm,
           timestamp: new Date().toISOString(),
-        });
+        };
+
+        collectedPoints.push(point);
+
+        // Send to Firebase immediately
+        sendToFirebase(point);
 
         setStatus(
-          `Recorded point on ${figureConfig.id} (participant: ${
-            participantId || "none"
-          }). Total points: ${collectedPoints.length}`
+          `Recorded point on ${figureConfig.id}. Total: ${collectedPoints.length}`
         );
       }
 
@@ -174,7 +241,7 @@
       }
 
       function handleTouch(event) {
-        event.preventDefault(); // prevent scrolling/zooming
+        event.preventDefault();
         const touch = event.changedTouches[0];
         recordPoint(touch.clientX, touch.clientY);
       }
@@ -196,7 +263,6 @@
       ctx.restore();
     }
 
-    // Download helpers
     function downloadFile(filename, mimeType, content) {
       const blob = new Blob([content], { type: mimeType });
       const url = URL.createObjectURL(blob);
@@ -252,8 +318,7 @@
 
     function clearPoints() {
       collectedPoints.length = 0;
-      setStatus("Cleared all points for this session. Figures remain visible.");
-      // Redraw figures without markers
+      setStatus("Cleared all points for this session.");
       figureConfigs.forEach((cfg) => {
         const canvas = document.getElementById(cfg.canvasId);
         const ctx = canvas.getContext("2d");
@@ -266,14 +331,12 @@
       });
     }
 
-    // Hook up buttons
     document.getElementById("downloadJson").addEventListener("click", downloadAsJson);
     document.getElementById("downloadCsv").addEventListener("click", downloadAsCsv);
     document.getElementById("clearPoints").addEventListener("click", clearPoints);
 
-    // Initialize
     figureConfigs.forEach(setupFigure);
-    setStatus("Ready. Click or tap on the figures to mark contact locations.");
+    setStatus("Ready. Click or tap to mark contact.");
   </script>
 </body>
 </html>
