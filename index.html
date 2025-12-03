@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Physical Interaction Body Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      padding: 1rem;
+      background: #f5f5f5;
+    }
+
+    h1 {
+      font-size: 1.3rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    label {
+      font-size: 0.9rem;
+    }
+
+    input[type="text"] {
+      padding: 0.3rem 0.4rem;
+      font-size: 0.9rem;
+    }
+
+    button {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+
+    .figures {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .figure-wrapper {
+      background: white;
+      padding: 0.5rem;
+      border-radius: 0.4rem;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+      text-align: center;
+    }
+
+    .figure-label {
+      font-size: 0.9rem;
+      margin-bottom: 0.25rem;
+    }
+
+    canvas {
+      border: 1px solid #ccc;
+      touch-action: none; /* important to allow drawing on touch devices */
+    }
+
+    .status {
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <h1>Physical Interaction Body Map</h1>
+
+  <div class="controls">
+    <label>
+      Participant ID:
+      <input type="text" id="participantId" placeholder="e.g. P001" />
+    </label>
+    <button id="clearPoints">Clear points (current session)</button>
+    <button id="downloadJson">Download JSON</button>
+    <button id="downloadCsv">Download CSV</button>
+  </div>
+
+  <div class="figures">
+    <div class="figure-wrapper">
+      <div class="figure-label">Front</div>
+      <canvas id="figure_front" width="300" height="600"></canvas>
+    </div>
+    <div class="figure-wrapper">
+      <div class="figure-label">Back</div>
+      <canvas id="figure_back" width="300" height="600"></canvas>
+    </div>
+    <div class="figure-wrapper">
+      <div class="figure-label">Right</div>
+      <canvas id="figure_right" width="200" height="600"></canvas>
+    </div>
+    <div class="figure-wrapper">
+      <div class="figure-label">Left</div>
+      <canvas id="figure_left" width="200" height="600"></canvas>
+    </div>
+
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <script>
+    const figureConfigs = [
+  { id: "front", canvasId: "figure_front", imageSrc: "front.png" },
+  { id: "back",  canvasId: "figure_back",  imageSrc: "back.png"  },
+  { id: "left",  canvasId: "figure_left",  imageSrc: "left.png"  },
+  { id: "right", canvasId: "figure_right", imageSrc: "right.png" },
+];
+
+    // Collected data points for the current session
+    const collectedPoints = [];
+
+    const statusEl = document.getElementById("status");
+    const participantInput = document.getElementById("participantId");
+
+    function setStatus(message) {
+      statusEl.textContent = message;
+    }
+
+    // Load each figure, draw it on its canvas, and attach handlers
+    function setupFigure(figureConfig) {
+      const canvas = document.getElementById(figureConfig.canvasId);
+      const ctx = canvas.getContext("2d");
+      const img = new Image();
+      img.src = figureConfig.imageSrc;
+
+      img.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      };
+
+      function recordPoint(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const xPx = clientX - rect.left;
+        const yPx = clientY - rect.top;
+
+        if (xPx < 0 || xPx > rect.width || yPx < 0 || yPx > rect.height) {
+          return; // ignore clicks outside the canvas bounds
+        }
+
+        // Normalized coordinates (0..1)
+        const xNorm = xPx / rect.width;
+        const yNorm = yPx / rect.height;
+
+        // Draw a small marker at the clicked/tapped position
+        drawMarker(ctx, xNorm * canvas.width, yNorm * canvas.height);
+
+        // Store data point
+        const participantId = participantInput.value.trim() || null;
+        collectedPoints.push({
+          participantId: participantId,
+          figure: figureConfig.id,
+          xNorm: xNorm,
+          yNorm: yNorm,
+          timestamp: new Date().toISOString(),
+        });
+
+        setStatus(
+          `Recorded point on ${figureConfig.id} (participant: ${
+            participantId || "none"
+          }). Total points: ${collectedPoints.length}`
+        );
+      }
+
+      function handleClick(event) {
+        recordPoint(event.clientX, event.clientY);
+      }
+
+      function handleTouch(event) {
+        event.preventDefault(); // prevent scrolling/zooming
+        const touch = event.changedTouches[0];
+        recordPoint(touch.clientX, touch.clientY);
+      }
+
+      canvas.addEventListener("click", handleClick);
+      canvas.addEventListener("touchstart", handleTouch, { passive: false });
+    }
+
+    function drawMarker(ctx, x, y) {
+      const radius = 5;
+      ctx.save();
+      ctx.fillStyle = "red";
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Download helpers
+    function downloadFile(filename, mimeType, content) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function downloadAsJson() {
+      if (collectedPoints.length === 0) {
+        alert("No points recorded yet.");
+        return;
+      }
+      const participantId = participantInput.value.trim() || "unknown";
+      const filename = `body_map_${participantId}_${Date.now()}.json`;
+      downloadFile(filename, "application/json", JSON.stringify(collectedPoints, null, 2));
+    }
+
+    function csvEscape(value) {
+      if (value === null || value === undefined) return "";
+      const s = String(value).replace(/"/g, '""');
+      return `"${s}"`;
+    }
+
+    function downloadAsCsv() {
+      if (collectedPoints.length === 0) {
+        alert("No points recorded yet.");
+        return;
+      }
+      const header = ["participantId", "figure", "xNorm", "yNorm", "timestamp"];
+      const lines = [header.join(",")];
+
+      for (const p of collectedPoints) {
+        lines.push(
+          [
+            csvEscape(p.participantId),
+            csvEscape(p.figure),
+            p.xNorm,
+            p.yNorm,
+            csvEscape(p.timestamp),
+          ].join(",")
+        );
+      }
+
+      const participantId = participantInput.value.trim() || "unknown";
+      const filename = `body_map_${participantId}_${Date.now()}.csv`;
+      downloadFile(filename, "text/csv", lines.join("\n"));
+    }
+
+    function clearPoints() {
+      collectedPoints.length = 0;
+      setStatus("Cleared all points for this session. Figures remain visible.");
+      // Redraw figures without markers
+      figureConfigs.forEach((cfg) => {
+        const canvas = document.getElementById(cfg.canvasId);
+        const ctx = canvas.getContext("2d");
+        const img = new Image();
+        img.src = cfg.imageSrc;
+        img.onload = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
+      });
+    }
+
+    // Hook up buttons
+    document.getElementById("downloadJson").addEventListener("click", downloadAsJson);
+    document.getElementById("downloadCsv").addEventListener("click", downloadAsCsv);
+    document.getElementById("clearPoints").addEventListener("click", clearPoints);
+
+    // Initialize
+    figureConfigs.forEach(setupFigure);
+    setStatus("Ready. Click or tap on the figures to mark contact locations.");
+  </script>
+</body>
+</html>
