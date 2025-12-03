@@ -90,16 +90,37 @@
     .sync-indicator.error {
       background: #f44336;
     }
+
+    .id-status {
+      font-size: 0.8rem;
+      margin-top: 0.25rem;
+      min-height: 1.2rem;
+    }
+
+    .id-valid {
+      color: #4CAF50;
+    }
+
+    .id-invalid {
+      color: #f44336;
+    }
+
+    .id-checking {
+      color: #FFC107;
+    }
   </style>
 </head>
 <body>
   <h1>Physical Interaction Body Map</h1>
 
   <div class="controls">
-    <label>
-      Participant ID:
-      <input type="text" id="participantId" placeholder="e.g. P001" />
-    </label>
+    <div>
+      <label>
+        Participant ID (must be a number):
+        <input type="text" id="participantId" placeholder="e.g. 001" />
+      </label>
+      <div class="id-status" id="idStatus"></div>
+    </div>
     <button id="clearPoints">Clear points (current session)</button>
     <button id="downloadJson">Download JSON</button>
     <button id="downloadCsv">Download CSV</button>
@@ -130,21 +151,22 @@
   </div>
 
   <!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-database-compat.js"></script>
 
   <script>
-    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyDt82k5jJTa9Xqn6Xb2-oEoVTHOr-wgvuA",
-  authDomain: "body-map-9cdb6.firebaseapp.com",
-  databaseURL: "https://body-map-9cdb6-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "body-map-9cdb6",
-  storageBucket: "body-map-9cdb6.firebasestorage.app",
-  messagingSenderId: "86071836780",
-  appId: "1:86071836780:web:26ba38c4bfedf7d451d849",
-  measurementId: "G-GQN61BV570"
-};
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDt82k5jJTa9Xqn6Xb2-oEoVTHOr-wgvuA",
+      authDomain: "body-map-9cdb6.firebaseapp.com",
+      databaseURL: "https://body-map-9cdb6-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "body-map-9cdb6",
+      storageBucket: "body-map-9cdb6.firebasestorage.app",
+      messagingSenderId: "86071836780",
+      appId: "1:86071836780:web:26ba38c4bfedf7d451d849",
+      measurementId: "G-GQN61BV570"
+    };
+
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
@@ -160,13 +182,71 @@ const firebaseConfig = {
     const statusEl = document.getElementById("status");
     const syncIndicator = document.getElementById("syncIndicator");
     const participantInput = document.getElementById("participantId");
+    const idStatusEl = document.getElementById("idStatus");
+
+    let idIsValid = false;
+    let existingIds = new Set();
+
+    // Load existing IDs from Firebase on startup
+    async function loadExistingIds() {
+      try {
+        const snapshot = await db.ref("data").once("value");
+        if (snapshot.exists()) {
+          existingIds = new Set(Object.keys(snapshot.val()));
+        }
+      } catch (error) {
+        console.error("Error loading existing IDs:", error);
+      }
+    }
+
+    // Validate ID is numeric
+    function isValidNumericId(id) {
+      return id && /^\d+$/.test(id);
+    }
+
+    // Check if ID already exists
+    function idAlreadyExists(id) {
+      return existingIds.has(id);
+    }
+
+    // Update ID validation status display
+    async function updateIdStatus() {
+      const id = participantInput.value.trim();
+
+      if (!id) {
+        idIsValid = false;
+        idStatusEl.textContent = "";
+        idStatusEl.className = "id-status";
+        return;
+      }
+
+      if (!isValidNumericId(id)) {
+        idIsValid = false;
+        idStatusEl.textContent = "❌ ID must be a number (digits only)";
+        idStatusEl.className = "id-status id-invalid";
+        return;
+      }
+
+      if (idAlreadyExists(id)) {
+        idIsValid = false;
+        idStatusEl.textContent = "❌ This ID already exists";
+        idStatusEl.className = "id-status id-invalid";
+        return;
+      }
+
+      idIsValid = true;
+      idStatusEl.textContent = "✓ ID is valid";
+      idStatusEl.className = "id-status id-valid";
+    }
+
+    // Listen to ID input changes
+    participantInput.addEventListener("input", updateIdStatus);
 
     function setStatus(message) {
       statusEl.childNodes[0].textContent = message;
     }
 
     function setSyncStatus(status) {
-      // status: 'synced', 'syncing', 'error', or null
       syncIndicator.className = "sync-indicator";
       if (status) {
         syncIndicator.classList.add(status);
@@ -177,14 +257,14 @@ const firebaseConfig = {
     async function sendToFirebase(point) {
       try {
         setSyncStatus("syncing");
-        const participantId = participantInput.value.trim() || "anonymous";
+        const participantId = participantInput.value.trim();
         const timestamp = Date.now();
         
         // Store in Firebase under: data/participantId/timestamp
         await db.ref(`data/${participantId}/${timestamp}`).set(point);
         
         setSyncStatus("synced");
-        setTimeout(() => setSyncStatus(null), 2000); // reset indicator after 2s
+        setTimeout(() => setSyncStatus(null), 2000);
       } catch (error) {
         console.error("Firebase error:", error);
         setSyncStatus("error");
@@ -204,6 +284,12 @@ const firebaseConfig = {
       };
 
       function recordPoint(clientX, clientY) {
+        // Validate ID before recording
+        if (!idIsValid) {
+          setStatus("❌ Invalid or duplicate ID. Cannot record points.");
+          return;
+        }
+
         const rect = canvas.getBoundingClientRect();
         const xPx = clientX - rect.left;
         const yPx = clientY - rect.top;
@@ -217,7 +303,7 @@ const firebaseConfig = {
 
         drawMarker(ctx, xNorm * canvas.width, yNorm * canvas.height);
 
-        const participantId = participantInput.value.trim() || null;
+        const participantId = participantInput.value.trim();
         const point = {
           participantId: participantId,
           figure: figureConfig.id,
@@ -335,6 +421,8 @@ const firebaseConfig = {
     document.getElementById("downloadCsv").addEventListener("click", downloadAsCsv);
     document.getElementById("clearPoints").addEventListener("click", clearPoints);
 
+    // Initialize
+    loadExistingIds();
     figureConfigs.forEach(setupFigure);
     setStatus("Ready. Click or tap to mark contact.");
   </script>
