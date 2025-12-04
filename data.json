@@ -1,0 +1,131 @@
+{
+  "data": [
+    null,
+    {
+      "1764856210220": {
+        "confidence": 5,
+        "contactType": "arm",
+        "direction": "touched",
+        "figure": "front",
+        "participantId": "1",
+        "timestamp": "2025-12-04T13:50:09.164Z",
+        "xNorm": 0.15562913907284767,
+        "yNorm": 0.20891472192301702
+      },
+      "1764856773919": {
+        "confidence": 5,
+        "contactType": "arm",
+        "direction": "touched_by",
+        "figure": "front",
+        "participantId": "1",
+        "timestamp": "2025-12-04T13:59:32.769Z",
+        "xNorm": 0.3543046357615894,
+        "yNorm": 0.22718714717218647
+      },
+      "1764856806473": {
+        "confidence": 1,
+        "contactType": "arm",
+        "direction": "touched_by",
+        "figure": "front",
+        "participantId": "1",
+        "timestamp": "2025-12-04T14:00:05.168Z",
+        "xNorm": 0.6655629139072847,
+        "yNorm": 0.24047618371703697
+      },
+      "1764856892278": {
+        "confidence": 5,
+        "contactType": "arm",
+        "direction": "touched",
+        "figure": "front",
+        "participantId": "1",
+        "timestamp": "2025-12-04T14:01:30.922Z",
+        "xNorm": 0.5264900662251656,
+        "yNorm": 0.05276854252102367
+      },
+      "1764857144910": {
+        "confidence": 5,
+        "contactType": "torso",
+        "direction": "touched_by",
+        "figure": "front",
+        "participantId": "1",
+        "timestamp": "2025-12-04T14:05:43.694Z",
+        "xNorm": 0.5496688741721855,
+        "yNorm": 0.23549279501271803
+      },
+      "1764857280133": {
+        "confidence": 5,
+        "contactType": "torso",
+        "direction": "touched_by",
+        "figure": "front",
+        "participantId": "1",
+        "timestamp": "2025-12-04T14:07:59.148Z",
+        "xNorm": 0.48013245033112584,
+        "yNorm": 0.3135658847137147
+      }
+    },
+    {
+      "1764856788483": {
+        "confidence": 5,
+        "contactType": "arm",
+        "direction": "touched_by",
+        "figure": "front",
+        "participantId": "2",
+        "timestamp": "2025-12-04T13:59:47.305Z",
+        "xNorm": 0.5,
+        "yNorm": 0.26705425680673794
+      },
+      "1764856792472": {
+        "confidence": 5,
+        "contactType": "arm",
+        "direction": "touched_by",
+        "figure": "front",
+        "participantId": "2",
+        "timestamp": "2025-12-04T13:59:50.504Z",
+        "xNorm": 0.5463576158940397,
+        "yNorm": 0.421539306640625
+      },
+      "1764857288236": {
+        "confidence": 5,
+        "contactType": "torso",
+        "direction": "touched_by",
+        "figure": "front",
+        "participantId": "2",
+        "timestamp": "2025-12-04T14:08:06.781Z",
+        "xNorm": 0.34105960264900664,
+        "yNorm": 0.24047618371703697
+      },
+      "1764857298641": {
+        "confidence": 5,
+        "contactType": "torso",
+        "direction": "touched_by",
+        "figure": "front",
+        "participantId": "2",
+        "timestamp": "2025-12-04T14:08:17.247Z",
+        "xNorm": 0.40066225165562913,
+        "yNorm": 0.4232004362087313
+      }
+    },
+    {
+      "1764856914031": {
+        "confidence": 2,
+        "contactType": "arm",
+        "direction": "touched",
+        "figure": "front",
+        "participantId": "3",
+        "timestamp": "2025-12-04T14:01:53.024Z",
+        "xNorm": 0.18874172185430463,
+        "yNorm": 0.20891472192301702
+      },
+      "1764856921079": {
+        "confidence": 2,
+        "contactType": "torso",
+        "direction": "touched_by",
+        "figure": "front",
+        "participantId": "3",
+        "timestamp": "2025-12-04T14:01:59.809Z",
+        "xNorm": 0.7847682119205298,
+        "yNorm": 0.20393133321869808
+      }
+    }
+  ]
+}
