@@ -20,30 +20,81 @@
     .controls {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.5rem;
-      align-items: center;
+      gap: 1rem;
+      align-items: flex-start;
       margin-bottom: 1rem;
+      padding: 1rem;
+      background: white;
+      border-radius: 0.4rem;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
     }
 
     label {
       font-size: 0.9rem;
+      font-weight: 500;
     }
 
-    input[type="text"] {
-      padding: 0.3rem 0.4rem;
+    input[type="text"],
+    select {
+      padding: 0.4rem 0.5rem;
       font-size: 0.9rem;
+      border: 1px solid #ccc;
+      border-radius: 0.3rem;
     }
 
     button {
       padding: 0.4rem 0.8rem;
       font-size: 0.9rem;
       cursor: pointer;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 0.3rem;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    button.secondary {
+      background: #6c757d;
+    }
+
+    button.secondary:hover {
+      background: #545b62;
+    }
+
+    .color-legend {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      font-size: 0.85rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .legend-color {
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      border: 1px solid #333;
     }
 
     .figures {
       display: flex;
       flex-wrap: wrap;
       gap: 1rem;
+      margin-bottom: 2rem;
     }
 
     .figure-wrapper {
@@ -57,11 +108,13 @@
     .figure-label {
       font-size: 0.9rem;
       margin-bottom: 0.25rem;
+      font-weight: 500;
     }
 
     canvas {
       border: 1px solid #ccc;
       touch-action: none;
+      cursor: crosshair;
     }
 
     .status {
@@ -105,8 +158,132 @@
       color: #f44336;
     }
 
-    .id-checking {
-      color: #FFC107;
+    /* Confidence Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal.show {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background-color: white;
+      padding: 2rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      max-width: 400px;
+    }
+
+    .modal-content h2 {
+      margin-top: 0;
+      margin-bottom: 1rem;
+    }
+
+    .confidence-options {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .confidence-btn {
+      padding: 0.5rem 1rem;
+      border: 2px solid #ccc;
+      background: white;
+      border-radius: 0.3rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .confidence-btn:hover {
+      border-color: #007bff;
+      background: #f0f8ff;
+    }
+
+    .confidence-btn.selected {
+      background: #007bff;
+      color: white;
+      border-color: #007bff;
+    }
+
+    /* Points List */
+    .points-list-container {
+      background: white;
+      padding: 1rem;
+      border-radius: 0.4rem;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+      margin-top: 2rem;
+    }
+
+    .points-list-container h3 {
+      margin-top: 0;
+      margin-bottom: 1rem;
+    }
+
+    .points-list {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #eee;
+      border-radius: 0.3rem;
+    }
+
+    .point-item {
+      padding: 0.75rem;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .point-item:last-child {
+      border-bottom: none;
+    }
+
+    .point-info {
+      flex: 1;
+      text-align: left;
+      font-size: 0.85rem;
+    }
+
+    .point-color {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 1px solid #333;
+    }
+
+    .point-delete-btn {
+      padding: 0.3rem 0.6rem;
+      font-size: 0.8rem;
+      background: #f44336;
+      color: white;
+      border: none;
+      border-radius: 0.3rem;
+      cursor: pointer;
+    }
+
+    .point-delete-btn:hover {
+      background: #da190b;
+    }
+
+    .empty-list {
+      padding: 1rem;
+      text-align: center;
+      color: #999;
+      font-size: 0.9rem;
     }
   </style>
 </head>
@@ -114,16 +291,66 @@
   <h1>Physical Interaction Body Map</h1>
 
   <div class="controls">
-    <div>
-      <label>
-        Participant ID (must be a number):
-        <input type="text" id="participantId" placeholder="e.g. 001" />
-      </label>
+    <div class="control-group">
+      <label>Participant ID (must be a number):</label>
+      <input type="text" id="participantId" placeholder="e.g. 001" />
       <div class="id-status" id="idStatus"></div>
     </div>
-    <button id="clearPoints">Clear points (current session)</button>
-    <button id="downloadJson">Download JSON</button>
-    <button id="downloadCsv">Download CSV</button>
+
+    <div class="control-group">
+      <label>Contact Type:</label>
+      <select id="contactType">
+        <option value="hand">Hand</option>
+        <option value="arm">Arm</option>
+        <option value="torso">Torso</option>
+        <option value="leg">Leg</option>
+        <option value="head">Head</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>&nbsp;</label>
+      <button id="clearPoints" class="secondary">Clear all points</button>
+    </div>
+
+    <div class="control-group">
+      <label>&nbsp;</label>
+      <button id="downloadJson">Download JSON</button>
+    </div>
+
+    <div class="control-group">
+      <label>&nbsp;</label>
+      <button id="downloadCsv">Download CSV</button>
+    </div>
+  </div>
+
+  <div class="color-legend">
+    <strong>Color Legend:</strong>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #FF6B6B;"></div>
+      <span>Hand</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #4ECDC4;"></div>
+      <span>Arm</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #FFD93D;"></div>
+      <span>Torso</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #95E1D3;"></div>
+      <span>Leg</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #A8E6CF;"></div>
+      <span>Head</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #C7CEEA;"></div>
+      <span>Other</span>
+    </div>
   </div>
 
   <div class="figures">
@@ -150,9 +377,31 @@
     <span class="sync-indicator" id="syncIndicator"></span>
   </div>
 
+  <!-- Confidence Modal -->
+  <div class="modal" id="confidenceModal">
+    <div class="modal-content">
+      <h2>How confident are you in this marking?</h2>
+      <div class="confidence-options">
+        <button class="confidence-btn" data-confidence="1">1 - Not at all</button>
+        <button class="confidence-btn" data-confidence="2">2</button>
+        <button class="confidence-btn" data-confidence="3">3 - Neutral</button>
+        <button class="confidence-btn" data-confidence="4">4</button>
+        <button class="confidence-btn" data-confidence="5">5 - Very sure</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Points List -->
+  <div class="points-list-container">
+    <h3>Recorded Points</h3>
+    <div class="points-list" id="pointsList">
+      <div class="empty-list">No points recorded yet</div>
+    </div>
+  </div>
+
   <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js"></script>
 
   <script>
     // Firebase config
@@ -170,6 +419,16 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
+    // ============ COLOR MAPPING ============
+    const contactTypeColors = {
+      hand: "#FF6B6B",
+      arm: "#4ECDC4",
+      torso: "#FFD93D",
+      leg: "#95E1D3",
+      head: "#A8E6CF",
+      other: "#C7CEEA"
+    };
+
     // ============ APP CODE ============
     const figureConfigs = [
       { id: "front", canvasId: "figure_front", imageSrc: "front.png" },
@@ -183,9 +442,13 @@
     const syncIndicator = document.getElementById("syncIndicator");
     const participantInput = document.getElementById("participantId");
     const idStatusEl = document.getElementById("idStatus");
+    const contactTypeSelect = document.getElementById("contactType");
+    const confidenceModal = document.getElementById("confidenceModal");
+    const pointsListEl = document.getElementById("pointsList");
 
     let idIsValid = false;
     let existingIds = new Set();
+    let pendingPoint = null; // Store point data while waiting for confidence response
 
     // Load existing IDs from Firebase on startup
     async function loadExistingIds() {
@@ -199,17 +462,14 @@
       }
     }
 
-    // Validate ID is numeric
     function isValidNumericId(id) {
       return id && /^\d+$/.test(id);
     }
 
-    // Check if ID already exists
     function idAlreadyExists(id) {
       return existingIds.has(id);
     }
 
-    // Update ID validation status display
     async function updateIdStatus() {
       const id = participantInput.value.trim();
 
@@ -239,7 +499,6 @@
       idStatusEl.className = "id-status id-valid";
     }
 
-    // Listen to ID input changes
     participantInput.addEventListener("input", updateIdStatus);
 
     function setStatus(message) {
@@ -253,14 +512,39 @@
       }
     }
 
-    // Send data point to Firebase
+    // Show confidence modal
+    function showConfidenceModal() {
+      confidenceModal.classList.add("show");
+      
+      // Clear previous selections
+      document.querySelectorAll(".confidence-btn").forEach(btn => {
+        btn.classList.remove("selected");
+      });
+
+      // Attach event listeners to confidence buttons
+      document.querySelectorAll(".confidence-btn").forEach(btn => {
+        btn.onclick = function() {
+          const confidence = parseInt(this.dataset.confidence);
+          handleConfidenceResponse(confidence);
+          confidenceModal.classList.remove("show");
+        };
+      });
+    }
+
+    function handleConfidenceResponse(confidence) {
+      if (!pendingPoint) return;
+      
+      pendingPoint.confidence = confidence;
+      savePoint(pendingPoint);
+      pendingPoint = null;
+    }
+
     async function sendToFirebase(point) {
       try {
         setSyncStatus("syncing");
         const participantId = participantInput.value.trim();
         const timestamp = Date.now();
         
-        // Store in Firebase under: data/participantId/timestamp
         await db.ref(`data/${participantId}/${timestamp}`).set(point);
         
         setSyncStatus("synced");
@@ -270,6 +554,42 @@
         setSyncStatus("error");
         setStatus(`Error syncing to server. Data saved locally.`);
       }
+    }
+
+    function savePoint(point) {
+      collectedPoints.push(point);
+      sendToFirebase(point);
+      updatePointsList();
+      setStatus(
+        `Recorded: ${point.contactType} on ${point.figure}. Total: ${collectedPoints.length}`
+      );
+    }
+
+    function updatePointsList() {
+      if (collectedPoints.length === 0) {
+        pointsListEl.innerHTML = '<div class="empty-list">No points recorded yet</div>';
+        return;
+      }
+
+      pointsListEl.innerHTML = collectedPoints.map((point, index) => `
+        <div class="point-item">
+          <div class="point-color" style="background: ${contactTypeColors[point.contactType]}"></div>
+          <div class="point-info">
+            <strong>${point.contactType}</strong> on <strong>${point.figure}</strong> | 
+            Confidence: <strong>${point.confidence}/5</strong>
+          </div>
+          <button class="point-delete-btn" onclick="deletePoint(${index})">Delete</button>
+        </div>
+      `).join("");
+    }
+
+    function deletePoint(index) {
+      collectedPoints.splice(index, 1);
+      updatePointsList();
+      setStatus(`Deleted point. Total: ${collectedPoints.length}`);
+      
+      // Redraw canvas to remove marker
+      // (Note: this is a simplified approach - in production you'd track markers by index)
     }
 
     function setupFigure(figureConfig) {
@@ -284,7 +604,6 @@
       };
 
       function recordPoint(clientX, clientY) {
-        // Validate ID before recording
         if (!idIsValid) {
           setStatus("❌ Invalid or duplicate ID. Cannot record points.");
           return;
@@ -301,25 +620,23 @@
         const xNorm = xPx / rect.width;
         const yNorm = yPx / rect.height;
 
-        drawMarker(ctx, xNorm * canvas.width, yNorm * canvas.height);
+        const contactType = contactTypeSelect.value;
+        const color = contactTypeColors[contactType];
 
-        const participantId = participantInput.value.trim();
-        const point = {
-          participantId: participantId,
+        drawMarker(ctx, xNorm * canvas.width, yNorm * canvas.height, color);
+
+        // Store pending point and show confidence modal
+        pendingPoint = {
+          participantId: participantInput.value.trim(),
           figure: figureConfig.id,
+          contactType: contactType,
           xNorm: xNorm,
           yNorm: yNorm,
           timestamp: new Date().toISOString(),
+          confidence: null // Will be set by modal
         };
 
-        collectedPoints.push(point);
-
-        // Send to Firebase immediately
-        sendToFirebase(point);
-
-        setStatus(
-          `Recorded point on ${figureConfig.id}. Total: ${collectedPoints.length}`
-        );
+        showConfidenceModal();
       }
 
       function handleClick(event) {
@@ -336,12 +653,12 @@
       canvas.addEventListener("touchstart", handleTouch, { passive: false });
     }
 
-    function drawMarker(ctx, x, y) {
+    function drawMarker(ctx, x, y, color) {
       const radius = 5;
       ctx.save();
-      ctx.fillStyle = "red";
+      ctx.fillStyle = color;
       ctx.strokeStyle = "black";
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(x, y, radius, 0, 2 * Math.PI);
       ctx.fill();
@@ -382,7 +699,7 @@
         alert("No points recorded yet.");
         return;
       }
-      const header = ["participantId", "figure", "xNorm", "yNorm", "timestamp"];
+      const header = ["participantId", "figure", "contactType", "confidence", "xNorm", "yNorm", "timestamp"];
       const lines = [header.join(",")];
 
       for (const p of collectedPoints) {
@@ -390,6 +707,8 @@
           [
             csvEscape(p.participantId),
             csvEscape(p.figure),
+            csvEscape(p.contactType),
+            p.confidence,
             p.xNorm,
             p.yNorm,
             csvEscape(p.timestamp),
@@ -403,18 +722,21 @@
     }
 
     function clearPoints() {
-      collectedPoints.length = 0;
-      setStatus("Cleared all points for this session.");
-      figureConfigs.forEach((cfg) => {
-        const canvas = document.getElementById(cfg.canvasId);
-        const ctx = canvas.getContext("2d");
-        const img = new Image();
-        img.src = cfg.imageSrc;
-        img.onload = () => {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        };
-      });
+      if (confirm("Are you sure you want to delete ALL points?")) {
+        collectedPoints.length = 0;
+        updatePointsList();
+        setStatus("Cleared all points for this session.");
+        figureConfigs.forEach((cfg) => {
+          const canvas = document.getElementById(cfg.canvasId);
+          const ctx = canvas.getContext("2d");
+          const img = new Image();
+          img.src = cfg.imageSrc;
+          img.onload = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          };
+        });
+      }
     }
 
     document.getElementById("downloadJson").addEventListener("click", downloadAsJson);
