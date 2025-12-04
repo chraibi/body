@@ -197,28 +197,30 @@
       margin-bottom: 1.5rem;
       flex-wrap: wrap;
     }
-.confidence-btn {
-  padding: 0.5rem 1rem;
-  border: 2px solid #ccc;
-  background: white;
-  border-radius: 0.3rem;
-  cursor: pointer;
-  font-size: 0.9rem;
-  color: #333;
-  font-weight: 500;
-}
 
-.confidence-btn:hover {
-  border-color: #007bff;
-  background: #e7f3ff;
-  color: #007bff;
-}
+    .confidence-btn {
+      padding: 0.5rem 1rem;
+      border: 2px solid #ccc;
+      background: white;
+      border-radius: 0.3rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: #333;
+      font-weight: 500;
+    }
 
-.confidence-btn.selected {
-  background: #007bff;
-  color: white;
-  border-color: #0056b3;
-}
+    .confidence-btn:hover {
+      border-color: #007bff;
+      background: #e7f3ff;
+      color: #007bff;
+    }
+
+    .confidence-btn.selected {
+      background: #007bff;
+      color: white;
+      border-color: #0056b3;
+    }
+
     /* Points List */
     .points-list-container {
       background: white;
@@ -308,6 +310,18 @@
         <option value="head">Head</option>
         <option value="other">Other</option>
       </select>
+    </div>
+
+    <div class="control-group">
+      <label>Contact Direction:</label>
+      <div style="display: flex; gap: 1rem;">
+        <label style="font-weight: normal;">
+          <input type="radio" name="direction" value="touched_by" checked /> I was touched
+        </label>
+        <label style="font-weight: normal;">
+          <input type="radio" name="direction" value="touched" /> I touched
+        </label>
+      </div>
     </div>
 
     <div class="control-group">
@@ -561,8 +575,9 @@
       collectedPoints.push(point);
       sendToFirebase(point);
       updatePointsList();
+      const directionLabel = point.direction === "touched_by" ? "was touched" : "touched";
       setStatus(
-        `Recorded: ${point.contactType} on ${point.figure}. Total: ${collectedPoints.length}`
+        `Recorded: ${point.contactType} on ${point.figure} (${directionLabel}). Total: ${collectedPoints.length}`
       );
     }
 
@@ -572,16 +587,20 @@
         return;
       }
 
-      pointsListEl.innerHTML = collectedPoints.map((point, index) => `
+      pointsListEl.innerHTML = collectedPoints.map((point, index) => {
+        const directionLabel = point.direction === "touched_by" ? "I was touched" : "I touched";
+        return `
         <div class="point-item">
           <div class="point-color" style="background: ${contactTypeColors[point.contactType]}"></div>
           <div class="point-info">
             <strong>${point.contactType}</strong> on <strong>${point.figure}</strong> | 
+            <strong>${directionLabel}</strong> |
             Confidence: <strong>${point.confidence}/5</strong>
           </div>
           <button class="point-delete-btn" onclick="deletePoint(${index})">Delete</button>
         </div>
-      `).join("");
+      `;
+      }).join("");
     }
 
     function deletePoint(index) {
@@ -626,11 +645,15 @@
 
         drawMarker(ctx, xNorm * canvas.width, yNorm * canvas.height, color);
 
+        // Get contact direction
+        const direction = document.querySelector('input[name="direction"]:checked').value;
+
         // Store pending point and show confidence modal
         pendingPoint = {
           participantId: participantInput.value.trim(),
           figure: figureConfig.id,
           contactType: contactType,
+          direction: direction,
           xNorm: xNorm,
           yNorm: yNorm,
           timestamp: new Date().toISOString(),
@@ -700,7 +723,7 @@
         alert("No points recorded yet.");
         return;
       }
-      const header = ["participantId", "figure", "contactType", "confidence", "xNorm", "yNorm", "timestamp"];
+      const header = ["participantId", "figure", "contactType", "direction", "confidence", "xNorm", "yNorm", "timestamp"];
       const lines = [header.join(",")];
 
       for (const p of collectedPoints) {
@@ -709,6 +732,7 @@
             csvEscape(p.participantId),
             csvEscape(p.figure),
             csvEscape(p.contactType),
+            csvEscape(p.direction),
             p.confidence,
             p.xNorm,
             p.yNorm,
