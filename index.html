@@ -158,69 +158,6 @@
       color: #f44336;
     }
 
-    /* Confidence Modal */
-    .modal {
-      display: none;
-      position: fixed;
-      z-index: 1000;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.5);
-    }
-
-    .modal.show {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .modal-content {
-      background-color: white;
-      padding: 2rem;
-      border-radius: 0.5rem;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      text-align: center;
-      max-width: 400px;
-    }
-
-    .modal-content h2 {
-      margin-top: 0;
-      margin-bottom: 1rem;
-    }
-
-    .confidence-options {
-      display: flex;
-      gap: 0.5rem;
-      justify-content: center;
-      margin-bottom: 1.5rem;
-      flex-wrap: wrap;
-    }
-
-    .confidence-btn {
-      padding: 0.5rem 1rem;
-      border: 2px solid #ccc;
-      background: white;
-      border-radius: 0.3rem;
-      cursor: pointer;
-      font-size: 0.9rem;
-      color: #333;
-      font-weight: 500;
-    }
-
-    .confidence-btn:hover {
-      border-color: #007bff;
-      background: #e7f3ff;
-      color: #007bff;
-    }
-
-    .confidence-btn.selected {
-      background: #007bff;
-      color: white;
-      border-color: #0056b3;
-    }
-
     /* Points List */
     .points-list-container {
       background: white;
@@ -321,38 +258,17 @@
     <!--   <label>&nbsp;</label> -->
     <!--   <button id="downloadJson">Download JSON</button> -->
     <!-- </div> -->
-
-    <div class="control-group">
-      <label>&nbsp;</label>
-      <button id="downloadCsv">Download CSV</button>
-    </div>
   </div>
 
   <div class="color-legend">
-    <strong>Color Legend (darker = more confident):</strong>
-    <div style="display: flex; gap: 1.5rem;">
-      <div>
-        <div style="font-size: 0.85rem; font-weight: 500; margin-bottom: 0.25rem;">I touched</div>
-        <div class="legend-item" style="gap: 0.25rem;">
-          <div class="legend-color" style="background: #dde6f0;"></div>
-          <div class="legend-color" style="background: #accce7;"></div>
-          <div class="legend-color" style="background: #3498db;"></div>
-          <div class="legend-color" style="background: #1a5a96;"></div>
-          <div class="legend-color" style="background: #0d3a5c;"></div>
-          <span style="font-size: 0.75rem; color: #666;">1-5</span>
-        </div>
-      </div>
-      <div>
-        <div style="font-size: 0.85rem; font-weight: 500; margin-bottom: 0.25rem;">I was touched</div>
-        <div class="legend-item" style="gap: 0.25rem;">
-          <div class="legend-color" style="background: #f5d5d1;"></div>
-          <div class="legend-color" style="background: #f0a9a1;"></div>
-          <div class="legend-color" style="background: #e74c3c;"></div>
-          <div class="legend-color" style="background: #ab2d1f;"></div>
-          <div class="legend-color" style="background: #6b1a11;"></div>
-          <span style="font-size: 0.75rem; color: #666;">1-5</span>
-        </div>
-      </div>
+    <strong>Color Legend:</strong>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #3498db;"></div>
+      <span>I touched</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #e74c3c;"></div>
+      <span>I was touched</span>
     </div>
   </div>
 
@@ -378,20 +294,6 @@
   <div class="status" id="status">
     <span>Ready</span>
     <span class="sync-indicator" id="syncIndicator"></span>
-  </div>
-
-  <!-- Confidence Modal -->
-  <div class="modal" id="confidenceModal">
-    <div class="modal-content">
-      <h2>How confident are you in this marking?</h2>
-      <div class="confidence-options">
-        <button class="confidence-btn" data-confidence="1">1 - Not at all</button>
-        <button class="confidence-btn" data-confidence="2">2</button>
-        <button class="confidence-btn" data-confidence="3">3 - Neutral</button>
-        <button class="confidence-btn" data-confidence="4">4</button>
-        <button class="confidence-btn" data-confidence="5">5 - Very sure</button>
-      </div>
-    </div>
   </div>
 
   <!-- Points List -->
@@ -428,34 +330,6 @@
       touched_by: "#e74c3c"      // I was touched - red
     };
 
-    // ============ CONFIDENCE SHADE FUNCTIONS ============
-    function mixColors(color1, color2, factor) {
-      // Mix two hex colors. factor 0 = color1, factor 1 = color2
-      const c1 = parseInt(color1.slice(1), 16);
-      const c2 = parseInt(color2.slice(1), 16);
-      const r = Math.round(((c1 >> 16) & 255) * (1 - factor) + ((c2 >> 16) & 255) * factor);
-      const g = Math.round(((c1 >> 8) & 255) * (1 - factor) + ((c2 >> 8) & 255) * factor);
-      const b = Math.round((c1 & 255) * (1 - factor) + (c2 & 255) * factor);
-      return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
-    }
-
-    function getConfidenceShade(baseColor, confidence) {
-      // confidence is 1-5
-      // 1: very light (mix 70% with white)
-      // 2: light (mix 40% with white)
-      // 3: medium (base color)
-      // 4: dark (mix 50% with black)
-      // 5: very dark (mix 100% with black - full saturation)
-      const shades = {
-        1: mixColors(baseColor, '#ffffff', 0.7),
-        2: mixColors(baseColor, '#ffffff', 0.4),
-        3: baseColor,
-        4: mixColors(baseColor, '#000000', 0.5),
-        5: mixColors(baseColor, '#000000', 0.75)
-      };
-      return shades[confidence] || baseColor;
-    }
-
     // ============ APP CODE ============
     const figureConfigs = [
       { id: "front", canvasId: "figure_front", imageSrc: "front.png" },
@@ -469,12 +343,10 @@
     const syncIndicator = document.getElementById("syncIndicator");
     const participantInput = document.getElementById("participantId");
     const idStatusEl = document.getElementById("idStatus");
-    const confidenceModal = document.getElementById("confidenceModal");
     const pointsListEl = document.getElementById("pointsList");
 
     let idIsValid = false;
     let existingIds = new Set();
-    let pendingPoint = null; // Store point data while waiting for confidence response
 
     // Load existing IDs from Firebase on startup
     async function loadExistingIds() {
@@ -539,38 +411,6 @@
     }
 
     // Show confidence modal
-    function showConfidenceModal() {
-      confidenceModal.classList.add("show");
-      
-      // Clear previous selections
-      document.querySelectorAll(".confidence-btn").forEach(btn => {
-        btn.classList.remove("selected");
-      });
-
-      // Attach event listeners to confidence buttons
-      document.querySelectorAll(".confidence-btn").forEach(btn => {
-        btn.onclick = function() {
-          const confidence = parseInt(this.dataset.confidence);
-          handleConfidenceResponse(confidence);
-          confidenceModal.classList.remove("show");
-        };
-      });
-    }
-
-    function handleConfidenceResponse(confidence) {
-      if (!pendingPoint) return;
-      
-      pendingPoint.confidence = confidence;
-      const figureConfigToRedraw = pendingPoint.figureConfig;
-      
-      savePoint(pendingPoint);
-      
-      // Redraw the figure with confidence-shaded marker
-      redrawFigure(figureConfigToRedraw);
-      
-      pendingPoint = null;
-    }
-
     async function sendToFirebase(point) {
       try {
         setSyncStatus("syncing");
@@ -606,13 +446,11 @@
 
       pointsListEl.innerHTML = collectedPoints.map((point, index) => {
         const directionLabel = point.direction === "touched_by" ? "I was touched" : "I touched";
-        const shadeColor = getConfidenceShade(directionColors[point.direction], point.confidence);
         return `
         <div class="point-item">
-          <div class="point-color" style="background: ${shadeColor}"></div>
+          <div class="point-color" style="background: ${directionColors[point.direction]}"></div>
           <div class="point-info">
-            <strong>${point.figure}</strong> - <strong>${directionLabel}</strong> | 
-            Confidence: <strong>${point.confidence}/5</strong>
+            <strong>${point.figure}</strong> - <strong>${directionLabel}</strong>
           </div>
           <button class="point-delete-btn" onclick="deletePoint(${index})">Delete</button>
         </div>
@@ -639,14 +477,15 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         
-        // Redraw all markers for this figure with confidence shading
+        // Redraw all markers for this figure
         for (const point of collectedPoints) {
-          if (point.figure === figureConfig.id && point.confidence) {
-            const shadeColor = getConfidenceShade(
-              directionColors[point.direction],
-              point.confidence
+          if (point.figure === figureConfig.id) {
+            drawMarker(
+              ctx,
+              point.xNorm * canvas.width,
+              point.yNorm * canvas.height,
+              directionColors[point.direction]
             );
-            drawMarker(ctx, point.xNorm * canvas.width, point.yNorm * canvas.height, shadeColor);
           }
         }
       };
@@ -683,23 +522,18 @@
         // Get contact direction
         const direction = document.querySelector('input[name="direction"]:checked').value;
 
-        // Draw temporary light marker as visual feedback
-        const lightColor = directionColors[direction];
-        drawMarker(ctx, xNorm * canvas.width, yNorm * canvas.height, mixColors(lightColor, '#ffffff', 0.4));
-
-        // Store pending point and show confidence modal
-        pendingPoint = {
+        // Create point and save immediately
+        const point = {
           participantId: participantInput.value.trim(),
           figure: figureConfig.id,
-          figureConfig: figureConfig,
           direction: direction,
           xNorm: xNorm,
           yNorm: yNorm,
-          timestamp: new Date().toISOString(),
-          confidence: null // Will be set by modal
+          timestamp: new Date().toISOString()
         };
 
-        showConfidenceModal();
+        savePoint(point);
+        redrawFigure(figureConfig);
       }
 
       function handleClick(event) {
@@ -751,39 +585,6 @@
       downloadFile(filename, "application/json", JSON.stringify(collectedPoints, null, 2));
     }
 
-    function csvEscape(value) {
-      if (value === null || value === undefined) return "";
-      const s = String(value).replace(/"/g, '""');
-      return `"${s}"`;
-    }
-
-    function downloadAsCsv() {
-      if (collectedPoints.length === 0) {
-        alert("No points recorded yet.");
-        return;
-      }
-      const header = ["participantId", "figure", "direction", "confidence", "xNorm", "yNorm", "timestamp"];
-      const lines = [header.join(",")];
-
-      for (const p of collectedPoints) {
-        lines.push(
-          [
-            csvEscape(p.participantId),
-            csvEscape(p.figure),
-            csvEscape(p.direction),
-            p.confidence,
-            p.xNorm,
-            p.yNorm,
-            csvEscape(p.timestamp),
-          ].join(",")
-        );
-      }
-
-      const participantId = participantInput.value.trim() || "unknown";
-      const filename = `body_map_${participantId}_${Date.now()}.csv`;
-      downloadFile(filename, "text/csv", lines.join("\n"));
-    }
-
     function clearPoints() {
       if (confirm("Are you sure you want to delete ALL points?")) {
         collectedPoints.length = 0;
@@ -794,7 +595,6 @@
     }
 
     // document.getElementById("downloadJson").addEventListener("click", downloadAsJson);
-    document.getElementById("downloadCsv").addEventListener("click", downloadAsCsv);
     document.getElementById("clearPoints").addEventListener("click", clearPoints);
 
     // Initialize
