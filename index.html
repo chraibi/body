@@ -344,7 +344,7 @@
       { id: "right", canvasId: "figure_right", imageSrc: "right.png" },
     ];
 
-    const collectedPoints = [];
+    let collectedPoints = [];
     const statusEl = document.getElementById("status");
     const syncIndicator = document.getElementById("syncIndicator");
     const participantInput = document.getElementById("participantId");
@@ -359,7 +359,7 @@
     let isExistingSession = false;
     let firstEntryTimestamp = null;
     let canEdit = true;
-    const EDIT_TIME_LIMIT =  60*1000; //60 * 60 * 1000; // 1 hour in milliseconds
+    const EDIT_TIME_LIMIT = 1 * 60 * 1000; // 1 hour in milliseconds
 
     // Load existing IDs from Firebase on startup
     async function loadExistingIds() {
@@ -425,6 +425,7 @@
           updatePointsList();
           redrawAllFigures();
           updateEditStatus();
+          startEditStatusTimer();
           
           return true;
         }
@@ -445,12 +446,40 @@
       if (canEdit) {
         const elapsed = Date.now() - firstEntryTimestamp;
         const remaining = EDIT_TIME_LIMIT - elapsed;
+        
+        // Check if time limit just expired
+        if (remaining <= 0) {
+          canEdit = false;
+          idStatusEl.textContent = "❌ Edit time limit expired (1 hour)";
+          idStatusEl.className = "id-status id-invalid";
+          return;
+        }
+        
         const minutesRemaining = Math.ceil(remaining / 60000);
         idStatusEl.textContent = `✓ Editing enabled (${minutesRemaining} min remaining)`;
         idStatusEl.className = "id-status id-valid";
       } else {
         idStatusEl.textContent = "❌ Edit time limit expired (1 hour)";
         idStatusEl.className = "id-status id-invalid";
+      }
+    }
+
+    let editStatusTimer = null;
+    
+    function startEditStatusTimer() {
+      // Update every 30 seconds to show countdown
+      if (editStatusTimer) clearInterval(editStatusTimer);
+      editStatusTimer = setInterval(() => {
+        if (isExistingSession) {
+          updateEditStatus();
+        }
+      }, 30000); // Update every 30 seconds
+    }
+
+    function stopEditStatusTimer() {
+      if (editStatusTimer) {
+        clearInterval(editStatusTimer);
+        editStatusTimer = null;
       }
     }
 
@@ -515,6 +544,7 @@
       
       if (!dataExists) {
         // New session - reset state
+        stopEditStatusTimer();
         isExistingSession = false;
         firstEntryTimestamp = null;
         canEdit = true;
