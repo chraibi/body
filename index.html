@@ -370,7 +370,7 @@
     }
 
     function getParticipantKey(id, name) {
-      return `${id}_${name}`;
+      return `${id}_${name.toLowerCase()}`;
     }
 
     function isValidNumericId(id) {
