@@ -603,7 +603,11 @@
         return;
       }
 
-      pointsListEl.innerHTML = collectedPoints.map((point, index) => {
+      // Create array of indices in reverse order (newest first)
+      const displayIndices = collectedPoints.map((_, i) => i).reverse();
+      
+      pointsListEl.innerHTML = displayIndices.map((actualIndex) => {
+        const point = collectedPoints[actualIndex];
         const directionLabel = point.direction === "touched_by" ? "I was touched" : "I touched";
         return `
         <div class="point-item">
@@ -611,7 +615,7 @@
           <div class="point-info">
             <strong>${point.figure}</strong> - <strong>${directionLabel}</strong>
           </div>
-          <button class="point-delete-btn" onclick="deletePoint(${index})">Delete</button>
+          <button class="point-delete-btn" onclick="deletePoint(${actualIndex})">Delete</button>
         </div>
       `;
       }).join("");
