@@ -359,7 +359,7 @@
     let isExistingSession = false;
     let firstEntryTimestamp = null;
     let canEdit = true;
-    const EDIT_TIME_LIMIT = 1 * 60 * 1000; // 1 hour in milliseconds
+    const EDIT_TIME_LIMIT = 60 * 60 * 1000; // 1 hour in milliseconds
 
     // Load existing IDs from Firebase on startup
     async function loadExistingIds() {
@@ -485,7 +485,6 @@
 
     function redrawAllFigures() {
       figureConfigs.forEach(redrawFigure);
-    }
     }
 
     async function updateIdStatus() {
