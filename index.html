@@ -238,6 +238,12 @@
     </div>
 
     <div class="control-group">
+      <label>Participant Name:</label>
+      <input type="text" id="participantName" placeholder="e.g. John" />
+      <div class="id-status" id="nameStatus"></div>
+    </div>
+
+    <div class="control-group">
       <label>Contact Direction:</label>
       <div style="display: flex; gap: 1rem;">
         <label style="font-weight: normal;">
@@ -343,29 +349,41 @@
     const syncIndicator = document.getElementById("syncIndicator");
     const participantInput = document.getElementById("participantId");
     const idStatusEl = document.getElementById("idStatus");
+    const participantNameInput = document.getElementById("participantName");
+    const nameStatusEl = document.getElementById("nameStatus");
     const pointsListEl = document.getElementById("pointsList");
 
     let idIsValid = false;
-    let existingIds = new Set();
+    let nameIsValid = false;
+    let existingKeys = new Set();
 
     // Load existing IDs from Firebase on startup
     async function loadExistingIds() {
       try {
         const snapshot = await db.ref("data").once("value");
         if (snapshot.exists()) {
-          existingIds = new Set(Object.keys(snapshot.val()));
+          existingKeys = new Set(Object.keys(snapshot.val()));
         }
       } catch (error) {
-        console.error("Error loading existing IDs:", error);
+        console.error("Error loading existing keys:", error);
       }
+    }
+
+    function getParticipantKey(id, name) {
+      return `${id}_${name}`;
     }
 
     function isValidNumericId(id) {
       return id && /^\d+$/.test(id);
     }
 
-    function idAlreadyExists(id) {
-      return existingIds.has(id);
+    function isValidName(name) {
+      return name && name.trim().length > 0;
+    }
+
+    function keyAlreadyExists(id, name) {
+      const key = getParticipantKey(id, name);
+      return existingKeys.has(key);
     }
 
     async function updateIdStatus() {
@@ -385,19 +403,50 @@
         return;
       }
 
-      if (idAlreadyExists(id)) {
-        idIsValid = false;
-        idStatusEl.textContent = "❌ This ID already exists";
-        idStatusEl.className = "id-status id-invalid";
-        return;
-      }
-
       idIsValid = true;
       idStatusEl.textContent = "✓ ID is valid";
       idStatusEl.className = "id-status id-valid";
+      
+      // Check combined key validity if name is also present
+      updateCombinedKeyStatus();
+    }
+
+    async function updateNameStatus() {
+      const name = participantNameInput.value.trim();
+
+      if (!name) {
+        nameIsValid = false;
+        nameStatusEl.textContent = "";
+        nameStatusEl.className = "id-status";
+        return;
+      }
+
+      nameIsValid = true;
+      nameStatusEl.textContent = "✓ Name is valid";
+      nameStatusEl.className = "id-status id-valid";
+      
+      // Check combined key validity if ID is also present
+      updateCombinedKeyStatus();
+    }
+
+    async function updateCombinedKeyStatus() {
+      const id = participantInput.value.trim();
+      const name = participantNameInput.value.trim();
+      
+      if (!idIsValid || !nameIsValid) {
+        return;
+      }
+
+      if (keyAlreadyExists(id, name)) {
+        idIsValid = false;
+        idStatusEl.textContent = "❌ This ID + Name combination already exists";
+        idStatusEl.className = "id-status id-invalid";
+        return;
+      }
     }
 
     participantInput.addEventListener("input", updateIdStatus);
+    participantNameInput.addEventListener("input", updateNameStatus);
 
     function setStatus(message) {
       statusEl.childNodes[0].textContent = message;
@@ -414,10 +463,10 @@
     async function sendToFirebase(point) {
       try {
         setSyncStatus("syncing");
-        const participantId = participantInput.value.trim();
+        const participantKey = getParticipantKey(point.participantId, point.participantName);
         const timestamp = Date.now();
         
-        await db.ref(`data/${participantId}/${timestamp}`).set(point);
+        await db.ref(`data/${participantKey}/${timestamp}`).set(point);
         
         setSyncStatus("synced");
         setTimeout(() => setSyncStatus(null), 2000);
@@ -503,8 +552,8 @@
       };
 
       function recordPoint(clientX, clientY) {
-        if (!idIsValid) {
-          setStatus("❌ Invalid or duplicate ID. Cannot record points.");
+        if (!idIsValid || !nameIsValid) {
+          setStatus("❌ Invalid ID or name. Cannot record points.");
           return;
         }
 
@@ -525,6 +574,7 @@
         // Create point and save immediately
         const point = {
           participantId: participantInput.value.trim(),
+          participantName: participantNameInput.value.trim(),
           figure: figureConfig.id,
           direction: direction,
           xNorm: xNorm,
