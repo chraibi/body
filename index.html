@@ -225,6 +225,106 @@
       color: #999;
       font-size: 0.9rem;
     }
+
+    /* Notes Section */
+    .notes-container {
+      background: white;
+      padding: 1rem;
+      border-radius: 0.4rem;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+      margin-top: 2rem;
+    }
+
+    .notes-container h3 {
+      margin-top: 0;
+      margin-bottom: 1rem;
+    }
+
+    .notes-content {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .notes-content label {
+      font-weight: 500;
+      font-size: 0.95rem;
+      margin-top: 0.5rem;
+    }
+
+    #sessionNotes {
+      padding: 0.75rem;
+      font-size: 0.9rem;
+      border: 1px solid #ccc;
+      border-radius: 0.3rem;
+      font-family: system-ui, sans-serif;
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    #sessionNotes:disabled {
+      background: #f5f5f5;
+      cursor: not-allowed;
+      color: #999;
+    }
+
+    .char-counter {
+      font-size: 0.8rem;
+      color: #666;
+      text-align: right;
+    }
+
+    .star-rating {
+      display: flex;
+      gap: 0.5rem;
+      font-size: 2rem;
+    }
+
+    .star {
+      cursor: pointer;
+      color: #ddd;
+      transition: color 0.2s;
+      user-select: none;
+    }
+
+    .star:hover,
+    .star.active {
+      color: #ffc107;
+    }
+
+    .confidence-label {
+      font-size: 0.85rem;
+      color: #666;
+      margin-top: -0.5rem;
+    }
+
+    .save-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      color: #999;
+      margin-top: 0.5rem;
+    }
+
+    #noteSyncIndicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ccc;
+    }
+
+    #noteSyncIndicator.synced {
+      background: #4CAF50;
+    }
+
+    #noteSyncIndicator.syncing {
+      background: #FFC107;
+    }
+
+    #noteSyncIndicator.error {
+      background: #f44336;
+    }
   </style>
 </head>
 <body>
@@ -310,6 +410,37 @@
     </div>
   </div>
 
+  <!-- Notes Section -->
+  <div class="notes-container">
+    <h3>Additional Notes & Confidence</h3>
+    <div class="notes-content">
+      <label for="sessionNotes">Notes (500 character limit):</label>
+      <textarea 
+        id="sessionNotes" 
+        placeholder="Any additional notes about your declarations..."
+        maxlength="500"
+      ></textarea>
+      <div class="char-counter">
+        <span id="charCount">0</span>/500
+      </div>
+
+      <label>Overall Confidence Level:</label>
+      <div class="star-rating" id="starRating">
+        <span class="star" data-value="1" title="Not confident">★</span>
+        <span class="star" data-value="2" title="Somewhat confident">★</span>
+        <span class="star" data-value="3" title="Moderately confident">★</span>
+        <span class="star" data-value="4" title="Confident">★</span>
+        <span class="star" data-value="5" title="Very confident">★</span>
+      </div>
+      <div class="confidence-label" id="confidenceLabel">(Not rated)</div>
+
+      <div class="save-status" id="saveStatus">
+        <span id="lastSaved"></span>
+        <span class="sync-indicator" id="noteSyncIndicator"></span>
+      </div>
+    </div>
+  </div>
+
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-database-compat.js"></script>
@@ -360,6 +491,20 @@
     let firstEntryTimestamp = null;
     let canEdit = true;
     const EDIT_TIME_LIMIT = 60 * 60 * 1000; // 1 hour in milliseconds
+    
+    // Session notes
+    let sessionNotes = "";
+    let sessionConfidence = 0;
+    let autoSaveTimer = null;
+    const AUTO_SAVE_DELAY = 1500; // Save 1.5 seconds after user stops typing
+
+    // DOM elements for notes
+    const notesTextarea = document.getElementById("sessionNotes");
+    const starRating = document.getElementById("starRating");
+    const confidenceLabel = document.getElementById("confidenceLabel");
+    const charCountEl = document.getElementById("charCount");
+    const lastSavedEl = document.getElementById("lastSaved");
+    const noteSyncIndicator = document.getElementById("noteSyncIndicator");
 
     // Load existing IDs from Firebase on startup
     async function loadExistingIds() {
@@ -412,6 +557,13 @@
             }
           }
 
+          // Sort points by timestamp (newest first)
+          points.sort((a, b) => {
+            const timeA = new Date(a.timestamp).getTime();
+            const timeB = new Date(b.timestamp).getTime();
+            return timeB - timeA; // Descending order (newest first)
+          });
+
           // Set session state
           isExistingSession = true;
           firstEntryTimestamp = earliestTimestamp;
@@ -424,8 +576,19 @@
           
           updatePointsList();
           redrawAllFigures();
+          
+          // Load session notes and confidence
+          if (data.sessionData) {
+            sessionNotes = data.sessionData.notes || "";
+            sessionConfidence = data.sessionData.confidence || 0;
+            updateNotesDisplay();
+          } else {
+            resetNotes();
+          }
+          
           updateEditStatus();
           startEditStatusTimer();
+          updateNotesEditability();
           
           return true;
         }
@@ -482,6 +645,129 @@
         editStatusTimer = null;
       }
     }
+
+    function resetNotes() {
+      sessionNotes = "";
+      sessionConfidence = 0;
+      notesTextarea.value = "";
+      charCountEl.textContent = "0";
+      confidenceLabel.textContent = "(Not rated)";
+      document.querySelectorAll(".star").forEach(star => star.classList.remove("active"));
+      lastSavedEl.textContent = "";
+    }
+
+    function updateNotesDisplay() {
+      notesTextarea.value = sessionNotes;
+      charCountEl.textContent = sessionNotes.length;
+      updateStarsDisplay();
+      updateNotesEditability();
+    }
+
+    function updateStarsDisplay() {
+      document.querySelectorAll(".star").forEach(star => {
+        const value = parseInt(star.dataset.value);
+        if (value <= sessionConfidence) {
+          star.classList.add("active");
+        } else {
+          star.classList.remove("active");
+        }
+      });
+
+      const labels = {
+        0: "(Not rated)",
+        1: "Not confident",
+        2: "Somewhat confident",
+        3: "Moderately confident",
+        4: "Confident",
+        5: "Very confident"
+      };
+      confidenceLabel.textContent = labels[sessionConfidence] || "(Not rated)";
+    }
+
+    function updateNotesEditability() {
+      const disabled = isExistingSession && !canEdit;
+      notesTextarea.disabled = disabled;
+      document.querySelectorAll(".star").forEach(star => {
+        if (disabled) {
+          star.style.pointerEvents = "none";
+          star.style.opacity = "0.5";
+        } else {
+          star.style.pointerEvents = "auto";
+          star.style.opacity = "1";
+        }
+      });
+    }
+
+    function updateCharCounter() {
+      charCountEl.textContent = notesTextarea.value.length;
+    }
+
+    function autoSaveSessionData() {
+      if (autoSaveTimer) clearTimeout(autoSaveTimer);
+      
+      autoSaveTimer = setTimeout(() => {
+        saveSessionData();
+      }, AUTO_SAVE_DELAY);
+    }
+
+    async function saveSessionData() {
+      if (!isExistingSession || !canEdit) return;
+      
+      try {
+        const key = getParticipantKey(participantInput.value.trim(), participantNameInput.value.trim());
+        const sessionData = {
+          notes: notesTextarea.value,
+          confidence: sessionConfidence,
+          lastEdited: new Date().toISOString()
+        };
+
+        noteSyncIndicator.className = "sync-indicator syncing";
+        
+        await db.ref(`data/${key}/sessionData`).set(sessionData);
+        
+        sessionNotes = notesTextarea.value;
+        noteSyncIndicator.className = "sync-indicator synced";
+        lastSavedEl.textContent = `Last saved: ${new Date().toLocaleTimeString()}`;
+        
+        setTimeout(() => {
+          noteSyncIndicator.className = "sync-indicator";
+        }, 2000);
+      } catch (error) {
+        console.error("Error saving session data:", error);
+        noteSyncIndicator.className = "sync-indicator error";
+      }
+    }
+
+    // Notes event listeners
+    notesTextarea.addEventListener("input", (e) => {
+      updateCharCounter();
+      autoSaveSessionData();
+    });
+
+    document.querySelectorAll(".star").forEach(star => {
+      star.addEventListener("click", (e) => {
+        if (isExistingSession && !canEdit) return;
+        
+        sessionConfidence = parseInt(e.target.dataset.value);
+        updateStarsDisplay();
+        autoSaveSessionData();
+      });
+
+      star.addEventListener("mouseover", (e) => {
+        const value = parseInt(e.target.dataset.value);
+        document.querySelectorAll(".star").forEach(s => {
+          if (parseInt(s.dataset.value) <= value) {
+            s.style.color = "#ffc107";
+          } else {
+            s.style.color = "#ddd";
+          }
+        });
+      });
+    });
+
+    starRating.addEventListener("mouseleave", () => {
+      updateStarsDisplay();
+    });
 
     function redrawAllFigures() {
       figureConfigs.forEach(redrawFigure);
@@ -550,6 +836,8 @@
         collectedPoints = [];
         updatePointsList();
         redrawAllFigures();
+        resetNotes();
+        updateNotesEditability();
         idStatusEl.textContent = "✓ ID is valid (New session)";
         idStatusEl.className = "id-status id-valid";
       }
@@ -588,7 +876,8 @@
     }
 
     function savePoint(point) {
-      collectedPoints.push(point);
+      // Insert new point at the beginning (unshift) to keep newest first
+      collectedPoints.unshift(point);
       sendToFirebase(point);
       updatePointsList();
       const directionLabel = point.direction === "touched_by" ? "was touched" : "touched";
@@ -603,11 +892,7 @@
         return;
       }
 
-      // Create array of indices in reverse order (newest first)
-      const displayIndices = collectedPoints.map((_, i) => i).reverse();
-      
-      pointsListEl.innerHTML = displayIndices.map((actualIndex) => {
-        const point = collectedPoints[actualIndex];
+      pointsListEl.innerHTML = collectedPoints.map((point, index) => {
         const directionLabel = point.direction === "touched_by" ? "I was touched" : "I touched";
         return `
         <div class="point-item">
@@ -615,7 +900,7 @@
           <div class="point-info">
             <strong>${point.figure}</strong> - <strong>${directionLabel}</strong>
           </div>
-          <button class="point-delete-btn" onclick="deletePoint(${actualIndex})">Delete</button>
+          <button class="point-delete-btn" onclick="deletePoint(${index})">Delete</button>
         </div>
       `;
       }).join("");
