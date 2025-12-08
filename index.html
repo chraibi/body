@@ -301,18 +301,6 @@
     </div>
 
     <div class="control-group">
-      <label>Contact Type:</label>
-      <select id="contactType">
-        <option value="hand">Hand</option>
-        <option value="arm">Arm</option>
-        <option value="torso">Torso</option>
-        <option value="leg">Leg</option>
-        <option value="head">Head</option>
-        <option value="other">Other</option>
-      </select>
-    </div>
-
-    <div class="control-group">
       <label>Contact Direction:</label>
       <div style="display: flex; gap: 1rem;">
         <label style="font-weight: normal;">
@@ -343,28 +331,12 @@
   <div class="color-legend">
     <strong>Color Legend:</strong>
     <div class="legend-item">
-      <div class="legend-color" style="background: #FF6B6B;"></div>
-      <span>Hand</span>
+      <div class="legend-color" style="background: #3498db;"></div>
+      <span>I touched</span>
     </div>
     <div class="legend-item">
-      <div class="legend-color" style="background: #4ECDC4;"></div>
-      <span>Arm</span>
-    </div>
-    <div class="legend-item">
-      <div class="legend-color" style="background: #FFD93D;"></div>
-      <span>Torso</span>
-    </div>
-    <div class="legend-item">
-      <div class="legend-color" style="background: #95E1D3;"></div>
-      <span>Leg</span>
-    </div>
-    <div class="legend-item">
-      <div class="legend-color" style="background: #A8E6CF;"></div>
-      <span>Head</span>
-    </div>
-    <div class="legend-item">
-      <div class="legend-color" style="background: #C7CEEA;"></div>
-      <span>Other</span>
+      <div class="legend-color" style="background: #e74c3c;"></div>
+      <span>I was touched</span>
     </div>
   </div>
 
@@ -435,13 +407,9 @@
     const db = firebase.database();
 
     // ============ COLOR MAPPING ============
-    const contactTypeColors = {
-      hand: "#FF6B6B",
-      arm: "#4ECDC4",
-      torso: "#FFD93D",
-      leg: "#95E1D3",
-      head: "#A8E6CF",
-      other: "#C7CEEA"
+    const directionColors = {
+      touched: "#3498db",        // I touched - blue
+      touched_by: "#e74c3c"      // I was touched - red
     };
 
     // ============ APP CODE ============
@@ -457,7 +425,6 @@
     const syncIndicator = document.getElementById("syncIndicator");
     const participantInput = document.getElementById("participantId");
     const idStatusEl = document.getElementById("idStatus");
-    const contactTypeSelect = document.getElementById("contactType");
     const confidenceModal = document.getElementById("confidenceModal");
     const pointsListEl = document.getElementById("pointsList");
 
@@ -577,7 +544,7 @@
       updatePointsList();
       const directionLabel = point.direction === "touched_by" ? "was touched" : "touched";
       setStatus(
-        `Recorded: ${point.contactType} on ${point.figure} (${directionLabel}). Total: ${collectedPoints.length}`
+        `Recorded: ${point.figure} (${directionLabel}). Total: ${collectedPoints.length}`
       );
     }
 
@@ -591,10 +558,9 @@
         const directionLabel = point.direction === "touched_by" ? "I was touched" : "I touched";
         return `
         <div class="point-item">
-          <div class="point-color" style="background: ${contactTypeColors[point.contactType]}"></div>
+          <div class="point-color" style="background: ${directionColors[point.direction]}"></div>
           <div class="point-info">
-            <strong>${point.contactType}</strong> on <strong>${point.figure}</strong> | 
-            <strong>${directionLabel}</strong> |
+            <strong>${point.figure}</strong> - <strong>${directionLabel}</strong> | 
             Confidence: <strong>${point.confidence}/5</strong>
           </div>
           <button class="point-delete-btn" onclick="deletePoint(${index})">Delete</button>
@@ -640,19 +606,16 @@
         const xNorm = xPx / rect.width;
         const yNorm = yPx / rect.height;
 
-        const contactType = contactTypeSelect.value;
-        const color = contactTypeColors[contactType];
-
-        drawMarker(ctx, xNorm * canvas.width, yNorm * canvas.height, color);
-
         // Get contact direction
         const direction = document.querySelector('input[name="direction"]:checked').value;
+        const color = directionColors[direction];
+
+        drawMarker(ctx, xNorm * canvas.width, yNorm * canvas.height, color);
 
         // Store pending point and show confidence modal
         pendingPoint = {
           participantId: participantInput.value.trim(),
           figure: figureConfig.id,
-          contactType: contactType,
           direction: direction,
           xNorm: xNorm,
           yNorm: yNorm,
@@ -723,7 +686,7 @@
         alert("No points recorded yet.");
         return;
       }
-      const header = ["participantId", "figure", "contactType", "direction", "confidence", "xNorm", "yNorm", "timestamp"];
+      const header = ["participantId", "figure", "direction", "confidence", "xNorm", "yNorm", "timestamp"];
       const lines = [header.join(",")];
 
       for (const p of collectedPoints) {
@@ -731,7 +694,6 @@
           [
             csvEscape(p.participantId),
             csvEscape(p.figure),
-            csvEscape(p.contactType),
             csvEscape(p.direction),
             p.confidence,
             p.xNorm,
