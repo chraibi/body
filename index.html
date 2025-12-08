@@ -329,14 +329,30 @@
   </div>
 
   <div class="color-legend">
-    <strong>Color Legend:</strong>
-    <div class="legend-item">
-      <div class="legend-color" style="background: #3498db;"></div>
-      <span>I touched</span>
-    </div>
-    <div class="legend-item">
-      <div class="legend-color" style="background: #e74c3c;"></div>
-      <span>I was touched</span>
+    <strong>Color Legend (darker = more confident):</strong>
+    <div style="display: flex; gap: 1.5rem;">
+      <div>
+        <div style="font-size: 0.85rem; font-weight: 500; margin-bottom: 0.25rem;">I touched</div>
+        <div class="legend-item" style="gap: 0.25rem;">
+          <div class="legend-color" style="background: #dde6f0;"></div>
+          <div class="legend-color" style="background: #accce7;"></div>
+          <div class="legend-color" style="background: #3498db;"></div>
+          <div class="legend-color" style="background: #1a5a96;"></div>
+          <div class="legend-color" style="background: #0d3a5c;"></div>
+          <span style="font-size: 0.75rem; color: #666;">1-5</span>
+        </div>
+      </div>
+      <div>
+        <div style="font-size: 0.85rem; font-weight: 500; margin-bottom: 0.25rem;">I was touched</div>
+        <div class="legend-item" style="gap: 0.25rem;">
+          <div class="legend-color" style="background: #f5d5d1;"></div>
+          <div class="legend-color" style="background: #f0a9a1;"></div>
+          <div class="legend-color" style="background: #e74c3c;"></div>
+          <div class="legend-color" style="background: #ab2d1f;"></div>
+          <div class="legend-color" style="background: #6b1a11;"></div>
+          <span style="font-size: 0.75rem; color: #666;">1-5</span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -411,6 +427,34 @@
       touched: "#3498db",        // I touched - blue
       touched_by: "#e74c3c"      // I was touched - red
     };
+
+    // ============ CONFIDENCE SHADE FUNCTIONS ============
+    function mixColors(color1, color2, factor) {
+      // Mix two hex colors. factor 0 = color1, factor 1 = color2
+      const c1 = parseInt(color1.slice(1), 16);
+      const c2 = parseInt(color2.slice(1), 16);
+      const r = Math.round(((c1 >> 16) & 255) * (1 - factor) + ((c2 >> 16) & 255) * factor);
+      const g = Math.round(((c1 >> 8) & 255) * (1 - factor) + ((c2 >> 8) & 255) * factor);
+      const b = Math.round((c1 & 255) * (1 - factor) + (c2 & 255) * factor);
+      return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+    }
+
+    function getConfidenceShade(baseColor, confidence) {
+      // confidence is 1-5
+      // 1: very light (mix 70% with white)
+      // 2: light (mix 40% with white)
+      // 3: medium (base color)
+      // 4: dark (mix 50% with black)
+      // 5: very dark (mix 100% with black - full saturation)
+      const shades = {
+        1: mixColors(baseColor, '#ffffff', 0.7),
+        2: mixColors(baseColor, '#ffffff', 0.4),
+        3: baseColor,
+        4: mixColors(baseColor, '#000000', 0.5),
+        5: mixColors(baseColor, '#000000', 0.75)
+      };
+      return shades[confidence] || baseColor;
+    }
 
     // ============ APP CODE ============
     const figureConfigs = [
@@ -517,7 +561,13 @@
       if (!pendingPoint) return;
       
       pendingPoint.confidence = confidence;
+      const figureConfigToRedraw = pendingPoint.figureConfig;
+      
       savePoint(pendingPoint);
+      
+      // Redraw the figure with confidence-shaded marker
+      redrawFigure(figureConfigToRedraw);
+      
       pendingPoint = null;
     }
 
@@ -556,9 +606,10 @@
 
       pointsListEl.innerHTML = collectedPoints.map((point, index) => {
         const directionLabel = point.direction === "touched_by" ? "I was touched" : "I touched";
+        const shadeColor = getConfidenceShade(directionColors[point.direction], point.confidence);
         return `
         <div class="point-item">
-          <div class="point-color" style="background: ${directionColors[point.direction]}"></div>
+          <div class="point-color" style="background: ${shadeColor}"></div>
           <div class="point-info">
             <strong>${point.figure}</strong> - <strong>${directionLabel}</strong> | 
             Confidence: <strong>${point.confidence}/5</strong>
@@ -574,8 +625,31 @@
       updatePointsList();
       setStatus(`Deleted point. Total: ${collectedPoints.length}`);
       
-      // Redraw canvas to remove marker
-      // (Note: this is a simplified approach - in production you'd track markers by index)
+      // Redraw all figures to remove the deleted marker
+      figureConfigs.forEach(redrawFigure);
+    }
+
+    function redrawFigure(figureConfig) {
+      const canvas = document.getElementById(figureConfig.canvasId);
+      const ctx = canvas.getContext("2d");
+      const img = new Image();
+      img.src = figureConfig.imageSrc;
+
+      img.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        // Redraw all markers for this figure with confidence shading
+        for (const point of collectedPoints) {
+          if (point.figure === figureConfig.id && point.confidence) {
+            const shadeColor = getConfidenceShade(
+              directionColors[point.direction],
+              point.confidence
+            );
+            drawMarker(ctx, point.xNorm * canvas.width, point.yNorm * canvas.height, shadeColor);
+          }
+        }
+      };
     }
 
     function setupFigure(figureConfig) {
@@ -608,14 +682,16 @@
 
         // Get contact direction
         const direction = document.querySelector('input[name="direction"]:checked').value;
-        const color = directionColors[direction];
 
-        drawMarker(ctx, xNorm * canvas.width, yNorm * canvas.height, color);
+        // Draw temporary light marker as visual feedback
+        const lightColor = directionColors[direction];
+        drawMarker(ctx, xNorm * canvas.width, yNorm * canvas.height, mixColors(lightColor, '#ffffff', 0.4));
 
         // Store pending point and show confidence modal
         pendingPoint = {
           participantId: participantInput.value.trim(),
           figure: figureConfig.id,
+          figureConfig: figureConfig,
           direction: direction,
           xNorm: xNorm,
           yNorm: yNorm,
@@ -713,16 +789,7 @@
         collectedPoints.length = 0;
         updatePointsList();
         setStatus("Cleared all points for this session.");
-        figureConfigs.forEach((cfg) => {
-          const canvas = document.getElementById(cfg.canvasId);
-          const ctx = canvas.getContext("2d");
-          const img = new Image();
-          img.src = cfg.imageSrc;
-          img.onload = () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          };
-        });
+        figureConfigs.forEach(redrawFigure);
       }
     }
 
