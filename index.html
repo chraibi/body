@@ -356,6 +356,10 @@
     let idIsValid = false;
     let nameIsValid = false;
     let existingKeys = new Set();
+    let isExistingSession = false;
+    let firstEntryTimestamp = null;
+    let canEdit = true;
+    const EDIT_TIME_LIMIT =  60*1000; //60 * 60 * 1000; // 1 hour in milliseconds
 
     // Load existing IDs from Firebase on startup
     async function loadExistingIds() {
@@ -384,6 +388,75 @@
     function keyAlreadyExists(id, name) {
       const key = getParticipantKey(id, name);
       return existingKeys.has(key);
+    }
+
+    async function loadExistingParticipantData(id, name) {
+      try {
+        const key = getParticipantKey(id, name);
+        const snapshot = await db.ref(`data/${key}`).once("value");
+        
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          const points = [];
+          let earliestTimestamp = null;
+
+          // Convert Firebase data to points array
+          for (const timestamp in data) {
+            const point = data[timestamp];
+            points.push(point);
+            
+            // Track the earliest (first) entry
+            const pointTime = new Date(point.timestamp).getTime();
+            if (earliestTimestamp === null || pointTime < earliestTimestamp) {
+              earliestTimestamp = pointTime;
+            }
+          }
+
+          // Set session state
+          isExistingSession = true;
+          firstEntryTimestamp = earliestTimestamp;
+          collectedPoints = points;
+          
+          // Check if still within edit window
+          const now = Date.now();
+          const elapsed = now - firstEntryTimestamp;
+          canEdit = elapsed < EDIT_TIME_LIMIT;
+          
+          updatePointsList();
+          redrawAllFigures();
+          updateEditStatus();
+          
+          return true;
+        }
+      } catch (error) {
+        console.error("Error loading participant data:", error);
+      }
+      
+      return false;
+    }
+
+    function updateEditStatus() {
+      if (!isExistingSession) {
+        idStatusEl.textContent = "✓ ID is valid";
+        idStatusEl.className = "id-status id-valid";
+        return;
+      }
+
+      if (canEdit) {
+        const elapsed = Date.now() - firstEntryTimestamp;
+        const remaining = EDIT_TIME_LIMIT - elapsed;
+        const minutesRemaining = Math.ceil(remaining / 60000);
+        idStatusEl.textContent = `✓ Editing enabled (${minutesRemaining} min remaining)`;
+        idStatusEl.className = "id-status id-valid";
+      } else {
+        idStatusEl.textContent = "❌ Edit time limit expired (1 hour)";
+        idStatusEl.className = "id-status id-invalid";
+      }
+    }
+
+    function redrawAllFigures() {
+      figureConfigs.forEach(redrawFigure);
+    }
     }
 
     async function updateIdStatus() {
@@ -437,11 +510,19 @@
         return;
       }
 
-      if (keyAlreadyExists(id, name)) {
-        idIsValid = false;
-        idStatusEl.textContent = "❌ This ID + Name combination already exists";
-        idStatusEl.className = "id-status id-invalid";
-        return;
+      // Try to load existing participant data
+      const dataExists = await loadExistingParticipantData(id, name);
+      
+      if (!dataExists) {
+        // New session - reset state
+        isExistingSession = false;
+        firstEntryTimestamp = null;
+        canEdit = true;
+        collectedPoints = [];
+        updatePointsList();
+        redrawAllFigures();
+        idStatusEl.textContent = "✓ ID is valid (New session)";
+        idStatusEl.className = "id-status id-valid";
       }
     }
 
@@ -508,6 +589,11 @@
     }
 
     function deletePoint(index) {
+      if (isExistingSession && !canEdit) {
+        setStatus("❌ Edit time limit expired. Cannot delete points.");
+        return;
+      }
+
       collectedPoints.splice(index, 1);
       updatePointsList();
       setStatus(`Deleted point. Total: ${collectedPoints.length}`);
@@ -554,6 +640,11 @@
       function recordPoint(clientX, clientY) {
         if (!idIsValid || !nameIsValid) {
           setStatus("❌ Invalid ID or name. Cannot record points.");
+          return;
+        }
+
+        if (isExistingSession && !canEdit) {
+          setStatus("❌ Edit time limit expired (1 hour). Cannot add more points.");
           return;
         }
 
