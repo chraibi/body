@@ -260,6 +260,26 @@
       font-size: 0.9rem;
     }
 
+    /* Confidence Level Section */
+    .confidence-container {
+      background: white;
+      padding: 1rem;
+      border-radius: 0.4rem;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+      margin-top: 2rem;
+    }
+
+    .confidence-container h3 {
+      margin-top: 0;
+      margin-bottom: 1rem;
+    }
+
+    .confidence-content {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
     /* Notes Section */
     .notes-container {
       background: white;
@@ -359,6 +379,115 @@
     #noteSyncIndicator.error {
       background: #f44336;
     }
+
+    /* Questionnaire Section */
+    .questionnaire-container {
+      background: white;
+      padding: 1rem;
+      border-radius: 0.4rem;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+      margin-top: 2rem;
+    }
+
+    .questionnaire-container h3 {
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+    }
+
+    .questionnaire-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .questionnaire-question {
+      padding: 1rem;
+      border: 1px solid #eee;
+      border-radius: 0.3rem;
+      background: #fafafa;
+    }
+
+    .question-text {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+      line-height: 1.4;
+      color: #333;
+    }
+
+    .scale-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: #666;
+      margin-bottom: 0.75rem;
+      padding: 0 0.5rem;
+    }
+
+    .rating-scale {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-start;
+    }
+
+    .rating-scale input[type="radio"] {
+      display: none;
+    }
+
+    .rating-scale label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 35px;
+      height: 35px;
+      border: 2px solid #ddd;
+      border-radius: 0.3rem;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+      background: white;
+    }
+
+    .rating-scale label:hover {
+      border-color: #3498db;
+      background: #f0f8ff;
+    }
+
+    .rating-scale input[type="radio"]:checked + label {
+      background: #3498db;
+      color: white;
+      border-color: #3498db;
+    }
+
+    .questionnaire-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      color: #999;
+      margin-top: 1rem;
+    }
+
+    #questionnaireSyncIndicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ccc;
+    }
+
+    #questionnaireSyncIndicator.synced {
+      background: #4CAF50;
+    }
+
+    #questionnaireSyncIndicator.syncing {
+      background: #FFC107;
+    }
+
+    #questionnaireSyncIndicator.error {
+      background: #f44336;
+    }
   </style>
 </head>
 <body>
@@ -441,9 +570,117 @@
     </div>
   </div>
 
-  <!-- Notes Section -->
+  <!-- Questionnaire Section -->
+  <div class="questionnaire-container">
+    <h3>Questionnaire</h3>
+    <div class="questionnaire-content">
+      
+      <!-- Question 1 -->
+      <div class="questionnaire-question">
+        <label class="question-text">
+          How would you rate your confidence in the patterns you drew to represent the physical interaction you <strong>gave</strong>?
+        </label>
+        <div class="scale-labels">
+          <span>0 = Not confident at all</span>
+          <span>5 = Extremely confident</span>
+        </div>
+        <div class="rating-scale" id="q1Scale">
+          <input type="radio" name="q1" value="0" id="q1_0"><label for="q1_0">0</label>
+          <input type="radio" name="q1" value="1" id="q1_1"><label for="q1_1">1</label>
+          <input type="radio" name="q1" value="2" id="q1_2"><label for="q1_2">2</label>
+          <input type="radio" name="q1" value="3" id="q1_3"><label for="q1_3">3</label>
+          <input type="radio" name="q1" value="4" id="q1_4"><label for="q1_4">4</label>
+          <input type="radio" name="q1" value="5" id="q1_5"><label for="q1_5">5</label>
+        </div>
+      </div>
+
+      <!-- Question 2 -->
+      <div class="questionnaire-question">
+        <label class="question-text">
+          How would you rate your confidence in the patterns you drew to represent the physical interaction you <strong>received</strong>?
+        </label>
+        <div class="scale-labels">
+          <span>0 = Not confident at all</span>
+          <span>5 = Extremely confident</span>
+        </div>
+        <div class="rating-scale" id="q2Scale">
+          <input type="radio" name="q2" value="0" id="q2_0"><label for="q2_0">0</label>
+          <input type="radio" name="q2" value="1" id="q2_1"><label for="q2_1">1</label>
+          <input type="radio" name="q2" value="2" id="q2_2"><label for="q2_2">2</label>
+          <input type="radio" name="q2" value="3" id="q2_3"><label for="q2_3">3</label>
+          <input type="radio" name="q2" value="4" id="q2_4"><label for="q2_4">4</label>
+          <input type="radio" name="q2" value="5" id="q2_5"><label for="q2_5">5</label>
+        </div>
+      </div>
+
+      <!-- Question 3 -->
+      <div class="questionnaire-question">
+        <label class="question-text">
+          How would you rate your general awareness of contacts in crowded environments?
+        </label>
+        <div class="scale-labels">
+          <span>0 = Never aware of physical interactions</span>
+          <span>5 = Extremely aware</span>
+        </div>
+        <div class="rating-scale" id="q3Scale">
+          <input type="radio" name="q3" value="0" id="q3_0"><label for="q3_0">0</label>
+          <input type="radio" name="q3" value="1" id="q3_1"><label for="q3_1">1</label>
+          <input type="radio" name="q3" value="2" id="q3_2"><label for="q3_2">2</label>
+          <input type="radio" name="q3" value="3" id="q3_3"><label for="q3_3">3</label>
+          <input type="radio" name="q3" value="4" id="q3_4"><label for="q3_4">4</label>
+          <input type="radio" name="q3" value="5" id="q3_5"><label for="q3_5">5</label>
+        </div>
+      </div>
+
+      <!-- Question 4 -->
+      <div class="questionnaire-question">
+        <label class="question-text">
+          How would you rate your awareness of contacts during the experiments?
+        </label>
+        <div class="scale-labels">
+          <span>0 = Never aware of physical interactions</span>
+          <span>5 = Extremely aware</span>
+        </div>
+        <div class="rating-scale" id="q4Scale">
+          <input type="radio" name="q4" value="0" id="q4_0"><label for="q4_0">0</label>
+          <input type="radio" name="q4" value="1" id="q4_1"><label for="q4_1">1</label>
+          <input type="radio" name="q4" value="2" id="q4_2"><label for="q4_2">2</label>
+          <input type="radio" name="q4" value="3" id="q4_3"><label for="q4_3">3</label>
+          <input type="radio" name="q4" value="4" id="q4_4"><label for="q4_4">4</label>
+          <input type="radio" name="q4" value="5" id="q4_5"><label for="q4_5">5</label>
+        </div>
+      </div>
+
+      <div class="questionnaire-status" id="questionnaireStatus">
+        <span id="qLastSaved"></span>
+        <span class="sync-indicator" id="questionnaireSyncIndicator"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overall Confidence Level Section -->
+  <div class="confidence-container">
+    <h3>Overall Confidence Level</h3>
+    <div class="confidence-content">
+      <div class="star-rating" id="starRating">
+        <span class="star" data-value="1" title="Not confident">★</span>
+        <span class="star" data-value="2" title="Somewhat confident">★</span>
+        <span class="star" data-value="3" title="Moderately confident">★</span>
+        <span class="star" data-value="4" title="Confident">★</span>
+        <span class="star" data-value="5" title="Very confident">★</span>
+      </div>
+      <div class="confidence-label" id="confidenceLabel">(Not rated)</div>
+
+      <div class="save-status" id="saveStatus">
+        <span id="lastSaved"></span>
+        <span class="sync-indicator" id="noteSyncIndicator"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Additional Notes Section -->
   <div class="notes-container">
-    <h3>Additional Notes & Confidence</h3>
+    <h3>Additional Notes</h3>
     <div class="notes-content">
       <label for="sessionNotes">Notes (500 character limit):</label>
       <textarea 
@@ -454,16 +691,6 @@
       <div class="char-counter">
         <span id="charCount">0</span>/500
       </div>
-
-      <label>Overall Confidence Level:</label>
-      <div class="star-rating" id="starRating">
-        <span class="star" data-value="1" title="Not confident">★</span>
-        <span class="star" data-value="2" title="Somewhat confident">★</span>
-        <span class="star" data-value="3" title="Moderately confident">★</span>
-        <span class="star" data-value="4" title="Confident">★</span>
-        <span class="star" data-value="5" title="Very confident">★</span>
-      </div>
-      <div class="confidence-label" id="confidenceLabel">(Not rated)</div>
 
       <div class="save-status" id="saveStatus">
         <span id="lastSaved"></span>
@@ -529,6 +756,15 @@
     let autoSaveTimer = null;
     const AUTO_SAVE_DELAY = 1500; // Save 1.5 seconds after user stops typing
 
+    // Questionnaire responses
+    let questionnaireResponses = {
+      q1: null,
+      q2: null,
+      q3: null,
+      q4: null
+    };
+    let questionnaireAutoSaveTimer = null;
+
     // Marking mode (unified control for direction + display)
     let markingMode = "mark_touched_by"; // "mark_touched_by", "mark_touched", or "view_all"
     let currentDirection = "touched_by"; // Current recording direction
@@ -541,6 +777,16 @@
     const charCountEl = document.getElementById("charCount");
     const lastSavedEl = document.getElementById("lastSaved");
     const noteSyncIndicator = document.getElementById("noteSyncIndicator");
+
+    // Questionnaire elements
+    const questionnaireRadios = {
+      q1: document.querySelectorAll('input[name="q1"]'),
+      q2: document.querySelectorAll('input[name="q2"]'),
+      q3: document.querySelectorAll('input[name="q3"]'),
+      q4: document.querySelectorAll('input[name="q4"]')
+    };
+    const qLastSavedEl = document.getElementById("qLastSaved");
+    const questionnaireSyncIndicator = document.getElementById("questionnaireSyncIndicator");
 
     // DOM elements for marking mode
     const markingModeRadios = document.querySelectorAll('input[name="markingMode"]');
@@ -592,6 +838,11 @@
 
           // Convert Firebase data to points array
           for (const timestamp in data) {
+            // Skip sessionData and other non-point entries
+            if (timestamp === "sessionData" || !data[timestamp].timestamp) {
+              continue;
+            }
+            
             const point = data[timestamp];
             points.push(point);
             
@@ -622,18 +873,27 @@
           updatePointsList();
           redrawAllFigures();
           
-          // Load session notes and confidence
+          // Load session notes, confidence, and questionnaire
           if (data.sessionData) {
             sessionNotes = data.sessionData.notes || "";
             sessionConfidence = data.sessionData.confidence || 0;
+            questionnaireResponses = data.sessionData.questionnaire || {
+              q1: null,
+              q2: null,
+              q3: null,
+              q4: null
+            };
             updateNotesDisplay();
+            updateQuestionnaireDisplay();
           } else {
             resetNotes();
+            resetQuestionnaire();
           }
           
           updateEditStatus();
           startEditStatusTimer();
           updateNotesEditability();
+          updateQuestionnaireEditability();
           
           return true;
         }
@@ -756,7 +1016,8 @@
     }
 
     async function saveSessionData() {
-      if (!isExistingSession || !canEdit) return;
+      // Allow saving for: new sessions (always) OR existing sessions within edit window
+      if (isExistingSession && !canEdit) return;
       
       try {
         const key = getParticipantKey(participantInput.value.trim(), participantNameInput.value.trim());
@@ -812,6 +1073,88 @@
 
     starRating.addEventListener("mouseleave", () => {
       updateStarsDisplay();
+    });
+
+    // ===== QUESTIONNAIRE FUNCTIONS =====
+    function resetQuestionnaire() {
+      questionnaireResponses = {
+        q1: null,
+        q2: null,
+        q3: null,
+        q4: null
+      };
+      // Uncheck all radio buttons
+      Object.values(questionnaireRadios).forEach(radios => {
+        radios.forEach(radio => radio.checked = false);
+      });
+      qLastSavedEl.textContent = "";
+      updateQuestionnaireEditability();
+    }
+
+    function updateQuestionnaireDisplay() {
+      // Set radio buttons based on stored responses
+      Object.entries(questionnaireResponses).forEach(([key, value]) => {
+        if (value !== null) {
+          const radio = document.querySelector(`input[name="${key}"][value="${value}"]`);
+          if (radio) radio.checked = true;
+        }
+      });
+      updateQuestionnaireEditability();
+    }
+
+    function updateQuestionnaireEditability() {
+      const disabled = isExistingSession && !canEdit;
+      Object.values(questionnaireRadios).forEach(radios => {
+        radios.forEach(radio => {
+          radio.disabled = disabled;
+        });
+      });
+    }
+
+    function autoSaveQuestionnaire() {
+      if (questionnaireAutoSaveTimer) clearTimeout(questionnaireAutoSaveTimer);
+      
+      questionnaireAutoSaveTimer = setTimeout(() => {
+        saveQuestionnaireData();
+      }, AUTO_SAVE_DELAY);
+    }
+
+    async function saveQuestionnaireData() {
+      // Allow saving for: new sessions (always) OR existing sessions within edit window
+      if (isExistingSession && !canEdit) return;
+      
+      try {
+        const key = getParticipantKey(participantInput.value.trim(), participantNameInput.value.trim());
+        const sessionData = await db.ref(`data/${key}/sessionData`).once("value").then(snap => snap.val() || {});
+        
+        sessionData.questionnaire = questionnaireResponses;
+        sessionData.lastEdited = new Date().toISOString();
+
+        questionnaireSyncIndicator.className = "sync-indicator syncing";
+        
+        await db.ref(`data/${key}/sessionData`).set(sessionData);
+        
+        questionnaireSyncIndicator.className = "sync-indicator synced";
+        qLastSavedEl.textContent = `Last saved: ${new Date().toLocaleTimeString()}`;
+        
+        setTimeout(() => {
+          questionnaireSyncIndicator.className = "sync-indicator";
+        }, 2000);
+      } catch (error) {
+        console.error("Error saving questionnaire:", error);
+        questionnaireSyncIndicator.className = "sync-indicator error";
+      }
+    }
+
+    // Questionnaire event listeners
+    Object.entries(questionnaireRadios).forEach(([key, radios]) => {
+      radios.forEach(radio => {
+        radio.addEventListener("change", (e) => {
+          if (isExistingSession && !canEdit) return;
+          questionnaireResponses[key] = parseInt(e.target.value);
+          autoSaveQuestionnaire();
+        });
+      });
     });
 
     function getFilteredPoints() {
@@ -893,7 +1236,9 @@
         updatePointsList();
         redrawAllFigures();
         resetNotes();
+        resetQuestionnaire();
         updateNotesEditability();
+        updateQuestionnaireEditability();
         idStatusEl.textContent = "✓ ID is valid (New session)";
         idStatusEl.className = "id-status id-valid";
       }
