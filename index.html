@@ -158,6 +158,59 @@
       color: #f44336;
     }
 
+    /* Display Filter */
+    .filter-container {
+      background: white;
+      padding: 1rem;
+      border-radius: 0.4rem;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+      margin-top: 2rem;
+    }
+
+    .filter-container h3 {
+      margin-top: 0;
+      margin-bottom: 1rem;
+    }
+
+    .filter-options {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .filter-options label {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      cursor: pointer;
+      font-weight: 400;
+      flex-wrap: wrap;
+    }
+
+    .filter-options input[type="radio"] {
+      cursor: pointer;
+      margin-top: 0.25rem;
+      flex-shrink: 0;
+    }
+
+    .mode-hint {
+      font-size: 0.75rem;
+      color: #999;
+      font-weight: normal;
+      flex-basis: 100%;
+      margin-left: 1.5rem;
+    }
+
+    .filter-preview {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 1px solid #333;
+      margin-left: 0.5rem;
+      flex-shrink: 0;
+    }
+
     /* Points List */
     .points-list-container {
       background: white;
@@ -344,18 +397,6 @@
     </div>
 
     <div class="control-group">
-      <label>Contact Direction:</label>
-      <div style="display: flex; gap: 1rem;">
-        <label style="font-weight: normal;">
-          <input type="radio" name="direction" value="touched_by" checked /> I was touched
-        </label>
-        <label style="font-weight: normal;">
-          <input type="radio" name="direction" value="touched" /> I touched
-        </label>
-      </div>
-    </div>
-
-    <div class="control-group">
       <label>&nbsp;</label>
       <button id="clearPoints" class="secondary">Clear all points</button>
     </div>
@@ -400,6 +441,28 @@
   <div class="status" id="status">
     <span>Ready</span>
     <span class="sync-indicator" id="syncIndicator"></span>
+  </div>
+
+  <!-- Marking Mode -->
+  <div class="filter-container">
+    <h3>Marking Mode</h3>
+    <div class="filter-options">
+      <label>
+        <input type="radio" name="markingMode" value="mark_touched_by" checked />
+        Mark "I was touched" <span class="filter-preview" style="background: #e74c3c;"></span>
+        <span class="mode-hint">(Records: I was touched | Shows: I touched only)</span>
+      </label>
+      <label>
+        <input type="radio" name="markingMode" value="mark_touched" />
+        Mark "I touched" <span class="filter-preview" style="background: #3498db;"></span>
+        <span class="mode-hint">(Records: I touched | Shows: I was touched only)</span>
+      </label>
+      <label>
+        <input type="radio" name="markingMode" value="view_all" />
+        View All Points
+        <span class="mode-hint">(Viewing only - no recording)</span>
+      </label>
+    </div>
   </div>
 
   <!-- Points List -->
@@ -498,6 +561,11 @@
     let autoSaveTimer = null;
     const AUTO_SAVE_DELAY = 1500; // Save 1.5 seconds after user stops typing
 
+    // Marking mode (unified control for direction + display)
+    let markingMode = "mark_touched_by"; // "mark_touched_by", "mark_touched", or "view_all"
+    let currentDirection = "touched_by"; // Current recording direction
+    let displayFilter = "touched"; // Current display filter
+
     // DOM elements for notes
     const notesTextarea = document.getElementById("sessionNotes");
     const starRating = document.getElementById("starRating");
@@ -505,6 +573,9 @@
     const charCountEl = document.getElementById("charCount");
     const lastSavedEl = document.getElementById("lastSaved");
     const noteSyncIndicator = document.getElementById("noteSyncIndicator");
+
+    // DOM elements for marking mode
+    const markingModeRadios = document.querySelectorAll('input[name="markingMode"]');
 
     // Load existing IDs from Firebase on startup
     async function loadExistingIds() {
@@ -769,6 +840,17 @@
       updateStarsDisplay();
     });
 
+    function getFilteredPoints() {
+      if (displayFilter === "all") {
+        return collectedPoints;
+      } else if (displayFilter === "touched") {
+        return collectedPoints.filter(point => point.direction === "touched");
+      } else if (displayFilter === "touched_by") {
+        return collectedPoints.filter(point => point.direction === "touched_by");
+      }
+      return collectedPoints;
+    }
+
     function redrawAllFigures() {
       figureConfigs.forEach(redrawFigure);
     }
@@ -846,6 +928,28 @@
     participantInput.addEventListener("input", updateIdStatus);
     participantNameInput.addEventListener("input", updateNameStatus);
 
+    // Marking mode event listeners
+    markingModeRadios.forEach(radio => {
+      radio.addEventListener("change", (e) => {
+        markingMode = e.target.value;
+        
+        // Update recording direction and display filter based on marking mode
+        if (markingMode === "mark_touched_by") {
+          currentDirection = "touched_by";
+          displayFilter = "touched"; // Show only "I touched" for reference
+        } else if (markingMode === "mark_touched") {
+          currentDirection = "touched";
+          displayFilter = "touched_by"; // Show only "I was touched" for reference
+        } else if (markingMode === "view_all") {
+          displayFilter = "all"; // Show all points
+        }
+        
+        updatePointsList();
+        redrawAllFigures();
+        setStatus(`Mode: ${e.target.parentElement.textContent.split('(')[0].trim()}`);
+      });
+    });
+
     function setStatus(message) {
       statusEl.childNodes[0].textContent = message;
     }
@@ -892,7 +996,23 @@
         return;
       }
 
-      pointsListEl.innerHTML = collectedPoints.map((point, index) => {
+      // Create filtered list with original indices
+      const filteredWithIndices = collectedPoints
+        .map((point, index) => ({ point, index }))
+        .reverse() // Reverse to show newest first
+        .filter(({ point }) => {
+          if (displayFilter === "all") return true;
+          if (displayFilter === "touched") return point.direction === "touched";
+          if (displayFilter === "touched_by") return point.direction === "touched_by";
+          return true;
+        });
+
+      if (filteredWithIndices.length === 0) {
+        pointsListEl.innerHTML = '<div class="empty-list">No points match current filter</div>';
+        return;
+      }
+
+      pointsListEl.innerHTML = filteredWithIndices.map(({ point, index }) => {
         const directionLabel = point.direction === "touched_by" ? "I was touched" : "I touched";
         return `
         <div class="point-item">
@@ -930,8 +1050,9 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         
-        // Redraw all markers for this figure
-        for (const point of collectedPoints) {
+        // Redraw filtered markers for this figure
+        const filteredPoints = getFilteredPoints();
+        for (const point of filteredPoints) {
           if (point.figure === figureConfig.id) {
             drawMarker(
               ctx,
@@ -961,6 +1082,11 @@
           return;
         }
 
+        if (markingMode === "view_all") {
+          setStatus("⚠️ Viewing mode. Switch to 'Mark' mode to record points.");
+          return;
+        }
+
         if (isExistingSession && !canEdit) {
           setStatus("❌ Edit time limit expired (1 hour). Cannot add more points.");
           return;
@@ -977,8 +1103,8 @@
         const xNorm = xPx / rect.width;
         const yNorm = yPx / rect.height;
 
-        // Get contact direction
-        const direction = document.querySelector('input[name="direction"]:checked').value;
+        // Use current marking mode direction
+        const direction = currentDirection;
 
         // Create point and save immediately
         const point = {
