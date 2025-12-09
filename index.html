@@ -1514,6 +1514,83 @@
     loadExistingIds();
     figureConfigs.forEach(setupFigure);
     setStatus("Ready. Click or tap to mark contact.");
+
+    // Save all session data and points, then reload
+    window.saveAllAndReload = async function() {
+      const btn = document.getElementById('saveAndSend');
+
+      if (!idIsValid || !nameIsValid) {
+        alert('Participant ID and Name must be valid before saving.');
+        return;
+      }
+
+      // Pre-save validation: ensure at least one point for each direction and questionnaire answered
+      const hasTouched = collectedPoints.some(p => p.direction === 'touched');
+      const hasTouchedBy = collectedPoints.some(p => p.direction === 'touched_by');
+      const unanswered = Object.entries(questionnaireResponses)
+        .filter(([_, v]) => v === null)
+        .map(([k]) => k.toUpperCase());
+
+      const missing = [];
+      if (!hasTouched) missing.push('No points recorded for "I touched".');
+      if (!hasTouchedBy) missing.push('No points recorded for "I was touched".');
+      if (unanswered.length) missing.push(`Unanswered questionnaire items: ${unanswered.join(', ')}`);
+
+      if (missing.length) {
+        alert(missing.join('\n') + '\n\nPlease complete before saving.');
+        return;
+      }
+
+      let prevText = 'Save and Send';
+      try {
+        if (btn) {
+          btn.disabled = true;
+          prevText = btn.textContent;
+          btn.textContent = 'Saving...';
+        }
+
+        setSyncStatus('syncing');
+
+        const key = getParticipantKey(participantInput.value.trim(), participantNameInput.value.trim());
+
+        // Session metadata
+        const sessionData = {
+          notes: notesTextarea.value,
+          confidence: sessionConfidence,
+          questionnaire: questionnaireResponses,
+          lastEdited: new Date().toISOString()
+        };
+
+        // Save sessionData
+        await db.ref(`data/${key}/sessionData`).set(sessionData);
+
+        // Save all collected points as a single node to ensure current state is stored
+        await db.ref(`data/${key}/sessionPoints`).set(collectedPoints);
+
+        setSyncStatus('synced');
+
+        // Show a completion message, then clear sync indicator and reload
+        try {
+          setStatus('Save successful');
+          alert('All data are saved. Thank you for your participation.');
+        } finally {
+          setSyncStatus(null);
+          location.reload();
+        }
+      } catch (error) {
+        console.error('Error saving before reload:', error);
+        setSyncStatus('error');
+        alert('Error saving data. See console for details.');
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = prevText || 'Save and Send';
+        }
+      }
+    };
   </script>
+
+  <div style="text-align: center; margin: 2rem 0;">
+    <button id="saveAndSend" type="button" class="secondary" onclick="saveAllAndReload()">Save and Send</button>
+  </div>
 </body>
 </html>
