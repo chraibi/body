@@ -1453,14 +1453,61 @@
         recordPoint(event.clientX, event.clientY);
       }
 
-      function handleTouch(event) {
-        event.preventDefault();
-        const touch = event.changedTouches[0];
-        recordPoint(touch.clientX, touch.clientY);
+      // Touch tracking variables
+      let touchStartX = 0;
+      let touchStartY = 0;
+      let isTouchMoving = false;
+      const TOUCH_MOVE_THRESHOLD = 10; // pixels
+
+      function handleTouchStart(event) {
+        // Only handle single touch (not multi-touch scroll/pinch)
+        if (event.touches.length > 1) {
+          return; // Ignore multi-touch
+        }
+        
+        const touch = event.touches[0];
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        isTouchMoving = false;
+      }
+
+      function handleTouchMove(event) {
+        if (event.touches.length > 1) {
+          return; // Multi-touch, allow scrolling
+        }
+
+        const touch = event.touches[0];
+        const moveX = Math.abs(touch.clientX - touchStartX);
+        const moveY = Math.abs(touch.clientY - touchStartY);
+
+        if (moveX > TOUCH_MOVE_THRESHOLD || moveY > TOUCH_MOVE_THRESHOLD) {
+          isTouchMoving = true; // User is scrolling, not tapping
+        }
+      }
+
+      function handleTouchEnd(event) {
+        if (event.touches.length > 0) {
+          return; // Other touches still active
+        }
+
+        // Only record if it wasn't a scroll/drag
+        if (!isTouchMoving) {
+          const touch = event.changedTouches[0];
+          recordPoint(touch.clientX, touch.clientY);
+        }
+
+        isTouchMoving = false;
       }
 
       canvas.addEventListener("click", handleClick);
-      canvas.addEventListener("touchstart", handleTouch, { passive: false });
+      canvas.addEventListener("touchstart", handleTouchStart, { passive: true });
+      canvas.addEventListener("touchmove", handleTouchMove, { passive: true });
+      canvas.addEventListener("touchend", handleTouchEnd, { passive: true });
+      
+      // Prevent default scroll/zoom behavior on canvas (only for wheel)
+      canvas.addEventListener("wheel", (e) => {
+        e.preventDefault();
+      }, { passive: false });
     }
 
     function drawMarker(ctx, x, y, color) {
