@@ -70,25 +70,6 @@
       background: #545b62;
     }
 
-    .color-legend {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-      font-size: 0.85rem;
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-    }
-
-    .legend-color {
-      width: 15px;
-      height: 15px;
-      border-radius: 50%;
-      border: 1px solid #333;
-    }
 
     .figures {
       display: flex;
@@ -407,15 +388,24 @@
     <!-- </div> -->
   </div>
 
-  <div class="color-legend">
-    <strong>Color Legend:</strong>
-    <div class="legend-item">
-      <div class="legend-color" style="background: #3498db;"></div>
-      <span>I touched</span>
-    </div>
-    <div class="legend-item">
-      <div class="legend-color" style="background: #e74c3c;"></div>
-      <span>I was touched</span>
+  <!-- Marking Mode -->
+  <div class="filter-container">
+    <div class="filter-options">
+      <label>
+        <input type="radio" name="markingMode" value="mark_touched_by" checked />
+        Mark "I was touched" <span class="filter-preview" style="background: #e74c3c;"></span>
+        <span class="mode-hint">(Records: I was touched | Shows: I touched only)</span>
+      </label>
+      <label>
+        <input type="radio" name="markingMode" value="mark_touched" />
+        Mark "I touched" <span class="filter-preview" style="background: #3498db;"></span>
+        <span class="mode-hint">(Records: I touched | Shows: I was touched only)</span>
+      </label>
+      <label>
+        <input type="radio" name="markingMode" value="view_all" />
+        View All Points
+        <span class="mode-hint">(Viewing only - no recording)</span>
+      </label>
     </div>
   </div>
 
@@ -441,28 +431,6 @@
   <div class="status" id="status">
     <span>Ready</span>
     <span class="sync-indicator" id="syncIndicator"></span>
-  </div>
-
-  <!-- Marking Mode -->
-  <div class="filter-container">
-    <h3>Marking Mode</h3>
-    <div class="filter-options">
-      <label>
-        <input type="radio" name="markingMode" value="mark_touched_by" checked />
-        Mark "I was touched" <span class="filter-preview" style="background: #e74c3c;"></span>
-        <span class="mode-hint">(Records: I was touched | Shows: I touched only)</span>
-      </label>
-      <label>
-        <input type="radio" name="markingMode" value="mark_touched" />
-        Mark "I touched" <span class="filter-preview" style="background: #3498db;"></span>
-        <span class="mode-hint">(Records: I touched | Shows: I was touched only)</span>
-      </label>
-      <label>
-        <input type="radio" name="markingMode" value="view_all" />
-        View All Points
-        <span class="mode-hint">(Viewing only - no recording)</span>
-      </label>
-    </div>
   </div>
 
   <!-- Points List -->
@@ -583,9 +551,15 @@
         const snapshot = await db.ref("data").once("value");
         if (snapshot.exists()) {
           existingKeys = new Set(Object.keys(snapshot.val()));
+          console.log("Loaded existing keys:", existingKeys);
+        } else {
+          console.log("Database is empty - ready for new sessions");
+          existingKeys = new Set();
         }
       } catch (error) {
         console.error("Error loading existing keys:", error);
+        // Even if loading fails, allow app to continue - user can still add new data
+        existingKeys = new Set();
       }
     }
 
@@ -1078,6 +1052,7 @@
 
       function recordPoint(clientX, clientY) {
         if (!idIsValid || !nameIsValid) {
+          console.warn("Invalid ID or name:", { idIsValid, nameIsValid });
           setStatus("❌ Invalid ID or name. Cannot record points.");
           return;
         }
@@ -1097,6 +1072,7 @@
         const yPx = clientY - rect.top;
 
         if (xPx < 0 || xPx > rect.width || yPx < 0 || yPx > rect.height) {
+          console.log("Click outside canvas bounds");
           return;
         }
 
@@ -1105,6 +1081,13 @@
 
         // Use current marking mode direction
         const direction = currentDirection;
+        
+        console.log("Recording point:", { 
+          figure: figureConfig.id, 
+          direction, 
+          xNorm: xNorm.toFixed(2), 
+          yNorm: yNorm.toFixed(2) 
+        });
 
         // Create point and save immediately
         const point = {
