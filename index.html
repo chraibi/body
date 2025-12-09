@@ -394,12 +394,12 @@
       <label>
         <input type="radio" name="markingMode" value="mark_touched_by" checked />
         Mark "I was touched" <span class="filter-preview" style="background: #e74c3c;"></span>
-        <span class="mode-hint">(Records: I was touched | Shows: I touched only)</span>
+        <span class="mode-hint">(Records & Shows: I was touched)</span>
       </label>
       <label>
         <input type="radio" name="markingMode" value="mark_touched" />
         Mark "I touched" <span class="filter-preview" style="background: #3498db;"></span>
-        <span class="mode-hint">(Records: I touched | Shows: I was touched only)</span>
+        <span class="mode-hint">(Records & Shows: I touched)</span>
       </label>
       <label>
         <input type="radio" name="markingMode" value="view_all" />
@@ -532,7 +532,7 @@
     // Marking mode (unified control for direction + display)
     let markingMode = "mark_touched_by"; // "mark_touched_by", "mark_touched", or "view_all"
     let currentDirection = "touched_by"; // Current recording direction
-    let displayFilter = "touched"; // Current display filter
+    let displayFilter = "touched_by"; // Current display filter - show what you're recording
 
     // DOM elements for notes
     const notesTextarea = document.getElementById("sessionNotes");
@@ -910,10 +910,10 @@
         // Update recording direction and display filter based on marking mode
         if (markingMode === "mark_touched_by") {
           currentDirection = "touched_by";
-          displayFilter = "touched"; // Show only "I touched" for reference
+          displayFilter = "touched_by"; // Show what you just recorded (red)
         } else if (markingMode === "mark_touched") {
           currentDirection = "touched";
-          displayFilter = "touched_by"; // Show only "I was touched" for reference
+          displayFilter = "touched"; // Show what you just recorded (blue)
         } else if (markingMode === "view_all") {
           displayFilter = "all"; // Show all points
         }
