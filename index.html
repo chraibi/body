@@ -141,6 +141,9 @@
 
     /* Display Filter */
     .filter-container {
+      position: sticky;
+      top: 0;
+      z-index: 100;
       background: white;
       padding: 1rem;
       border-radius: 0.4rem;
@@ -753,8 +756,6 @@
     // Session notes
     let sessionNotes = "";
     let sessionConfidence = 0;
-    let autoSaveTimer = null;
-    const AUTO_SAVE_DELAY = 1500; // Save 1.5 seconds after user stops typing
 
     // Questionnaire responses
     let questionnaireResponses = {
@@ -763,7 +764,6 @@
       q3: null,
       q4: null
     };
-    let questionnaireAutoSaveTimer = null;
 
     // Marking mode (unified control for direction + display)
     let markingMode = "mark_touched_by"; // "mark_touched_by", "mark_touched", or "view_all"
@@ -1007,47 +1007,10 @@
       charCountEl.textContent = notesTextarea.value.length;
     }
 
-    function autoSaveSessionData() {
-      if (autoSaveTimer) clearTimeout(autoSaveTimer);
-      
-      autoSaveTimer = setTimeout(() => {
-        saveSessionData();
-      }, AUTO_SAVE_DELAY);
-    }
-
-    async function saveSessionData() {
-      // Allow saving for: new sessions (always) OR existing sessions within edit window
-      if (isExistingSession && !canEdit) return;
-      
-      try {
-        const key = getParticipantKey(participantInput.value.trim(), participantNameInput.value.trim());
-        const sessionData = {
-          notes: notesTextarea.value,
-          confidence: sessionConfidence,
-          lastEdited: new Date().toISOString()
-        };
-
-        noteSyncIndicator.className = "sync-indicator syncing";
-        
-        await db.ref(`data/${key}/sessionData`).set(sessionData);
-        
-        sessionNotes = notesTextarea.value;
-        noteSyncIndicator.className = "sync-indicator synced";
-        lastSavedEl.textContent = `Last saved: ${new Date().toLocaleTimeString()}`;
-        
-        setTimeout(() => {
-          noteSyncIndicator.className = "sync-indicator";
-        }, 2000);
-      } catch (error) {
-        console.error("Error saving session data:", error);
-        noteSyncIndicator.className = "sync-indicator error";
-      }
-    }
-
     // Notes event listeners
     notesTextarea.addEventListener("input", (e) => {
       updateCharCounter();
-      autoSaveSessionData();
+      // Note: No auto-save. Data saved on "Save and Send" click
     });
 
     document.querySelectorAll(".star").forEach(star => {
@@ -1056,7 +1019,7 @@
         
         sessionConfidence = parseInt(e.target.dataset.value);
         updateStarsDisplay();
-        autoSaveSessionData();
+        // Note: No auto-save. Data saved on "Save and Send" click
       });
 
       star.addEventListener("mouseover", (e) => {
@@ -1111,40 +1074,6 @@
       });
     }
 
-    function autoSaveQuestionnaire() {
-      if (questionnaireAutoSaveTimer) clearTimeout(questionnaireAutoSaveTimer);
-      
-      questionnaireAutoSaveTimer = setTimeout(() => {
-        saveQuestionnaireData();
-      }, AUTO_SAVE_DELAY);
-    }
-
-    async function saveQuestionnaireData() {
-      // Allow saving for: new sessions (always) OR existing sessions within edit window
-      if (isExistingSession && !canEdit) return;
-      
-      try {
-        const key = getParticipantKey(participantInput.value.trim(), participantNameInput.value.trim());
-        const sessionData = await db.ref(`data/${key}/sessionData`).once("value").then(snap => snap.val() || {});
-        
-        sessionData.questionnaire = questionnaireResponses;
-        sessionData.lastEdited = new Date().toISOString();
-
-        questionnaireSyncIndicator.className = "sync-indicator syncing";
-        
-        await db.ref(`data/${key}/sessionData`).set(sessionData);
-        
-        questionnaireSyncIndicator.className = "sync-indicator synced";
-        qLastSavedEl.textContent = `Last saved: ${new Date().toLocaleTimeString()}`;
-        
-        setTimeout(() => {
-          questionnaireSyncIndicator.className = "sync-indicator";
-        }, 2000);
-      } catch (error) {
-        console.error("Error saving questionnaire:", error);
-        questionnaireSyncIndicator.className = "sync-indicator error";
-      }
-    }
 
     // Questionnaire event listeners
     Object.entries(questionnaireRadios).forEach(([key, radios]) => {
@@ -1152,7 +1081,7 @@
         radio.addEventListener("change", (e) => {
           if (isExistingSession && !canEdit) return;
           questionnaireResponses[key] = parseInt(e.target.value);
-          autoSaveQuestionnaire();
+          // Note: No auto-save. Data saved on "Save and Send" click
         });
       });
     });
