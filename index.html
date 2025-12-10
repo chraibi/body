@@ -142,8 +142,8 @@
     /* Display Filter */
     .filter-container {
       position: sticky;
-      top: 0;
-      z-index: 100;
+-     top: 0;
+-     z-index: 100;
       background: white;
       padding: 1rem;
       border-radius: 0.4rem;
@@ -1210,27 +1210,10 @@
     }
 
     // Show confidence modal
-    async function sendToFirebase(point) {
-      try {
-        setSyncStatus("syncing");
-        const participantKey = getParticipantKey(point.participantId, point.participantName);
-        const timestamp = Date.now();
-        
-        await db.ref(`data/${participantKey}/${timestamp}`).set(point);
-        
-        setSyncStatus("synced");
-        setTimeout(() => setSyncStatus(null), 2000);
-      } catch (error) {
-        console.error("Firebase error:", error);
-        setSyncStatus("error");
-        setStatus(`Error syncing to server. Data saved locally.`);
-      }
-    }
-
     function savePoint(point) {
       // Insert new point at the beginning (unshift) to keep newest first
       collectedPoints.unshift(point);
-      sendToFirebase(point);
+      // Note: Points saved in batch on "Save and Send" click, not immediately
       updatePointsList();
       const directionLabel = point.direction === "touched_by" ? "was touched" : "touched";
       setStatus(
