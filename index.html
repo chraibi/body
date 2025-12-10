@@ -1475,7 +1475,7 @@
     setStatus("Ready. Click or tap to mark contact.");
 
     // Save all session data and points, then reload
-    window.saveAllAndReload = async function() {
+    window.saveAllAndReload = async function(isRetry = false) {
       const btn = document.getElementById('saveAndSend');
 
       if (!idIsValid || !nameIsValid) {
@@ -1505,10 +1505,12 @@
         if (btn) {
           btn.disabled = true;
           prevText = btn.textContent;
-          btn.textContent = 'Saving...';
+          btn.textContent = isRetry ? 'Retrying...' : 'Saving...';
         }
 
+        // Show clear status message
         setSyncStatus('syncing');
+        setStatus(`📤 ${isRetry ? 'Retrying' : 'Saving'} your data... (${collectedPoints.length} points + questionnaire)`);
 
         const key = getParticipantKey(participantInput.value.trim(), participantNameInput.value.trim());
 
@@ -1528,21 +1530,30 @@
 
         setSyncStatus('synced');
 
-        // Show a completion message, then clear sync indicator and reload
-        try {
-          setStatus('Save successful');
+        // Show clear success message
+        setStatus('✅ All data saved successfully! Thank you for your participation.');
+        if (btn) {
+          btn.textContent = '✅ Saved!';
+        }
+
+        // Show completion alert and reload after 2 seconds
+        setTimeout(() => {
           alert('All data are saved. Thank you for your participation.');
-        } finally {
           setSyncStatus(null);
           location.reload();
-        }
+        }, 1000);
+
       } catch (error) {
-        console.error('Error saving before reload:', error);
+        console.error('Error saving data:', error);
         setSyncStatus('error');
-        alert('Error saving data. See console for details.');
+        
+        // Show clear error message with retry button
+        setStatus(`❌ Save failed: ${error.message || 'Network error'}. Click "Retry" to try again.`);
+        
         if (btn) {
           btn.disabled = false;
-          btn.textContent = prevText || 'Save and Send';
+          btn.textContent = '⚠️ Retry';
+          btn.onclick = () => window.saveAllAndReload(true); // Enable retry
         }
       }
     };
