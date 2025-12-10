@@ -833,32 +833,21 @@
         
         if (snapshot.exists()) {
           const data = snapshot.val();
-          const points = [];
+          
+          // Load points from sessionPoints array (new batch-write format)
+          const points = Array.isArray(data.sessionPoints) ? data.sessionPoints : [];
           let earliestTimestamp = null;
 
-          // Convert Firebase data to points array
-          for (const timestamp in data) {
-            // Skip sessionData and other non-point entries
-            if (timestamp === "sessionData" || !data[timestamp].timestamp) {
-              continue;
-            }
-            
-            const point = data[timestamp];
-            points.push(point);
-            
-            // Track the earliest (first) entry
-            const pointTime = new Date(point.timestamp).getTime();
-            if (earliestTimestamp === null || pointTime < earliestTimestamp) {
-              earliestTimestamp = pointTime;
-            }
+          // Find the earliest timestamp from all points
+          if (points.length > 0) {
+            // Sort by timestamp to find earliest
+            const sortedByTime = [...points].sort((a, b) => {
+              const timeA = new Date(a.timestamp).getTime();
+              const timeB = new Date(b.timestamp).getTime();
+              return timeA - timeB; // Ascending (oldest first)
+            });
+            earliestTimestamp = new Date(sortedByTime[0].timestamp).getTime();
           }
-
-          // Sort points by timestamp (newest first)
-          points.sort((a, b) => {
-            const timeA = new Date(a.timestamp).getTime();
-            const timeB = new Date(b.timestamp).getTime();
-            return timeB - timeA; // Descending order (newest first)
-          });
 
           // Set session state
           isExistingSession = true;
@@ -867,8 +856,13 @@
           
           // Check if still within edit window
           const now = Date.now();
-          const elapsed = now - firstEntryTimestamp;
-          canEdit = elapsed < EDIT_TIME_LIMIT;
+          if (firstEntryTimestamp !== null) {
+            const elapsed = now - firstEntryTimestamp;
+            canEdit = elapsed < EDIT_TIME_LIMIT;
+          } else {
+            // No points recorded yet, allow editing
+            canEdit = true;
+          }
           
           updatePointsList();
           redrawAllFigures();
