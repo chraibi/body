@@ -763,6 +763,9 @@
 
     const appState = new AppState();
 
+    // ============ IMAGE CACHE ============
+    const imageCache = {};
+
     // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyDt82k5jJTa9Xqn6Xb2-oEoVTHOr-wgvuA",
@@ -1108,6 +1111,34 @@
       figureConfigs.forEach(redrawFigure);
     }
 
+    // ============ IMAGE PRELOADING ============
+    async function preloadImages() {
+      return new Promise((resolve) => {
+        let loadedCount = 0;
+        const totalImages = figureConfigs.length;
+
+        figureConfigs.forEach((figureConfig) => {
+          const img = new Image();
+          img.onload = () => {
+            imageCache[figureConfig.id] = img;
+            loadedCount++;
+            if (loadedCount === totalImages) {
+              console.log("All images preloaded successfully");
+              resolve();
+            }
+          };
+          img.onerror = () => {
+            console.error(`Failed to load image: ${figureConfig.imageSrc}`);
+            loadedCount++;
+            if (loadedCount === totalImages) {
+              resolve();
+            }
+          };
+          img.src = figureConfig.imageSrc;
+        });
+      });
+    }
+
     async function updateIdStatus() {
       const id = participantInput.value.trim();
 
@@ -1270,37 +1301,41 @@
     function redrawFigure(figureConfig) {
       const canvas = document.getElementById(figureConfig.canvasId);
       const ctx = canvas.getContext("2d");
-      const img = new Image();
-      img.src = figureConfig.imageSrc;
-
-      img.onload = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        
-        const filteredPoints = getFilteredPoints();
-        for (const point of filteredPoints) {
-          if (point.figure === figureConfig.id) {
-            drawMarker(
-              ctx,
-              point.xNorm * canvas.width,
-              point.yNorm * canvas.height,
-              directionColors[point.direction]
-            );
-          }
+      
+      // Use cached image instead of reloading from network
+      const img = imageCache[figureConfig.id];
+      
+      if (!img) {
+        console.warn(`Image not cached for ${figureConfig.id}`);
+        return;
+      }
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      
+      const filteredPoints = getFilteredPoints();
+      for (const point of filteredPoints) {
+        if (point.figure === figureConfig.id) {
+          drawMarker(
+            ctx,
+            point.xNorm * canvas.width,
+            point.yNorm * canvas.height,
+            directionColors[point.direction]
+          );
         }
-      };
+      }
     }
 
     function setupFigure(figureConfig) {
       const canvas = document.getElementById(figureConfig.canvasId);
       const ctx = canvas.getContext("2d");
-      const img = new Image();
-      img.src = figureConfig.imageSrc;
-
-      img.onload = () => {
+      
+      // Draw initial image from cache
+      const img = imageCache[figureConfig.id];
+      if (img) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      };
+      }
 
       function recordPoint(clientX, clientY) {
         if (!appState.idIsValid || !appState.nameIsValid) {
@@ -1436,9 +1471,12 @@
     document.getElementById("clearPoints").addEventListener("click", clearPoints);
 
     // Initialize
-    loadExistingIds();
-    figureConfigs.forEach(setupFigure);
-    setStatus("Ready. Click or tap to mark contact.");
+    (async () => {
+      await preloadImages();
+      loadExistingIds();
+      figureConfigs.forEach(setupFigure);
+      setStatus("Ready. Click or tap to mark contact.");
+    })();
 
     // Save all session data and points
     window.saveAllAndReload = async function(isRetry = false) {
