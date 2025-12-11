@@ -513,11 +513,6 @@
       <label>&nbsp;</label>
       <button id="clearPoints" class="secondary">Clear all points</button>
     </div>
-
-    <!-- <div class="control-group"> -->
-    <!--   <label>&nbsp;</label> -->
-    <!--   <button id="downloadJson">Download JSON</button> -->
-    <!-- </div> -->
   </div>
 
   <!-- Marking Mode -->
@@ -577,7 +572,6 @@
   <div class="questionnaire-container">
     <h3>Questionnaire</h3>
     <div class="questionnaire-content">
-      
       <!-- Question 1 -->
       <div class="questionnaire-question">
         <label class="question-text">
@@ -707,6 +701,68 @@
   <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-database-compat.js"></script>
 
   <script>
+    // ============ APP STATE CLASS ============
+    class AppState {
+      constructor() {
+        // Point collection
+        this.collectedPoints = [];
+        
+        // Validation flags
+        this.idIsValid = false;
+        this.nameIsValid = false;
+        
+        // Session tracking
+        this.existingKeys = new Set();
+        this.isExistingSession = false;
+        this.firstEntryTimestamp = null;
+        this.canEdit = true;
+        this.editStatusTimer = null;
+        
+        // Notes and confidence
+        this.sessionNotes = "";
+        this.sessionConfidence = 0;
+        
+        // Questionnaire responses
+        this.questionnaireResponses = {
+          q1: null,
+          q2: null,
+          q3: null,
+          q4: null
+        };
+        
+        // Marking mode and display
+        this.markingMode = "mark_touched_by";
+        this.currentDirection = "touched_by";
+        this.displayFilter = "touched_by";
+      }
+      
+      reset() {
+        this.collectedPoints = [];
+        this.idIsValid = false;
+        this.nameIsValid = false;
+        this.isExistingSession = false;
+        this.firstEntryTimestamp = null;
+        this.canEdit = true;
+        this.sessionNotes = "";
+        this.sessionConfidence = 0;
+        this.questionnaireResponses = {
+          q1: null,
+          q2: null,
+          q3: null,
+          q4: null
+        };
+        this.markingMode = "mark_touched_by";
+        this.currentDirection = "touched_by";
+        this.displayFilter = "mark_touched_by";
+        if (this.editStatusTimer) {
+          clearInterval(this.editStatusTimer);
+          this.editStatusTimer = null;
+        }
+      }
+    }
+
+    const appState = new AppState();
+
     // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyDt82k5jJTa9Xqn6Xb2-oEoVTHOr-wgvuA",
@@ -736,7 +792,7 @@
       { id: "right", canvasId: "figure_right", imageSrc: "right.svg" },
     ];
 
-    let collectedPoints = [];
+    // DOM Elements (not state)
     const statusEl = document.getElementById("status");
     const syncIndicator = document.getElementById("syncIndicator");
     const participantInput = document.getElementById("participantId");
@@ -744,33 +800,9 @@
     const participantNameInput = document.getElementById("participantName");
     const nameStatusEl = document.getElementById("nameStatus");
     const pointsListEl = document.getElementById("pointsList");
-
-    let idIsValid = false;
-    let nameIsValid = false;
-    let existingKeys = new Set();
-    let isExistingSession = false;
-    let firstEntryTimestamp = null;
-    let canEdit = true;
-    const EDIT_TIME_LIMIT = 60 * 60 * 1000; // 1 hour in milliseconds
     
-    // Session notes
-    let sessionNotes = "";
-    let sessionConfidence = 0;
+    const EDIT_TIME_LIMIT = 60 * 60 * 1000;
 
-    // Questionnaire responses
-    let questionnaireResponses = {
-      q1: null,
-      q2: null,
-      q3: null,
-      q4: null
-    };
-
-    // Marking mode (unified control for direction + display)
-    let markingMode = "mark_touched_by"; // "mark_touched_by", "mark_touched", or "view_all"
-    let currentDirection = "touched_by"; // Current recording direction
-    let displayFilter = "touched_by"; // Current display filter - show what you're recording
-
-    // DOM elements for notes
     const notesTextarea = document.getElementById("sessionNotes");
     const starRating = document.getElementById("starRating");
     const confidenceLabel = document.getElementById("confidenceLabel");
@@ -778,7 +810,6 @@
     const lastSavedEl = document.getElementById("lastSaved");
     const noteSyncIndicator = document.getElementById("noteSyncIndicator");
 
-    // Questionnaire elements
     const questionnaireRadios = {
       q1: document.querySelectorAll('input[name="q1"]'),
       q2: document.querySelectorAll('input[name="q2"]'),
@@ -788,24 +819,24 @@
     const qLastSavedEl = document.getElementById("qLastSaved");
     const questionnaireSyncIndicator = document.getElementById("questionnaireSyncIndicator");
 
-    // DOM elements for marking mode
     const markingModeRadios = document.querySelectorAll('input[name="markingMode"]');
+
+    // Firebase and State helpers
 
     // Load existing IDs from Firebase on startup
     async function loadExistingIds() {
       try {
         const snapshot = await db.ref("data").once("value");
         if (snapshot.exists()) {
-          existingKeys = new Set(Object.keys(snapshot.val()));
-          console.log("Loaded existing keys:", existingKeys);
+          appState.existingKeys = new Set(Object.keys(snapshot.val()));
+          console.log("Loaded existing keys:", appState.existingKeys);
         } else {
           console.log("Database is empty - ready for new sessions");
-          existingKeys = new Set();
+          appState.existingKeys = new Set();
         }
       } catch (error) {
         console.error("Error loading existing keys:", error);
-        // Even if loading fails, allow app to continue - user can still add new data
-        existingKeys = new Set();
+        appState.existingKeys = new Set();
       }
     }
 
@@ -823,7 +854,7 @@
 
     function keyAlreadyExists(id, name) {
       const key = getParticipantKey(id, name);
-      return existingKeys.has(key);
+      return appState.existingKeys.has(key);
     }
 
     async function loadExistingParticipantData(id, name) {
@@ -834,44 +865,37 @@
         if (snapshot.exists()) {
           const data = snapshot.val();
           
-          // Load points from sessionPoints array (new batch-write format)
           const points = Array.isArray(data.sessionPoints) ? data.sessionPoints : [];
           let earliestTimestamp = null;
 
-          // Find the earliest timestamp from all points
           if (points.length > 0) {
-            // Sort by timestamp to find earliest
             const sortedByTime = [...points].sort((a, b) => {
               const timeA = new Date(a.timestamp).getTime();
               const timeB = new Date(b.timestamp).getTime();
-              return timeA - timeB; // Ascending (oldest first)
+              return timeA - timeB;
             });
             earliestTimestamp = new Date(sortedByTime[0].timestamp).getTime();
           }
 
-          // Set session state
-          isExistingSession = true;
-          firstEntryTimestamp = earliestTimestamp;
-          collectedPoints = points;
+          appState.isExistingSession = true;
+          appState.firstEntryTimestamp = earliestTimestamp;
+          appState.collectedPoints = points;
           
-          // Check if still within edit window
           const now = Date.now();
-          if (firstEntryTimestamp !== null) {
-            const elapsed = now - firstEntryTimestamp;
-            canEdit = elapsed < EDIT_TIME_LIMIT;
+          if (appState.firstEntryTimestamp !== null) {
+            const elapsed = now - appState.firstEntryTimestamp;
+            appState.canEdit = elapsed < EDIT_TIME_LIMIT;
           } else {
-            // No points recorded yet, allow editing
-            canEdit = true;
+            appState.canEdit = true;
           }
           
           updatePointsList();
           redrawAllFigures();
           
-          // Load session notes, confidence, and questionnaire
           if (data.sessionData) {
-            sessionNotes = data.sessionData.notes || "";
-            sessionConfidence = data.sessionData.confidence || 0;
-            questionnaireResponses = data.sessionData.questionnaire || {
+            appState.sessionNotes = data.sessionData.notes || "";
+            appState.sessionConfidence = data.sessionData.confidence || 0;
+            appState.questionnaireResponses = data.sessionData.questionnaire || {
               q1: null,
               q2: null,
               q3: null,
@@ -899,19 +923,18 @@
     }
 
     function updateEditStatus() {
-      if (!isExistingSession) {
+      if (!appState.isExistingSession) {
         idStatusEl.textContent = "✓ ID is valid";
         idStatusEl.className = "id-status id-valid";
         return;
       }
 
-      if (canEdit) {
-        const elapsed = Date.now() - firstEntryTimestamp;
+      if (appState.canEdit) {
+        const elapsed = Date.now() - appState.firstEntryTimestamp;
         const remaining = EDIT_TIME_LIMIT - elapsed;
         
-        // Check if time limit just expired
         if (remaining <= 0) {
-          canEdit = false;
+          appState.canEdit = false;
           idStatusEl.textContent = "❌ Edit time limit expired (1 hour)";
           idStatusEl.className = "id-status id-invalid";
           return;
@@ -929,25 +952,24 @@
     let editStatusTimer = null;
     
     function startEditStatusTimer() {
-      // Update every 30 seconds to show countdown
-      if (editStatusTimer) clearInterval(editStatusTimer);
-      editStatusTimer = setInterval(() => {
-        if (isExistingSession) {
+      if (appState.editStatusTimer) clearInterval(appState.editStatusTimer);
+      appState.editStatusTimer = setInterval(() => {
+        if (appState.isExistingSession) {
           updateEditStatus();
         }
-      }, 30000); // Update every 30 seconds
+      }, 30000);
     }
 
     function stopEditStatusTimer() {
-      if (editStatusTimer) {
-        clearInterval(editStatusTimer);
-        editStatusTimer = null;
+      if (appState.editStatusTimer) {
+        clearInterval(appState.editStatusTimer);
+        appState.editStatusTimer = null;
       }
     }
 
     function resetNotes() {
-      sessionNotes = "";
-      sessionConfidence = 0;
+      appState.sessionNotes = "";
+      appState.sessionConfidence = 0;
       notesTextarea.value = "";
       charCountEl.textContent = "0";
       confidenceLabel.textContent = "(Not rated)";
@@ -956,8 +978,8 @@
     }
 
     function updateNotesDisplay() {
-      notesTextarea.value = sessionNotes;
-      charCountEl.textContent = sessionNotes.length;
+      notesTextarea.value = appState.sessionNotes;
+      charCountEl.textContent = appState.sessionNotes.length;
       updateStarsDisplay();
       updateNotesEditability();
     }
@@ -965,7 +987,7 @@
     function updateStarsDisplay() {
       document.querySelectorAll(".star").forEach(star => {
         const value = parseInt(star.dataset.value);
-        if (value <= sessionConfidence) {
+        if (value <= appState.sessionConfidence) {
           star.classList.add("active");
         } else {
           star.classList.remove("active");
@@ -980,11 +1002,11 @@
         4: "Confident",
         5: "Very confident"
       };
-      confidenceLabel.textContent = labels[sessionConfidence] || "(Not rated)";
+      confidenceLabel.textContent = labels[appState.sessionConfidence] || "(Not rated)";
     }
 
     function updateNotesEditability() {
-      const disabled = isExistingSession && !canEdit;
+      const disabled = appState.isExistingSession && !appState.canEdit;
       notesTextarea.disabled = disabled;
       document.querySelectorAll(".star").forEach(star => {
         if (disabled) {
@@ -1001,19 +1023,16 @@
       charCountEl.textContent = notesTextarea.value.length;
     }
 
-    // Notes event listeners
     notesTextarea.addEventListener("input", (e) => {
       updateCharCounter();
-      // Note: No auto-save. Data saved on "Save and Send" click
     });
 
     document.querySelectorAll(".star").forEach(star => {
       star.addEventListener("click", (e) => {
-        if (isExistingSession && !canEdit) return;
+        if (appState.isExistingSession && !appState.canEdit) return;
         
-        sessionConfidence = parseInt(e.target.dataset.value);
+        appState.sessionConfidence = parseInt(e.target.dataset.value);
         updateStarsDisplay();
-        // Note: No auto-save. Data saved on "Save and Send" click
       });
 
       star.addEventListener("mouseover", (e) => {
@@ -1032,15 +1051,13 @@
       updateStarsDisplay();
     });
 
-    // ===== QUESTIONNAIRE FUNCTIONS =====
     function resetQuestionnaire() {
-      questionnaireResponses = {
+      appState.questionnaireResponses = {
         q1: null,
         q2: null,
         q3: null,
         q4: null
       };
-      // Uncheck all radio buttons
       Object.values(questionnaireRadios).forEach(radios => {
         radios.forEach(radio => radio.checked = false);
       });
@@ -1049,8 +1066,7 @@
     }
 
     function updateQuestionnaireDisplay() {
-      // Set radio buttons based on stored responses
-      Object.entries(questionnaireResponses).forEach(([key, value]) => {
+      Object.entries(appState.questionnaireResponses).forEach(([key, value]) => {
         if (value !== null) {
           const radio = document.querySelector(`input[name="${key}"][value="${value}"]`);
           if (radio) radio.checked = true;
@@ -1060,7 +1076,7 @@
     }
 
     function updateQuestionnaireEditability() {
-      const disabled = isExistingSession && !canEdit;
+      const disabled = appState.isExistingSession && !appState.canEdit;
       Object.values(questionnaireRadios).forEach(radios => {
         radios.forEach(radio => {
           radio.disabled = disabled;
@@ -1068,27 +1084,24 @@
       });
     }
 
-
-    // Questionnaire event listeners
     Object.entries(questionnaireRadios).forEach(([key, radios]) => {
       radios.forEach(radio => {
         radio.addEventListener("change", (e) => {
-          if (isExistingSession && !canEdit) return;
-          questionnaireResponses[key] = parseInt(e.target.value);
-          // Note: No auto-save. Data saved on "Save and Send" click
+          if (appState.isExistingSession && !appState.canEdit) return;
+          appState.questionnaireResponses[key] = parseInt(e.target.value);
         });
       });
     });
 
     function getFilteredPoints() {
-      if (displayFilter === "all") {
-        return collectedPoints;
-      } else if (displayFilter === "touched") {
-        return collectedPoints.filter(point => point.direction === "touched");
-      } else if (displayFilter === "touched_by") {
-        return collectedPoints.filter(point => point.direction === "touched_by");
+      if (appState.displayFilter === "all") {
+        return appState.collectedPoints;
+      } else if (appState.displayFilter === "touched") {
+        return appState.collectedPoints.filter(point => point.direction === "touched");
+      } else if (appState.displayFilter === "touched_by") {
+        return appState.collectedPoints.filter(point => point.direction === "touched_by");
       }
-      return collectedPoints;
+      return appState.collectedPoints;
     }
 
     function redrawAllFigures() {
@@ -1099,24 +1112,23 @@
       const id = participantInput.value.trim();
 
       if (!id) {
-        idIsValid = false;
+        appState.idIsValid = false;
         idStatusEl.textContent = "";
         idStatusEl.className = "id-status";
         return;
       }
 
       if (!isValidNumericId(id)) {
-        idIsValid = false;
+        appState.idIsValid = false;
         idStatusEl.textContent = "❌ ID must be a number (digits only)";
         idStatusEl.className = "id-status id-invalid";
         return;
       }
 
-      idIsValid = true;
+      appState.idIsValid = true;
       idStatusEl.textContent = "✓ ID is valid";
       idStatusEl.className = "id-status id-valid";
       
-      // Check combined key validity if name is also present
       updateCombinedKeyStatus();
     }
 
@@ -1124,17 +1136,16 @@
       const name = participantNameInput.value.trim();
 
       if (!name) {
-        nameIsValid = false;
+        appState.nameIsValid = false;
         nameStatusEl.textContent = "";
         nameStatusEl.className = "id-status";
         return;
       }
 
-      nameIsValid = true;
+      appState.nameIsValid = true;
       nameStatusEl.textContent = "✓ Name is valid";
       nameStatusEl.className = "id-status id-valid";
       
-      // Check combined key validity if ID is also present
       updateCombinedKeyStatus();
     }
 
@@ -1142,20 +1153,18 @@
       const id = participantInput.value.trim();
       const name = participantNameInput.value.trim();
       
-      if (!idIsValid || !nameIsValid) {
+      if (!appState.idIsValid || !appState.nameIsValid) {
         return;
       }
 
-      // Try to load existing participant data
       const dataExists = await loadExistingParticipantData(id, name);
       
       if (!dataExists) {
-        // New session - reset state
         stopEditStatusTimer();
-        isExistingSession = false;
-        firstEntryTimestamp = null;
-        canEdit = true;
-        collectedPoints = [];
+        appState.isExistingSession = false;
+        appState.firstEntryTimestamp = null;
+        appState.canEdit = true;
+        appState.collectedPoints = [];
         updatePointsList();
         redrawAllFigures();
         resetNotes();
@@ -1170,20 +1179,18 @@
     participantInput.addEventListener("input", updateIdStatus);
     participantNameInput.addEventListener("input", updateNameStatus);
 
-    // Marking mode event listeners
     markingModeRadios.forEach(radio => {
       radio.addEventListener("change", (e) => {
-        markingMode = e.target.value;
+        appState.markingMode = e.target.value;
         
-        // Update recording direction and display filter based on marking mode
-        if (markingMode === "mark_touched_by") {
-          currentDirection = "touched_by";
-          displayFilter = "touched_by"; // Show what you just recorded (red)
-        } else if (markingMode === "mark_touched") {
-          currentDirection = "touched";
-          displayFilter = "touched"; // Show what you just recorded (blue)
-        } else if (markingMode === "view_all") {
-          displayFilter = "all"; // Show all points
+        if (appState.markingMode === "mark_touched_by") {
+          appState.currentDirection = "touched_by";
+          appState.displayFilter = "touched_by";
+        } else if (appState.markingMode === "mark_touched") {
+          appState.currentDirection = "touched";
+          appState.displayFilter = "touched";
+        } else if (appState.markingMode === "view_all") {
+          appState.displayFilter = "all";
         }
         
         updatePointsList();
@@ -1203,32 +1210,28 @@
       }
     }
 
-    // Show confidence modal
     function savePoint(point) {
-      // Insert new point at the beginning (unshift) to keep newest first
-      collectedPoints.unshift(point);
-      // Note: Points saved in batch on "Save and Send" click, not immediately
+      appState.collectedPoints.unshift(point);
       updatePointsList();
       const directionLabel = point.direction === "touched_by" ? "was touched" : "touched";
       setStatus(
-        `Recorded: ${point.figure} (${directionLabel}). Total: ${collectedPoints.length}`
+        `Recorded: ${point.figure} (${directionLabel}). Total: ${appState.collectedPoints.length}`
       );
     }
 
     function updatePointsList() {
-      if (collectedPoints.length === 0) {
+      if (appState.collectedPoints.length === 0) {
         pointsListEl.innerHTML = '<div class="empty-list">No points recorded yet</div>';
         return;
       }
 
-      // Create filtered list with original indices
-      const filteredWithIndices = collectedPoints
+      const filteredWithIndices = appState.collectedPoints
         .map((point, index) => ({ point, index }))
-        .reverse() // Reverse to show newest first
+        .reverse()
         .filter(({ point }) => {
-          if (displayFilter === "all") return true;
-          if (displayFilter === "touched") return point.direction === "touched";
-          if (displayFilter === "touched_by") return point.direction === "touched_by";
+          if (appState.displayFilter === "all") return true;
+          if (appState.displayFilter === "touched") return point.direction === "touched";
+          if (appState.displayFilter === "touched_by") return point.direction === "touched_by";
           return true;
         });
 
@@ -1252,16 +1255,15 @@
     }
 
     function deletePoint(index) {
-      if (isExistingSession && !canEdit) {
+      if (appState.isExistingSession && !appState.canEdit) {
         setStatus("❌ Edit time limit expired. Cannot delete points.");
         return;
       }
 
-      collectedPoints.splice(index, 1);
+      appState.collectedPoints.splice(index, 1);
       updatePointsList();
-      setStatus(`Deleted point. Total: ${collectedPoints.length}`);
+      setStatus(`Deleted point. Total: ${appState.collectedPoints.length}`);
       
-      // Redraw all figures to remove the deleted marker
       figureConfigs.forEach(redrawFigure);
     }
 
@@ -1275,7 +1277,6 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         
-        // Redraw filtered markers for this figure
         const filteredPoints = getFilteredPoints();
         for (const point of filteredPoints) {
           if (point.figure === figureConfig.id) {
@@ -1302,18 +1303,18 @@
       };
 
       function recordPoint(clientX, clientY) {
-        if (!idIsValid || !nameIsValid) {
-          console.warn("Invalid ID or name:", { idIsValid, nameIsValid });
+        if (!appState.idIsValid || !appState.nameIsValid) {
+          console.warn("Invalid ID or name:", { idIsValid: appState.idIsValid, nameIsValid: appState.nameIsValid });
           setStatus("❌ Invalid ID or name. Cannot record points.");
           return;
         }
 
-        if (markingMode === "view_all") {
+        if (appState.markingMode === "view_all") {
           setStatus("⚠️ Viewing mode. Switch to 'Mark' mode to record points.");
           return;
         }
 
-        if (isExistingSession && !canEdit) {
+        if (appState.isExistingSession && !appState.canEdit) {
           setStatus("❌ Edit time limit expired (1 hour). Cannot add more points.");
           return;
         }
@@ -1330,8 +1331,7 @@
         const xNorm = xPx / rect.width;
         const yNorm = yPx / rect.height;
 
-        // Use current marking mode direction
-        const direction = currentDirection;
+        const direction = appState.currentDirection;
         
         console.log("Recording point:", { 
           figure: figureConfig.id, 
@@ -1340,7 +1340,6 @@
           yNorm: yNorm.toFixed(2) 
         });
 
-        // Create point and save immediately
         const point = {
           participantId: participantInput.value.trim(),
           participantName: participantNameInput.value.trim(),
@@ -1359,16 +1358,14 @@
         recordPoint(event.clientX, event.clientY);
       }
 
-      // Touch tracking variables
       let touchStartX = 0;
       let touchStartY = 0;
       let isTouchMoving = false;
-      const TOUCH_MOVE_THRESHOLD = 10; // pixels
+      const TOUCH_MOVE_THRESHOLD = 10;
 
       function handleTouchStart(event) {
-        // Only handle single touch (not multi-touch scroll/pinch)
         if (event.touches.length > 1) {
-          return; // Ignore multi-touch
+          return;
         }
         
         const touch = event.touches[0];
@@ -1379,7 +1376,7 @@
 
       function handleTouchMove(event) {
         if (event.touches.length > 1) {
-          return; // Multi-touch, allow scrolling
+          return;
         }
 
         const touch = event.touches[0];
@@ -1387,16 +1384,15 @@
         const moveY = Math.abs(touch.clientY - touchStartY);
 
         if (moveX > TOUCH_MOVE_THRESHOLD || moveY > TOUCH_MOVE_THRESHOLD) {
-          isTouchMoving = true; // User is scrolling, not tapping
+          isTouchMoving = true;
         }
       }
 
       function handleTouchEnd(event) {
         if (event.touches.length > 0) {
-          return; // Other touches still active
+          return;
         }
 
-        // Only record if it wasn't a scroll/drag
         if (!isTouchMoving) {
           const touch = event.changedTouches[0];
           recordPoint(touch.clientX, touch.clientY);
@@ -1410,7 +1406,6 @@
       canvas.addEventListener("touchmove", handleTouchMove, { passive: true });
       canvas.addEventListener("touchend", handleTouchEnd, { passive: true });
       
-      // Prevent default scroll/zoom behavior on canvas (only for wheel)
       canvas.addEventListener("wheel", (e) => {
         e.preventDefault();
       }, { passive: false });
@@ -1429,38 +1424,15 @@
       ctx.restore();
     }
 
-    function downloadFile(filename, mimeType, content) {
-      const blob = new Blob([content], { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-
-    function downloadAsJson() {
-      if (collectedPoints.length === 0) {
-        alert("No points recorded yet.");
-        return;
-      }
-      const participantId = participantInput.value.trim() || "unknown";
-      const filename = `body_map_${participantId}_${Date.now()}.json`;
-      downloadFile(filename, "application/json", JSON.stringify(collectedPoints, null, 2));
-    }
-
     function clearPoints() {
       if (confirm("Are you sure you want to delete ALL points?")) {
-        collectedPoints.length = 0;
+        appState.collectedPoints.length = 0;
         updatePointsList();
         setStatus("Cleared all points for this session.");
         figureConfigs.forEach(redrawFigure);
       }
     }
 
-    // document.getElementById("downloadJson").addEventListener("click", downloadAsJson);
     document.getElementById("clearPoints").addEventListener("click", clearPoints);
 
     // Initialize
@@ -1468,19 +1440,18 @@
     figureConfigs.forEach(setupFigure);
     setStatus("Ready. Click or tap to mark contact.");
 
-    // Save all session data and points, then reload
+    // Save all session data and points
     window.saveAllAndReload = async function(isRetry = false) {
       const btn = document.getElementById('saveAndSend');
 
-      if (!idIsValid || !nameIsValid) {
+      if (!appState.idIsValid || !appState.nameIsValid) {
         alert('Participant ID and Name must be valid before saving.');
         return;
       }
 
-      // Pre-save validation: ensure at least one point for each direction and questionnaire answered
-      const hasTouched = collectedPoints.some(p => p.direction === 'touched');
-      const hasTouchedBy = collectedPoints.some(p => p.direction === 'touched_by');
-      const unanswered = Object.entries(questionnaireResponses)
+      const hasTouched = appState.collectedPoints.some(p => p.direction === 'touched');
+      const hasTouchedBy = appState.collectedPoints.some(p => p.direction === 'touched_by');
+      const unanswered = Object.entries(appState.questionnaireResponses)
         .filter(([_, v]) => v === null)
         .map(([k]) => k.toUpperCase());
 
@@ -1502,35 +1473,28 @@
           btn.textContent = isRetry ? 'Retrying...' : 'Saving...';
         }
 
-        // Show clear status message
         setSyncStatus('syncing');
-        setStatus(`📤 ${isRetry ? 'Retrying' : 'Saving'} your data... (${collectedPoints.length} points + questionnaire)`);
+        setStatus(`📤 ${isRetry ? 'Retrying' : 'Saving'} your data... (${appState.collectedPoints.length} points + questionnaire)`);
 
         const key = getParticipantKey(participantInput.value.trim(), participantNameInput.value.trim());
 
-        // Session metadata
         const sessionData = {
           notes: notesTextarea.value,
-          confidence: sessionConfidence,
-          questionnaire: questionnaireResponses,
+          confidence: appState.sessionConfidence,
+          questionnaire: appState.questionnaireResponses,
           lastEdited: new Date().toISOString()
         };
 
-        // Save sessionData
         await db.ref(`data/${key}/sessionData`).set(sessionData);
-
-        // Save all collected points as a single node to ensure current state is stored
-        await db.ref(`data/${key}/sessionPoints`).set(collectedPoints);
+        await db.ref(`data/${key}/sessionPoints`).set(appState.collectedPoints);
 
         setSyncStatus('synced');
 
-        // Show clear success message
         setStatus('✅ All data saved successfully! Thank you for your participation.');
         if (btn) {
           btn.textContent = '✅ Saved!';
         }
 
-        // Show completion alert and reload after 2 seconds
         setTimeout(() => {
           alert('All data are saved. Thank you for your participation.');
           setSyncStatus(null);
@@ -1541,13 +1505,12 @@
         console.error('Error saving data:', error);
         setSyncStatus('error');
         
-        // Show clear error message with retry button
         setStatus(`❌ Save failed: ${error.message || 'Network error'}. Click "Retry" to try again.`);
         
         if (btn) {
           btn.disabled = false;
           btn.textContent = '⚠️ Retry';
-          btn.onclick = () => window.saveAllAndReload(true); // Enable retry
+          btn.onclick = () => window.saveAllAndReload(true);
         }
       }
     };
