@@ -763,6 +763,28 @@
 
     const appState = new AppState();
 
+    // ============ CUSTOM ERROR CLASSES ============
+    class DataLoadError extends Error {
+      constructor(message) {
+        super(message);
+        this.name = "DataLoadError";
+      }
+    }
+
+    class DataSaveError extends Error {
+      constructor(message) {
+        super(message);
+        this.name = "DataSaveError";
+      }
+    }
+
+    class ValidationError extends Error {
+      constructor(message) {
+        super(message);
+        this.name = "ValidationError";
+      }
+    }
+
     // ============ IMAGE CACHE ============
     const imageCache = {};
 
@@ -838,8 +860,10 @@
           appState.existingKeys = new Set();
         }
       } catch (error) {
-        console.error("Error loading existing keys:", error);
+        const dataLoadError = new DataLoadError(`Failed to load existing participant keys: ${error.message}`);
+        console.error(dataLoadError.name + ":", dataLoadError.message);
         appState.existingKeys = new Set();
+        // Continue gracefully - user can still add new data
       }
     }
 
@@ -919,7 +943,8 @@
           return true;
         }
       } catch (error) {
-        console.error("Error loading participant data:", error);
+        const dataLoadError = new DataLoadError(`Failed to load participant data for ${id}_${name}: ${error.message}`);
+        console.error(dataLoadError.name + ":", dataLoadError.message);
       }
       
       return false;
@@ -1151,6 +1176,8 @@
 
       if (!isValidNumericId(id)) {
         appState.idIsValid = false;
+        const validationError = new ValidationError("Participant ID must be numeric (digits only)");
+        console.warn(validationError.name + ":", validationError.message);
         idStatusEl.textContent = "❌ ID must be a number (digits only)";
         idStatusEl.className = "id-status id-invalid";
         return;
@@ -1483,6 +1510,8 @@
       const btn = document.getElementById('saveAndSend');
 
       if (!appState.idIsValid || !appState.nameIsValid) {
+        const validationError = new ValidationError('Participant ID and Name must be valid before saving');
+        console.error(validationError.name + ":", validationError.message);
         alert('Participant ID and Name must be valid before saving.');
         return;
       }
@@ -1499,6 +1528,8 @@
       if (unanswered.length) missing.push(`Unanswered questionnaire items: ${unanswered.join(', ')}`);
 
       if (missing.length) {
+        const validationError = new ValidationError(missing.join(' | '));
+        console.error(validationError.name + ":", validationError.message);
         alert(missing.join('\n') + '\n\nPlease complete before saving.');
         return;
       }
@@ -1540,10 +1571,11 @@
         }, 1000);
 
       } catch (error) {
-        console.error('Error saving data:', error);
+        const dataSaveError = new DataSaveError(`Failed to save data: ${error.message}`);
+        console.error(dataSaveError.name + ":", dataSaveError.message);
         setSyncStatus('error');
         
-        setStatus(`❌ Save failed: ${error.message || 'Network error'}. Click "Retry" to try again.`);
+        setStatus(`❌ Save failed: ${dataSaveError.message}. Click "Retry" to try again.`);
         
         if (btn) {
           btn.disabled = false;
