@@ -1,37 +1,6 @@
 # Physical Interaction Body Map Application
 
-A web-based interactive body mapping tool for recording and analyzing physical interactions. 
-
----
-
-## Features
-
-### Core Functionality
-- **Interactive Body Mapping** - Click/touch body figures to record interactions
-- **4 Body Views** - Front, back, left, and right views
-- **Directional Tracking** - "I touched" vs "I was touched" distinction
-- **Questionnaire Integration** - 4-question survey embedded in interface
-
-### Data Management
-- **Participant Sessions** - Create new or load existing sessions
-- **Persistent Storage** - Firebase Realtime Database integration
-- **Edit Window** - 1-hour edit period with countdown
-- **Session Notes** - Add participant notes with star confidence rating
-- **Data Validation** - Multi-level validation (ID, name, questionnaire, points)
-
-### User Experience
-- **Real-time Feedback** - Points appear immediately on figures
-- **Filter Views** - View all points, only "touched", or only "touched by"
-- **Touch Optimization** - Smart touch handling with scroll detection
-- **Responsive Design** - Works on desktop and mobile
-- **Error Handling** - Clear error messages with retry capability
-
-### Code Quality
-- **Modular Architecture** - Separation of concerns across 3 classes
-- **Custom Error Classes** - Proper error classification and handling
-- **Image Caching** - Eliminated redundant network requests
-- **Clean State Management** - All state centralized in SessionState
-- **Documented API** - Each method has clear purpose
+A web-based interactive body mapping tool for recording and analyzing physical interactions.
 
 ---
 
@@ -39,35 +8,94 @@ A web-based interactive body mapping tool for recording and analyzing physical i
 
 ### High-Level Architecture Diagram
 
+```mermaid
+flowchart TB
+    A["BodyMapApp<br/>Coordinator"]
+    
+    B["SessionState<br/>──────<br/>State Management<br/><br/>points, notes, confidence<br/>canEdit, addPoint<br/>removePoint, setMarkingMode<br/>+ 10 methods"]
+    
+    C["DataService<br/>──────<br/>Firebase & Validation<br/><br/>loadExistingIds<br/>loadExistingData<br/>saveSessionData<br/>keyAlreadyExists<br/>getParticipantKey<br/>isValidNumericId<br/>isValidName<br/><br/>+ Error Classes"]
+    
+    D["CanvasManager<br/>──────<br/>DOM & Canvas<br/><br/>preloadImages<br/>setupFigure<br/>recordPoint<br/>redrawFigure<br/>drawMarker<br/>redrawAllFigures<br/>getFilteredPoints"]
+    
+    A --> B
+    A --> C
+    A --> D
+    
+    style A fill:#2c3e50,color:#fff
+    style B fill:#3498db,color:#000
+    style C fill:#27ae60,color:#000
+    style D fill:#9b59b6,color:#fff
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    BodyMapApp                            │
-│            (Coordinating global functions)              │
-└─────────────────────────────────────────────────────────┘
-         ↓                ↓                 ↓
-    ┌──────────┐   ┌──────────────┐   ┌──────────────┐
-    │SessionState│   │ DataService  │   │CanvasManager │
-    │           │   │              │   │              │
-    │.points    │   │.loadExistingIds  │.preloadImages()
-    │.notes     │   │.loadExistingData │.setupFigure()
-    │.confidence│   │.saveSessionData  │.recordPoint()
-    │.canEdit   │   │.keyAlreadyExists │.redrawFigure()
-    │.addPoint()│   │.getParticipantKey│.drawMarker()
-    │.removePoint│  │.isValidNumericId │.redrawAllFigures()
-    │.setMarkingMode│.isValidName    │
-    │           │   │ + Error handling:│
-    │ + 10 helper   │ DataLoadError    │
-    │   methods │   │ DataSaveError    │
-    │           │   │ ValidationError  │
-    └──────────┘   └──────────────────┘   └──────────────┘
-       STATE            DATABASE              DOM/CANVAS
+
+### Data Flow Diagram
+
+```mermaid
+graph LR
+    User["👤 User<br/>(Browser)"]
+    Canvas["🎨 Canvas<br/>(HTML5)"]
+    Manager["CanvasManager<br/>(Drawing)"]
+    State["SessionState<br/>(State)"]
+    Service["DataService<br/>(Firebase)"]
+    DB["🔥 Firebase<br/>(Database)"]
+    
+    User -->|Click/Touch| Canvas
+    Canvas -->|Event| Manager
+    Manager -->|recordPoint| State
+    Manager -->|redraw| Canvas
+    State -->|on Change| Manager
+    State -->|Save| Service
+    Service -->|Read/Write| DB
+    Service -->|Validate| State
+    
+    style User fill:#f39c12,stroke:#e67e22,stroke-width:2px
+    style Canvas fill:#3498db,stroke:#2980b9,stroke-width:2px
+    style Manager fill:#9b59b6,stroke:#8e44ad,stroke-width:2px
+    style State fill:#3498db,stroke:#2980b9,stroke-width:2px
+    style Service fill:#27ae60,stroke:#229954,stroke-width:2px
+    style DB fill:#c0392b,stroke:#a93226,stroke-width:2px
+```
+
+### User Workflow Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant User as 👤 User
+    participant Canvas as 🎨 Canvas
+    participant Manager as CanvasManager
+    participant State as SessionState
+    participant Service as DataService
+    participant Firebase as 🔥 Firebase
+    
+    User->>Canvas: Enter ID & Name
+    Canvas->>Service: Validate ID/Name
+    Service->>Firebase: Load Existing Session
+    Firebase-->>Service: Session Data
+    Service->>State: Update State
+    State->>Canvas: Render Points
+    
+    User->>Canvas: Click Body Area
+    Canvas->>Manager: recordPoint(x, y)
+    Manager->>State: addPoint(point)
+    State->>Manager: onPointAdded
+    Manager->>Canvas: redrawFigure()
+    
+    User->>Canvas: Add Notes & Answers
+    Canvas->>State: setSessionData()
+    
+    User->>Canvas: Click Save
+    Canvas->>Service: saveSessionData()
+    Service->>Firebase: Write to Database
+    Firebase-->>Service: Success
+    Service-->>Canvas: Confirmation
+    Canvas->>User: Show Message
 ```
 
 ---
 
-## Core Components
+## Components Overview
 
-### 1. **SessionState** 
+### 1. **SessionState**
 Pure state management class for the user session.
 
 **Properties:**
@@ -184,43 +212,42 @@ Each provides:
 
 ---
 
+## Features
+
+### Core Functionality
+- **Interactive Body Mapping** - Click/touch body figures to record interactions
+- **4 Body Views** - Front, back, left, and right views
+- **Directional Tracking** - "I touched" vs "I was touched" distinction
+- **Questionnaire Integration** - 4-question survey embedded in interface
+
+### Data Management
+- **Participant Sessions** - Create new or load existing sessions
+- **Persistent Storage** - Firebase Realtime Database integration
+- **Edit Window** - 1-hour edit period with countdown
+- **Session Notes** - Add participant notes with star confidence rating
+- **Data Validation** - Multi-level validation (ID, name, questionnaire, points)
+
+### User Experience
+- **Real-time Feedback** - Points appear immediately on figures
+- **Filter Views** - View all points, only "touched", or only "touched by"
+- **Touch Optimization** - Smart touch handling with scroll detection
+- **Responsive Design** - Works on desktop and mobile
+- **Error Handling** - Clear error messages with retry capability
+
+### Code Quality
+- **Modular Architecture** - Separation of concerns across 3 classes
+- **Custom Error Classes** - Proper error classification and handling
+- **Image Caching** - Eliminated redundant network requests
+- **Clean State Management** - All state centralized in SessionState
+- **Documented API** - Each method has clear purpose
+
+---
 
 ## Technical Stack
 
 - **Frontend** - HTML5, CSS3, Vanilla JavaScript (ES6+)
 - **Canvas** - HTML5 Canvas API for drawing
 - **Database** - Firebase Realtime Database
-- **Architecture** - Class-based modular design
-- **Storage** - Normalized coordinates for responsive scaling
-
----
-
-## Getting Started
-
-### Prerequisites
-- Modern web browser (Chrome, Firefox, Safari, Edge)
-- Internet connection (Firebase database access)
-
-### Setup
-
-1. **Add Firebase SDK to HTML:**
-```html
-<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
-```
-
-2. **Configure Firebase:**
-Update `firebaseConfig` in index.html with your project credentials
-
-3. **Prepare Assets:**
-Ensure SVG files are available:
-- `front.svg`
-- `back.svg`
-- `left.svg`
-- `right.svg`
-
-4. **Open in Browser:**
-Simply open `index.html` in a web browser
 
 ---
 
@@ -363,6 +390,28 @@ canvasManager.getFilteredPoints()
 
 ---
 
+## Performance Optimizations
+
+1. **Image Caching** - SVG images loaded once at startup, reused for all redraws
+2. **Normalized Coordinates** - Points stored as 0-1 coordinates, responsive to canvas size
+3. **Touch Optimization** - Move threshold prevents accidental points while scrolling
+4. **Event Delegation** - Minimal event listeners per canvas
+5. **Efficient Redraws** - Only affected figures redrawn on changes
+
+---
+
+## Browser Compatibility
+
+| Browser | Support |
+|---------|---------|
+| Chrome  | ✅ Full |
+| Firefox | ✅ Full |
+| Safari  | ✅ Full |
+| Edge    | ✅ Full |
+| Mobile Safari (iOS) | ✅ Full |
+| Chrome Mobile | ✅ Full |
+
+---
 
 ## Development Notes
 
@@ -372,6 +421,15 @@ Add to `DataService.isValid*()` methods:
 isValidCustomField(value) {
   return value && value.length > 0;
 }
+```
+
+### Customizing Colors
+Update `directionColors` object:
+```javascript
+const directionColors = {
+  touched: "#3498db",        // Your color here
+  touched_by: "#e74c3c"
+};
 ```
 
 ### Extending Questionnaire
@@ -385,6 +443,7 @@ Change constant at top of code:
 ```javascript
 const EDIT_TIME_LIMIT = 60 * 60 * 1000; // milliseconds
 ```
+
 
 ---
 
