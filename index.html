@@ -712,7 +712,6 @@
         this.nameIsValid = false;
         
         // Session tracking
-        this.existingKeys = new Set();
         this.isExistingSession = false;
         this.firstEntryTimestamp = null;
         this.canEdit = true;
@@ -849,7 +848,7 @@
     // ============ DATA SERVICE CLASS ============
     class DataService {
       constructor() {
-        // Placeholder for future Firebase reference
+        this.existingKeys = new Set();
       }
 
       // Validate participant ID (must be numeric)
@@ -860,6 +859,17 @@
       // Validate participant name
       isValidName(name) {
         return name && name.trim().length > 0;
+      }
+
+      // Generate participant key from ID and name
+      getParticipantKey(id, name) {
+        return `${id}_${name.toLowerCase()}`;
+      }
+
+      // Check if participant key already exists
+      keyAlreadyExists(id, name) {
+        const key = this.getParticipantKey(id, name);
+        return this.existingKeys.has(key);
       }
     }
 
@@ -933,16 +943,16 @@
       try {
         const snapshot = await db.ref("data").once("value");
         if (snapshot.exists()) {
-          appState.existingKeys = new Set(Object.keys(snapshot.val()));
-          console.log("Loaded existing keys:", appState.existingKeys);
+          dataService.existingKeys = new Set(Object.keys(snapshot.val()));
+          console.log("Loaded existing keys:", dataService.existingKeys);
         } else {
           console.log("Database is empty - ready for new sessions");
-          appState.existingKeys = new Set();
+          dataService.existingKeys = new Set();
         }
       } catch (error) {
         const dataLoadError = new DataLoadError(`Failed to load existing participant keys: ${error.message}`);
         console.error(dataLoadError.name + ":", dataLoadError.message);
-        appState.existingKeys = new Set();
+        dataService.existingKeys = new Set();
         // Continue gracefully - user can still add new data
       }
     }
@@ -960,13 +970,12 @@
     }
 
     function keyAlreadyExists(id, name) {
-      const key = getParticipantKey(id, name);
-      return appState.existingKeys.has(key);
+      return dataService.keyAlreadyExists(id, name);
     }
 
     async function loadExistingParticipantData(id, name) {
       try {
-        const key = getParticipantKey(id, name);
+        const key = dataService.getParticipantKey(id, name);
         const snapshot = await db.ref(`data/${key}`).once("value");
         
         if (snapshot.exists()) {
@@ -1621,7 +1630,7 @@
         setSyncStatus('syncing');
         setStatus(`📤 ${isRetry ? 'Retrying' : 'Saving'} your data... (${appState.getPointsCount()} points + questionnaire)`);
 
-        const key = getParticipantKey(participantInput.value.trim(), participantNameInput.value.trim());
+        const key = dataService.getParticipantKey(participantInput.value.trim(), participantNameInput.value.trim());
 
         const sessionData = {
           notes: notesTextarea.value,
