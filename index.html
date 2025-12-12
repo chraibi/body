@@ -847,7 +847,8 @@
 
     // ============ DATA SERVICE CLASS ============
     class DataService {
-      constructor() {
+      constructor(firebaseDb) {
+        this.db = firebaseDb;
         this.existingKeys = new Set();
       }
 
@@ -871,6 +872,25 @@
         const key = this.getParticipantKey(id, name);
         return this.existingKeys.has(key);
       }
+
+      // Load all existing participant keys from Firebase
+      async loadExistingIds() {
+        try {
+          const snapshot = await this.db.ref("data").once("value");
+          if (snapshot.exists()) {
+            this.existingKeys = new Set(Object.keys(snapshot.val()));
+            console.log("Loaded existing keys:", this.existingKeys);
+          } else {
+            console.log("Database is empty - ready for new sessions");
+            this.existingKeys = new Set();
+          }
+        } catch (error) {
+          const dataLoadError = new DataLoadError(`Failed to load existing participant keys: ${error.message}`);
+          console.error(dataLoadError.name + ":", dataLoadError.message);
+          this.existingKeys = new Set();
+          // Continue gracefully - user can still add new data
+        }
+      }
     }
 
     // ============ IMAGE CACHE ============
@@ -890,7 +910,7 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-    const dataService = new DataService();
+    const dataService = new DataService(db);
 
     // ============ COLOR MAPPING ============
     const directionColors = {
@@ -940,21 +960,7 @@
     // Load existing IDs from Firebase on startup
     // Load existing IDs from Firebase on startup
     async function loadExistingIds() {
-      try {
-        const snapshot = await db.ref("data").once("value");
-        if (snapshot.exists()) {
-          dataService.existingKeys = new Set(Object.keys(snapshot.val()));
-          console.log("Loaded existing keys:", dataService.existingKeys);
-        } else {
-          console.log("Database is empty - ready for new sessions");
-          dataService.existingKeys = new Set();
-        }
-      } catch (error) {
-        const dataLoadError = new DataLoadError(`Failed to load existing participant keys: ${error.message}`);
-        console.error(dataLoadError.name + ":", dataLoadError.message);
-        dataService.existingKeys = new Set();
-        // Continue gracefully - user can still add new data
-      }
+      return await dataService.loadExistingIds();
     }
 
     function getParticipantKey(id, name) {
