@@ -956,8 +956,211 @@
       }
     }
 
-    // ============ IMAGE CACHE ============
-    const imageCache = {};
+    // ============ CANVAS MANAGER CLASS ============
+    class CanvasManager {
+      constructor(figureConfigs, directionColors, appState) {
+        this.figureConfigs = figureConfigs;
+        this.directionColors = directionColors;
+        this.appState = appState;
+        this.imageCache = {};
+        this.canvases = {};
+        this.contexts = {};
+      }
+
+      // Preload all SVG images into cache
+      async preloadImages() {
+        return new Promise((resolve) => {
+          let loadedCount = 0;
+          const totalImages = this.figureConfigs.length;
+          
+          this.figureConfigs.forEach((figureConfig) => {
+            const img = new Image();
+            img.onload = () => {
+              this.imageCache[figureConfig.id] = img;
+              loadedCount++;
+              if (loadedCount === totalImages) resolve();
+            };
+            img.src = figureConfig.imageSrc;
+          });
+        });
+      }
+
+      // Setup canvas and event listeners for a figure
+      setupFigure(figureConfig) {
+        const canvas = document.getElementById(figureConfig.canvasId);
+        if (!canvas) return;
+
+        this.canvases[figureConfig.id] = canvas;
+        const ctx = canvas.getContext("2d");
+        this.contexts[figureConfig.id] = ctx;
+
+        // Draw initial figure
+        this.redrawFigure(figureConfig);
+
+        // Touch event handling with move detection
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let isTouchMoving = false;
+        const TOUCH_MOVE_THRESHOLD = 10;
+
+        const handleClick = (event) => {
+          const rect = canvas.getBoundingClientRect();
+          const x = event.clientX - rect.left;
+          const y = event.clientY - rect.top;
+          this.recordPoint(figureConfig.id, x, y);
+        };
+
+        const handleTouchStart = (event) => {
+          if (event.touches.length > 1) return;
+          const touch = event.touches[0];
+          touchStartX = touch.clientX;
+          touchStartY = touch.clientY;
+          isTouchMoving = false;
+        };
+
+        const handleTouchMove = (event) => {
+          if (event.touches.length > 1) return;
+          const touch = event.touches[0];
+          const moveX = Math.abs(touch.clientX - touchStartX);
+          const moveY = Math.abs(touch.clientY - touchStartY);
+          if (moveX > TOUCH_MOVE_THRESHOLD || moveY > TOUCH_MOVE_THRESHOLD) {
+            isTouchMoving = true;
+          }
+        };
+
+        const handleTouchEnd = (event) => {
+          if (event.touches.length > 0) return;
+          if (!isTouchMoving) {
+            const rect = canvas.getBoundingClientRect();
+            const touch = event.changedTouches[0];
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            this.recordPoint(figureConfig.id, x, y);
+          }
+          isTouchMoving = false;
+        };
+
+        canvas.addEventListener("click", handleClick);
+        canvas.addEventListener("touchstart", handleTouchStart, { passive: true });
+        canvas.addEventListener("touchmove", handleTouchMove, { passive: true });
+        canvas.addEventListener("touchend", handleTouchEnd, { passive: true });
+        
+        canvas.addEventListener("wheel", (e) => {
+          e.preventDefault();
+        }, { passive: false });
+      }
+
+      // Record a point on the figure
+      recordPoint(figureId, x, y) {
+        if (!appState.idIsValid || !appState.nameIsValid) {
+          setStatus("❌ Participant ID and Name are required to record points.");
+          return;
+        }
+
+        if (appState.markingMode === "view_all") {
+          setStatus("⚠️ Viewing mode. Switch to 'Mark' mode to record points.");
+          return;
+        }
+
+        if (appState.isExistingSession && !appState.canEdit) {
+          setStatus("❌ Edit time limit expired. Cannot record new points.");
+          return;
+        }
+
+        // Get canvas to normalize coordinates
+        const canvas = this.canvases[figureId];
+        if (!canvas) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const xNorm = x / rect.width;
+        const yNorm = y / rect.height;
+
+        // Validate bounds
+        if (xNorm < 0 || xNorm > 1 || yNorm < 0 || yNorm > 1) {
+          console.log("Click outside canvas bounds");
+          return;
+        }
+
+        // Determine direction based on marking mode
+        const direction = appState.currentDirection || "touched_by";
+
+        const point = {
+          participantId: participantInput.value.trim(),
+          participantName: participantNameInput.value.trim(),
+          figure: figureId,
+          direction: direction,
+          xNorm: xNorm,
+          yNorm: yNorm,
+          timestamp: new Date().toISOString()
+        };
+
+        savePoint(point);
+        this.redrawFigure(this.figureConfigs.find(f => f.id === figureId));
+      }
+
+      // Get points filtered by current display filter
+      getFilteredPoints() {
+        if (appState.displayFilter === "all") {
+          return appState.collectedPoints;
+        } else if (appState.displayFilter === "touched") {
+          return appState.collectedPoints.filter(point => point.direction === "touched");
+        } else if (appState.displayFilter === "touched_by") {
+          return appState.collectedPoints.filter(point => point.direction === "touched_by");
+        }
+        return appState.collectedPoints;
+      }
+
+      // Redraw a single figure with current points
+      redrawFigure(figureConfig) {
+        const canvas = this.canvases[figureConfig.id];
+        const ctx = this.contexts[figureConfig.id];
+        
+        if (!canvas || !ctx) return;
+
+        // Draw background image
+        const img = this.imageCache[figureConfig.id];
+        if (!img) {
+          console.warn(`Image not loaded for ${figureConfig.id}`);
+          return;
+        }
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        // Draw points
+        const filteredPoints = this.getFilteredPoints();
+        filteredPoints.forEach(point => {
+          if (point.figure === figureConfig.id) {
+            const xPx = (point.xNorm || point.x) * canvas.width;
+            const yPx = (point.yNorm || point.y) * canvas.height;
+            this.drawMarker(ctx, xPx, yPx, point.direction);
+          }
+        });
+      }
+
+      // Draw a marker (dot) for a point
+      drawMarker(ctx, x, y, direction) {
+        const radius = 6;
+        const color = this.directionColors[direction] || "#999";
+
+        ctx.save();
+        ctx.fillStyle = color;
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Redraw all figures
+      redrawAllFigures() {
+        this.figureConfigs.forEach(figureConfig => {
+          this.redrawFigure(figureConfig);
+        });
+      }
+    }
 
     // Firebase config
     const firebaseConfig = {
@@ -988,6 +1191,9 @@
       { id: "left",  canvasId: "figure_left",  imageSrc: "left.svg"  },
       { id: "right", canvasId: "figure_right", imageSrc: "right.svg" },
     ];
+
+    // Initialize CanvasManager
+    const canvasManager = new CanvasManager(figureConfigs, directionColors, appState);
 
     // DOM Elements (not state)
     const statusEl = document.getElementById("status");
@@ -1263,47 +1469,8 @@
       });
     });
 
-    function getFilteredPoints() {
-      if (appState.displayFilter === "all") {
-        return appState.collectedPoints;
-      } else if (appState.displayFilter === "touched") {
-        return appState.collectedPoints.filter(point => point.direction === "touched");
-      } else if (appState.displayFilter === "touched_by") {
-        return appState.collectedPoints.filter(point => point.direction === "touched_by");
-      }
-      return appState.collectedPoints;
-    }
-
     function redrawAllFigures() {
-      figureConfigs.forEach(redrawFigure);
-    }
-
-    // ============ IMAGE PRELOADING ============
-    async function preloadImages() {
-      return new Promise((resolve) => {
-        let loadedCount = 0;
-        const totalImages = figureConfigs.length;
-
-        figureConfigs.forEach((figureConfig) => {
-          const img = new Image();
-          img.onload = () => {
-            imageCache[figureConfig.id] = img;
-            loadedCount++;
-            if (loadedCount === totalImages) {
-              console.log("All images preloaded successfully");
-              resolve();
-            }
-          };
-          img.onerror = () => {
-            console.error(`Failed to load image: ${figureConfig.imageSrc}`);
-            loadedCount++;
-            if (loadedCount === totalImages) {
-              resolve();
-            }
-          };
-          img.src = figureConfig.imageSrc;
-        });
-      });
+      canvasManager.redrawAllFigures();
     }
 
     async function updateIdStatus() {
@@ -1463,168 +1630,7 @@
       updatePointsList();
       setStatus(`Deleted point. Total: ${appState.getPointsCount()}`);
       
-      figureConfigs.forEach(redrawFigure);
-    }
-
-    function redrawFigure(figureConfig) {
-      const canvas = document.getElementById(figureConfig.canvasId);
-      const ctx = canvas.getContext("2d");
-      
-      // Use cached image instead of reloading from network
-      const img = imageCache[figureConfig.id];
-      
-      if (!img) {
-        console.warn(`Image not cached for ${figureConfig.id}`);
-        return;
-      }
-      
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      
-      const filteredPoints = getFilteredPoints();
-      for (const point of filteredPoints) {
-        if (point.figure === figureConfig.id) {
-          drawMarker(
-            ctx,
-            point.xNorm * canvas.width,
-            point.yNorm * canvas.height,
-            directionColors[point.direction]
-          );
-        }
-      }
-    }
-
-    function setupFigure(figureConfig) {
-      const canvas = document.getElementById(figureConfig.canvasId);
-      const ctx = canvas.getContext("2d");
-      
-      // Draw initial image from cache
-      const img = imageCache[figureConfig.id];
-      if (img) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      }
-
-      function recordPoint(clientX, clientY) {
-        if (!appState.idIsValid || !appState.nameIsValid) {
-          console.warn("Invalid ID or name:", { idIsValid: appState.idIsValid, nameIsValid: appState.nameIsValid });
-          setStatus("❌ Invalid ID or name. Cannot record points.");
-          return;
-        }
-
-        if (appState.markingMode === "view_all") {
-          setStatus("⚠️ Viewing mode. Switch to 'Mark' mode to record points.");
-          return;
-        }
-
-        if (appState.isExistingSession && !appState.canEdit) {
-          setStatus("❌ Edit time limit expired (1 hour). Cannot add more points.");
-          return;
-        }
-
-        const rect = canvas.getBoundingClientRect();
-        const xPx = clientX - rect.left;
-        const yPx = clientY - rect.top;
-
-        if (xPx < 0 || xPx > rect.width || yPx < 0 || yPx > rect.height) {
-          console.log("Click outside canvas bounds");
-          return;
-        }
-
-        const xNorm = xPx / rect.width;
-        const yNorm = yPx / rect.height;
-
-        const direction = appState.currentDirection;
-        
-        console.log("Recording point:", { 
-          figure: figureConfig.id, 
-          direction, 
-          xNorm: xNorm.toFixed(2), 
-          yNorm: yNorm.toFixed(2) 
-        });
-
-        const point = {
-          participantId: participantInput.value.trim(),
-          participantName: participantNameInput.value.trim(),
-          figure: figureConfig.id,
-          direction: direction,
-          xNorm: xNorm,
-          yNorm: yNorm,
-          timestamp: new Date().toISOString()
-        };
-
-        savePoint(point);
-        redrawFigure(figureConfig);
-      }
-
-      function handleClick(event) {
-        recordPoint(event.clientX, event.clientY);
-      }
-
-      let touchStartX = 0;
-      let touchStartY = 0;
-      let isTouchMoving = false;
-      const TOUCH_MOVE_THRESHOLD = 10;
-
-      function handleTouchStart(event) {
-        if (event.touches.length > 1) {
-          return;
-        }
-        
-        const touch = event.touches[0];
-        touchStartX = touch.clientX;
-        touchStartY = touch.clientY;
-        isTouchMoving = false;
-      }
-
-      function handleTouchMove(event) {
-        if (event.touches.length > 1) {
-          return;
-        }
-
-        const touch = event.touches[0];
-        const moveX = Math.abs(touch.clientX - touchStartX);
-        const moveY = Math.abs(touch.clientY - touchStartY);
-
-        if (moveX > TOUCH_MOVE_THRESHOLD || moveY > TOUCH_MOVE_THRESHOLD) {
-          isTouchMoving = true;
-        }
-      }
-
-      function handleTouchEnd(event) {
-        if (event.touches.length > 0) {
-          return;
-        }
-
-        if (!isTouchMoving) {
-          const touch = event.changedTouches[0];
-          recordPoint(touch.clientX, touch.clientY);
-        }
-
-        isTouchMoving = false;
-      }
-
-      canvas.addEventListener("click", handleClick);
-      canvas.addEventListener("touchstart", handleTouchStart, { passive: true });
-      canvas.addEventListener("touchmove", handleTouchMove, { passive: true });
-      canvas.addEventListener("touchend", handleTouchEnd, { passive: true });
-      
-      canvas.addEventListener("wheel", (e) => {
-        e.preventDefault();
-      }, { passive: false });
-    }
-
-    function drawMarker(ctx, x, y, color) {
-      const radius = 5;
-      ctx.save();
-      ctx.fillStyle = color;
-      ctx.strokeStyle = "black";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(x, y, radius, 0, 2 * Math.PI);
-      ctx.fill();
-      ctx.stroke();
-      ctx.restore();
+      canvasManager.redrawAllFigures();
     }
 
     function clearPoints() {
@@ -1632,7 +1638,7 @@
         appState.clearAllPoints();
         updatePointsList();
         setStatus("Cleared all points for this session.");
-        figureConfigs.forEach(redrawFigure);
+        canvasManager.redrawAllFigures();
       }
     }
 
@@ -1640,9 +1646,9 @@
 
     // Initialize
     (async () => {
-      await preloadImages();
+      await canvasManager.preloadImages();
       await loadExistingIds();
-      figureConfigs.forEach(setupFigure);
+      figureConfigs.forEach(figureConfig => canvasManager.setupFigure(figureConfig));
       setStatus("Ready. Click or tap to mark contact.");
     })();
 
