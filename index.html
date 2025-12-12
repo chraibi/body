@@ -701,8 +701,8 @@
   <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-database-compat.js"></script>
 
   <script>
-    // ============ APP STATE CLASS ============
-    class AppState {
+    // ============ SESSION STATE CLASS ============
+    class SessionState {
       constructor() {
         // Point collection
         this.collectedPoints = [];
@@ -736,6 +736,67 @@
         this.displayFilter = "touched_by";
       }
       
+      // Add point to collection (newest first)
+      addPoint(point) {
+        this.collectedPoints.unshift(point);
+      }
+      
+      // Remove point by index
+      removePoint(index) {
+        this.collectedPoints.splice(index, 1);
+      }
+      
+      // Clear all points
+      clearAllPoints() {
+        this.collectedPoints.length = 0;
+      }
+      
+      // Check if session has any points of a specific direction
+      hasPointsInDirection(direction) {
+        return this.collectedPoints.some(p => p.direction === direction);
+      }
+      
+      // Get total points count
+      getPointsCount() {
+        return this.collectedPoints.length;
+      }
+      
+      // Set session notes and update confidence
+      setSessionData(notes, confidence) {
+        this.sessionNotes = notes;
+        this.sessionConfidence = confidence;
+      }
+      
+      // Set a questionnaire response
+      setQuestionnaireResponse(questionKey, value) {
+        if (this.questionnaireResponses.hasOwnProperty(questionKey)) {
+          this.questionnaireResponses[questionKey] = value;
+        }
+      }
+      
+      // Get all unanswered questionnaire items
+      getUnansweredItems() {
+        return Object.entries(this.questionnaireResponses)
+          .filter(([_, v]) => v === null)
+          .map(([k]) => k);
+      }
+      
+      // Set marking mode and update display accordingly
+      setMarkingMode(mode) {
+        this.markingMode = mode;
+        
+        if (mode === "mark_touched_by") {
+          this.currentDirection = "touched_by";
+          this.displayFilter = "touched_by";
+        } else if (mode === "mark_touched") {
+          this.currentDirection = "touched";
+          this.displayFilter = "touched";
+        } else if (mode === "view_all") {
+          this.displayFilter = "all";
+        }
+      }
+      
+      // Reset entire session state
       reset() {
         this.collectedPoints = [];
         this.idIsValid = false;
@@ -753,7 +814,7 @@
         };
         this.markingMode = "mark_touched_by";
         this.currentDirection = "touched_by";
-        this.displayFilter = "mark_touched_by";
+        this.displayFilter = "touched_by";
         if (this.editStatusTimer) {
           clearInterval(this.editStatusTimer);
           this.editStatusTimer = null;
@@ -761,7 +822,7 @@
       }
     }
 
-    const appState = new AppState();
+    const appState = new SessionState();
 
     // ============ CUSTOM ERROR CLASSES ============
     class DataLoadError extends Error {
@@ -785,6 +846,18 @@
       }
     }
 
+    // ============ DATA SERVICE CLASS ============
+    class DataService {
+      constructor() {
+        // Placeholder for future Firebase reference
+      }
+
+      // Validate participant ID (must be numeric)
+      isValidNumericId(id) {
+        return id && /^\d+$/.test(id);
+      }
+    }
+
     // ============ IMAGE CACHE ============
     const imageCache = {};
 
@@ -802,6 +875,7 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
+    const dataService = new DataService();
 
     // ============ COLOR MAPPING ============
     const directionColors = {
@@ -848,6 +922,7 @@
 
     // Firebase and State helpers
 
+    // Load existing IDs from Firebase on startup
     // Load existing IDs from Firebase on startup
     async function loadExistingIds() {
       try {
@@ -1116,7 +1191,7 @@
       radios.forEach(radio => {
         radio.addEventListener("change", (e) => {
           if (appState.isExistingSession && !appState.canEdit) return;
-          appState.questionnaireResponses[key] = parseInt(e.target.value);
+          appState.setQuestionnaireResponse(key, parseInt(e.target.value));
         });
       });
     });
@@ -1174,7 +1249,7 @@
         return;
       }
 
-      if (!isValidNumericId(id)) {
+      if (!dataService.isValidNumericId(id)) {
         appState.idIsValid = false;
         const validationError = new ValidationError("Participant ID must be numeric (digits only)");
         console.warn(validationError.name + ":", validationError.message);
@@ -1239,17 +1314,7 @@
 
     markingModeRadios.forEach(radio => {
       radio.addEventListener("change", (e) => {
-        appState.markingMode = e.target.value;
-        
-        if (appState.markingMode === "mark_touched_by") {
-          appState.currentDirection = "touched_by";
-          appState.displayFilter = "touched_by";
-        } else if (appState.markingMode === "mark_touched") {
-          appState.currentDirection = "touched";
-          appState.displayFilter = "touched";
-        } else if (appState.markingMode === "view_all") {
-          appState.displayFilter = "all";
-        }
+        appState.setMarkingMode(e.target.value);
         
         updatePointsList();
         redrawAllFigures();
@@ -1269,16 +1334,16 @@
     }
 
     function savePoint(point) {
-      appState.collectedPoints.unshift(point);
+      appState.addPoint(point);
       updatePointsList();
       const directionLabel = point.direction === "touched_by" ? "was touched" : "touched";
       setStatus(
-        `Recorded: ${point.figure} (${directionLabel}). Total: ${appState.collectedPoints.length}`
+        `Recorded: ${point.figure} (${directionLabel}). Total: ${appState.getPointsCount()}`
       );
     }
 
     function updatePointsList() {
-      if (appState.collectedPoints.length === 0) {
+      if (appState.getPointsCount() === 0) {
         pointsListEl.innerHTML = '<div class="empty-list">No points recorded yet</div>';
         return;
       }
@@ -1318,9 +1383,9 @@
         return;
       }
 
-      appState.collectedPoints.splice(index, 1);
+      appState.removePoint(index);
       updatePointsList();
-      setStatus(`Deleted point. Total: ${appState.collectedPoints.length}`);
+      setStatus(`Deleted point. Total: ${appState.getPointsCount()}`);
       
       figureConfigs.forEach(redrawFigure);
     }
@@ -1488,7 +1553,7 @@
 
     function clearPoints() {
       if (confirm("Are you sure you want to delete ALL points?")) {
-        appState.collectedPoints.length = 0;
+        appState.clearAllPoints();
         updatePointsList();
         setStatus("Cleared all points for this session.");
         figureConfigs.forEach(redrawFigure);
@@ -1500,7 +1565,7 @@
     // Initialize
     (async () => {
       await preloadImages();
-      loadExistingIds();
+      await loadExistingIds();
       figureConfigs.forEach(setupFigure);
       setStatus("Ready. Click or tap to mark contact.");
     })();
@@ -1516,17 +1581,14 @@
         return;
       }
 
-      const hasTouched = appState.collectedPoints.some(p => p.direction === 'touched');
-      const hasTouchedBy = appState.collectedPoints.some(p => p.direction === 'touched_by');
-      const unanswered = Object.entries(appState.questionnaireResponses)
-        .filter(([_, v]) => v === null)
-        .map(([k]) => k.toUpperCase());
+      const hasTouched = appState.hasPointsInDirection('touched');
+      const hasTouchedBy = appState.hasPointsInDirection('touched_by');
+      const unanswered = appState.getUnansweredItems().map(k => k.toUpperCase());
 
       const missing = [];
       if (!hasTouched) missing.push('No points recorded for "I touched".');
       if (!hasTouchedBy) missing.push('No points recorded for "I was touched".');
       if (unanswered.length) missing.push(`Unanswered questionnaire items: ${unanswered.join(', ')}`);
-
       if (missing.length) {
         const validationError = new ValidationError(missing.join(' | '));
         console.error(validationError.name + ":", validationError.message);
@@ -1543,7 +1605,7 @@
         }
 
         setSyncStatus('syncing');
-        setStatus(`📤 ${isRetry ? 'Retrying' : 'Saving'} your data... (${appState.collectedPoints.length} points + questionnaire)`);
+        setStatus(`📤 ${isRetry ? 'Retrying' : 'Saving'} your data... (${appState.getPointsCount()} points + questionnaire)`);
 
         const key = getParticipantKey(participantInput.value.trim(), participantNameInput.value.trim());
 
