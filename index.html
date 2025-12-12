@@ -891,6 +891,44 @@
           // Continue gracefully - user can still add new data
         }
       }
+
+      // Load existing participant session data from Firebase
+      async loadExistingParticipantData(id, name) {
+        try {
+          const key = this.getParticipantKey(id, name);
+          const snapshot = await this.db.ref(`data/${key}`).once("value");
+          
+          if (snapshot.exists()) {
+            const data = snapshot.val();
+            
+            const points = Array.isArray(data.sessionPoints) ? data.sessionPoints : [];
+            let earliestTimestamp = null;
+
+            if (points.length > 0) {
+              const sortedByTime = [...points].sort((a, b) => {
+                const timeA = new Date(a.timestamp).getTime();
+                const timeB = new Date(b.timestamp).getTime();
+                return timeA - timeB;
+              });
+              earliestTimestamp = new Date(sortedByTime[0].timestamp).getTime();
+            }
+
+            // Return parsed data object (doesn't update state)
+            return {
+              exists: true,
+              points: points,
+              earliestTimestamp: earliestTimestamp,
+              sessionData: data.sessionData || null
+            };
+          }
+
+          return { exists: false };
+        } catch (error) {
+          const dataLoadError = new DataLoadError(`Failed to load participant data for ${id}_${name}: ${error.message}`);
+          console.error(dataLoadError.name + ":", dataLoadError.message);
+          throw dataLoadError;
+        }
+      }
     }
 
     // ============ IMAGE CACHE ============
@@ -981,27 +1019,12 @@
 
     async function loadExistingParticipantData(id, name) {
       try {
-        const key = dataService.getParticipantKey(id, name);
-        const snapshot = await db.ref(`data/${key}`).once("value");
+        const result = await dataService.loadExistingParticipantData(id, name);
         
-        if (snapshot.exists()) {
-          const data = snapshot.val();
-          
-          const points = Array.isArray(data.sessionPoints) ? data.sessionPoints : [];
-          let earliestTimestamp = null;
-
-          if (points.length > 0) {
-            const sortedByTime = [...points].sort((a, b) => {
-              const timeA = new Date(a.timestamp).getTime();
-              const timeB = new Date(b.timestamp).getTime();
-              return timeA - timeB;
-            });
-            earliestTimestamp = new Date(sortedByTime[0].timestamp).getTime();
-          }
-
+        if (result.exists) {
           appState.isExistingSession = true;
-          appState.firstEntryTimestamp = earliestTimestamp;
-          appState.collectedPoints = points;
+          appState.firstEntryTimestamp = result.earliestTimestamp;
+          appState.collectedPoints = result.points;
           
           const now = Date.now();
           if (appState.firstEntryTimestamp !== null) {
@@ -1014,10 +1037,10 @@
           updatePointsList();
           redrawAllFigures();
           
-          if (data.sessionData) {
-            appState.sessionNotes = data.sessionData.notes || "";
-            appState.sessionConfidence = data.sessionData.confidence || 0;
-            appState.questionnaireResponses = data.sessionData.questionnaire || {
+          if (result.sessionData) {
+            appState.sessionNotes = result.sessionData.notes || "";
+            appState.sessionConfidence = result.sessionData.confidence || 0;
+            appState.questionnaireResponses = result.sessionData.questionnaire || {
               q1: null,
               q2: null,
               q3: null,
@@ -1038,8 +1061,7 @@
           return true;
         }
       } catch (error) {
-        const dataLoadError = new DataLoadError(`Failed to load participant data for ${id}_${name}: ${error.message}`);
-        console.error(dataLoadError.name + ":", dataLoadError.message);
+        console.error("Error loading participant data:", error);
       }
       
       return false;
