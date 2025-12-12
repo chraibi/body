@@ -929,6 +929,31 @@
           throw dataLoadError;
         }
       }
+
+      // Save session data and points to Firebase
+      async saveSessionData(id, name, notes, confidence, questionnaire, collectedPoints) {
+        try {
+          const key = this.getParticipantKey(id, name);
+
+          const sessionData = {
+            notes: notes || "",
+            confidence: confidence || 0,
+            questionnaire: questionnaire || {},
+            lastEdited: new Date().toISOString()
+          };
+
+          // Save in batch
+          await this.db.ref(`data/${key}/sessionData`).set(sessionData);
+          await this.db.ref(`data/${key}/sessionPoints`).set(collectedPoints);
+
+          console.log(`Successfully saved data for participant ${key}`);
+          return true;
+        } catch (error) {
+          const dataSaveError = new DataSaveError(`Failed to save data: ${error.message}`);
+          console.error(dataSaveError.name + ":", dataSaveError.message);
+          throw dataSaveError;
+        }
+      }
     }
 
     // ============ IMAGE CACHE ============
@@ -1658,17 +1683,17 @@
         setSyncStatus('syncing');
         setStatus(`📤 ${isRetry ? 'Retrying' : 'Saving'} your data... (${appState.getPointsCount()} points + questionnaire)`);
 
-        const key = dataService.getParticipantKey(participantInput.value.trim(), participantNameInput.value.trim());
+        const id = participantInput.value.trim();
+        const name = participantNameInput.value.trim();
 
-        const sessionData = {
-          notes: notesTextarea.value,
-          confidence: appState.sessionConfidence,
-          questionnaire: appState.questionnaireResponses,
-          lastEdited: new Date().toISOString()
-        };
-
-        await db.ref(`data/${key}/sessionData`).set(sessionData);
-        await db.ref(`data/${key}/sessionPoints`).set(appState.collectedPoints);
+        await dataService.saveSessionData(
+          id,
+          name,
+          notesTextarea.value,
+          appState.sessionConfidence,
+          appState.questionnaireResponses,
+          appState.collectedPoints
+        );
 
         setSyncStatus('synced');
 
