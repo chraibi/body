@@ -856,6 +856,11 @@
       isValidNumericId(id) {
         return id && /^\d+$/.test(id);
       }
+
+      // Validate participant name
+      isValidName(name) {
+        return name && name.trim().length > 0;
+      }
     }
 
     // ============ IMAGE CACHE ============
@@ -1272,6 +1277,15 @@
         appState.nameIsValid = false;
         nameStatusEl.textContent = "";
         nameStatusEl.className = "id-status";
+        return;
+      }
+
+      if (!dataService.isValidName(name)) {
+        appState.nameIsValid = false;
+        const validationError = new ValidationError("Participant name must not be empty");
+        console.warn(validationError.name + ":", validationError.message);
+        nameStatusEl.textContent = "❌ Name must not be empty";
+        nameStatusEl.className = "id-status id-invalid";
         return;
       }
 
