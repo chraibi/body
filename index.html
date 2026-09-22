@@ -5,6 +5,10 @@
   <title>Physical Interaction Body Map</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
     body {
       font-family: system-ui, sans-serif;
       margin: 0;
@@ -15,6 +19,59 @@
     h1 {
       font-size: 1.3rem;
       margin-bottom: 0.5rem;
+    }
+
+    h3 {
+      margin-top: 0;
+      margin-bottom: 1rem;
+    }
+
+    .card-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .card-header-row h3 {
+      margin-bottom: 0;
+    }
+
+    p.hint {
+      font-size: 0.93rem;
+      color: #444;
+      margin-top: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .requirement-banner {
+      padding: 0.6rem 0.9rem;
+      border-radius: 0.3rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 1rem;
+    }
+
+    .requirement-banner.missing {
+      background: #fff3e0;
+      color: #e65100;
+      border: 1px solid #ffcc80;
+    }
+
+    .requirement-banner.ok {
+      background: #e8f5e9;
+      color: #2e7d32;
+      border: 1px solid #a5d6a7;
+    }
+
+    .card {
+      background: white;
+      padding: 1rem;
+      border-radius: 0.4rem;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+      margin-top: 1.25rem;
     }
 
     .controls {
@@ -41,21 +98,24 @@
     }
 
     input[type="text"],
-    select {
+    select,
+    textarea {
       padding: 0.4rem 0.5rem;
       font-size: 0.9rem;
       border: 1px solid #ccc;
       border-radius: 0.3rem;
+      font-family: inherit;
     }
 
     button {
-      padding: 0.4rem 0.8rem;
+      padding: 0.5rem 0.9rem;
       font-size: 0.9rem;
       cursor: pointer;
       background: #007bff;
       color: white;
       border: none;
       border-radius: 0.3rem;
+      min-height: 2.4rem;
     }
 
     button:hover {
@@ -70,32 +130,31 @@
       background: #545b62;
     }
 
-
-    .figures {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      margin-bottom: 2rem;
+    button.danger {
+      background: #f44336;
     }
 
-    .figure-wrapper {
-      background: white;
-      padding: 0.5rem;
-      border-radius: 0.4rem;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-      text-align: center;
+    button.danger:hover {
+      background: #d32f2f;
     }
 
-    .figure-label {
-      font-size: 0.9rem;
-      margin-bottom: 0.25rem;
-      font-weight: 500;
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
     }
 
-    canvas {
-      border: 1px solid #ccc;
-      touch-action: auto;
-      cursor: crosshair;
+    .id-status {
+      font-size: 0.8rem;
+      margin-top: 0.25rem;
+      min-height: 1.2rem;
+    }
+
+    .id-valid {
+      color: #4CAF50;
+    }
+
+    .id-invalid {
+      color: #f44336;
     }
 
     .status {
@@ -113,49 +172,11 @@
       background: #ccc;
     }
 
-    .sync-indicator.synced {
-      background: #4CAF50;
-    }
+    .sync-indicator.synced { background: #4CAF50; }
+    .sync-indicator.syncing { background: #FFC107; }
+    .sync-indicator.error { background: #f44336; }
 
-    .sync-indicator.syncing {
-      background: #FFC107;
-    }
-
-    .sync-indicator.error {
-      background: #f44336;
-    }
-
-    .id-status {
-      font-size: 0.8rem;
-      margin-top: 0.25rem;
-      min-height: 1.2rem;
-    }
-
-    .id-valid {
-      color: #4CAF50;
-    }
-
-    .id-invalid {
-      color: #f44336;
-    }
-
-    /* Display Filter */
-    .filter-container {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      background: white;
-      padding: 1rem;
-      border-radius: 0.4rem;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-      margin-top: 2rem;
-    }
-
-    .filter-container h3 {
-      margin-top: 0;
-      margin-bottom: 1rem;
-    }
-
+    /* Marking mode */
     .filter-options {
       display: flex;
       flex-direction: column;
@@ -195,65 +216,225 @@
       flex-shrink: 0;
     }
 
-    /* Points List */
-    .points-list-container {
+    /* Body figures: one large "main" view plus a rail of small thumbnail buttons
+       for the other three sides. The main figure is sized by a fixed HEIGHT (its
+       width follows from its own aspect ratio) so front/back/left/right all look
+       the same size as the main view, instead of the narrower left/right ending up
+       visibly shorter than front/back at a shared fixed width. */
+    :root {
+      --main-figure-height: 530px;
+    }
+
+    .figures {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      max-width: 420px;
+      margin: 0 auto 1.5rem;
+    }
+
+    .figure-main-slot {
+      flex: 0 0 auto;
+      position: relative;
+    }
+
+    /* Zoom control, placed above the main figure (not overlapping it): a
+       magnifying-glass box flanked by triangular minus/plus buttons. */
+    .zoom-control {
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      margin-bottom: 0.5rem;
+      filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.35));
+    }
+
+    .zoom-btn {
+      width: 39px;
+      height: 39px;
+      min-height: unset;
+      border: none;
+      background: #27ae60;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      padding: 0;
+    }
+
+    .zoom-btn:hover:not(:disabled) {
+      background: #219150;
+    }
+
+    .zoom-btn:disabled {
+      background: #bcd9c8;
+      cursor: not-allowed;
+    }
+
+    .zoom-btn-out {
+      clip-path: polygon(100% 0%, 100% 100%, 0% 50%);
+      justify-content: flex-end;
+      padding-right: 6px;
+    }
+
+    .zoom-btn-in {
+      clip-path: polygon(0% 0%, 0% 100%, 100% 50%);
+      justify-content: flex-start;
+      padding-left: 6px;
+    }
+
+    .zoom-sign {
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .zoom-icon-box {
+      width: 39px;
+      height: 39px;
+      flex-shrink: 0;
       background: white;
-      padding: 1rem;
+      border: 1px solid #ccc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #27ae60;
+    }
+
+    .figure-thumbs-rail {
+      flex: 0 0 auto;
+      width: 76px;
+      margin-left: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    @media (max-width: 420px) {
+      .figures {
+        max-width: 100%;
+      }
+
+      .figure-thumbs-rail {
+        width: 62px;
+      }
+    }
+
+    .figure-wrapper {
+      background: white;
+      padding: 0.5rem;
+      border: 1px solid transparent;
       border-radius: 0.4rem;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-      margin-top: 2rem;
+      text-align: center;
+      width: 100%;
     }
 
-    .points-list-container h3 {
-      margin-top: 0;
-      margin-bottom: 1rem;
+    .figure-wrapper.figure-main {
+      width: auto;
     }
 
-    .points-list {
-      max-height: 300px;
+    .figure-wrapper.figure-thumb {
+      cursor: pointer;
+    }
+
+    .figure-wrapper.figure-thumb:hover {
+      border-color: #3498db;
+    }
+
+    .figure-wrapper.figure-thumb:focus-visible {
+      outline: 2px solid #3498db;
+      outline-offset: 2px;
+    }
+
+    .figure-label {
+      font-size: 0.9rem;
+      margin-bottom: 0.25rem;
+      font-weight: 500;
+    }
+
+    .figure-thumb .figure-label {
+      font-size: 0.75rem;
+    }
+
+    .figure-wrapper canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      border: 1px solid #ccc;
+      border-radius: 0.2rem;
+      touch-action: none;
+      user-select: none;
+      background: #fafafa;
+    }
+
+    .figure-wrapper.figure-main canvas {
+      cursor: crosshair;
+      width: auto;
+      height: var(--main-figure-height);
+      max-width: 100%;
+    }
+
+    .figure-wrapper.figure-thumb canvas {
+      cursor: pointer;
+      pointer-events: none;
+    }
+
+    /* Areas list */
+    .areas-list {
+      max-height: 320px;
       overflow-y: auto;
       border: 1px solid #eee;
       border-radius: 0.3rem;
     }
 
-    .point-item {
+    .area-item {
       padding: 0.75rem;
       border-bottom: 1px solid #eee;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      gap: 1rem;
+      gap: 0.75rem;
+      flex-wrap: wrap;
     }
 
-    .point-item:last-child {
+    .area-item:last-child {
       border-bottom: none;
     }
 
-    .point-info {
-      flex: 1;
-      text-align: left;
-      font-size: 0.85rem;
-    }
-
-    .point-color {
+    .area-color {
       width: 20px;
       height: 20px;
       border-radius: 50%;
       border: 1px solid #333;
+      flex-shrink: 0;
     }
 
-    .point-delete-btn {
-      padding: 0.3rem 0.6rem;
+    .area-info {
+      flex: 1;
+      min-width: 180px;
+      text-align: left;
+      font-size: 0.85rem;
+    }
+
+    .area-ratings-summary {
+      display: block;
+      color: #666;
+      margin-top: 0.15rem;
+    }
+
+    .area-ratings-summary.incomplete {
+      color: #e67e22;
+      font-weight: 500;
+    }
+
+    .area-actions {
+      display: flex;
+      gap: 0.4rem;
+    }
+
+    .area-actions button {
+      padding: 0.35rem 0.6rem;
       font-size: 0.8rem;
-      background: #f44336;
-      color: white;
-      border: none;
-      border-radius: 0.3rem;
-      cursor: pointer;
-    }
-
-    .point-delete-btn:hover {
-      background: #da190b;
+      min-height: unset;
     }
 
     .empty-list {
@@ -263,60 +444,116 @@
       font-size: 0.9rem;
     }
 
-    /* Confidence Level Section */
-    .confidence-container {
-      background: white;
+    /* Choice / Likert option groups */
+    .question-block {
       padding: 1rem;
-      border-radius: 0.4rem;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-      margin-top: 2rem;
-    }
-
-    .confidence-container h3 {
-      margin-top: 0;
-      margin-bottom: 1rem;
-    }
-
-    .confidence-content {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    /* Notes Section */
-    .notes-container {
-      background: white;
-      padding: 1rem;
-      border-radius: 0.4rem;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-      margin-top: 2rem;
-    }
-
-    .notes-container h3 {
-      margin-top: 0;
-      margin-bottom: 1rem;
-    }
-
-    .notes-content {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .notes-content label {
-      font-weight: 500;
-      font-size: 0.95rem;
-      margin-top: 0.5rem;
-    }
-
-    #sessionNotes {
-      padding: 0.75rem;
-      font-size: 0.9rem;
-      border: 1px solid #ccc;
+      border: 1px solid #eee;
       border-radius: 0.3rem;
-      font-family: system-ui, sans-serif;
+      background: #fafafa;
+    }
+
+    .question-block + .question-block {
+      margin-top: 1.25rem;
+    }
+
+    .question-text {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 0.6rem;
+      font-size: 0.95rem;
+      line-height: 1.4;
+      color: #333;
+    }
+
+    .choice-options {
+      padding: 0.25rem 0;
+    }
+
+    .slider-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .option-slider {
+      width: 100%;
+      accent-color: #3498db;
+    }
+
+    .option-slider:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .slider-track-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    /* Custom tick marks (rather than relying on <datalist>, whose tick rendering
+       Safari doesn't support at all) showing every stop the slider can land on. */
+    .slider-ticks {
+      position: absolute;
+      left: 9px;
+      right: 9px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+
+    .slider-tick {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #3498db;
+      border: 1px solid white;
+    }
+
+    /* Hidden rather than layered under the thumb via z-index: the native thumb's
+       actual painted shape/size varies by browser, so instead we always know which
+       tick the thumb currently sits on and simply don't draw that one. */
+    .slider-tick.is-active {
+      visibility: hidden;
+    }
+
+    .slider-endpoints {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      font-size: 0.78rem;
+      color: #666;
+    }
+
+    .slider-endpoints span {
+      max-width: 46%;
+    }
+
+    .slider-endpoints span:last-child {
+      text-align: right;
+    }
+
+    .slider-current-value {
+      text-align: center;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #2c3e50;
+      min-height: 1.2rem;
+      visibility: hidden;
+    }
+
+    .slider-current-value.is-visible {
+      visibility: visible;
+    }
+
+    /* Comments */
+    #sessionNotes {
       resize: vertical;
       min-height: 100px;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     #sessionNotes:disabled {
@@ -329,369 +566,221 @@
       font-size: 0.8rem;
       color: #666;
       text-align: right;
+      margin-top: 0.3rem;
     }
 
-    .star-rating {
-      display: flex;
-      gap: 0.5rem;
-      font-size: 2rem;
-    }
-
-    .star {
-      cursor: pointer;
-      color: #ddd;
-      transition: color 0.2s;
-      user-select: none;
-    }
-
-    .star:hover,
-    .star.active {
-      color: #ffc107;
-    }
-
-    .confidence-label {
-      font-size: 0.85rem;
-      color: #666;
-      margin-top: -0.5rem;
-    }
-
-    .save-status {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.8rem;
-      color: #999;
-      margin-top: 0.5rem;
-    }
-
-    #noteSyncIndicator {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #ccc;
-    }
-
-    #noteSyncIndicator.synced {
-      background: #4CAF50;
-    }
-
-    #noteSyncIndicator.syncing {
-      background: #FFC107;
-    }
-
-    #noteSyncIndicator.error {
-      background: #f44336;
-    }
-
-    /* Questionnaire Section */
-    .questionnaire-container {
-      background: white;
-      padding: 1rem;
-      border-radius: 0.4rem;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-      margin-top: 2rem;
-    }
-
-    .questionnaire-container h3 {
-      margin-top: 0;
-      margin-bottom: 1.5rem;
-    }
-
-    .questionnaire-content {
-      display: flex;
-      flex-direction: column;
-      gap: 2rem;
-    }
-
-    .questionnaire-question {
-      padding: 1rem;
-      border: 1px solid #eee;
-      border-radius: 0.3rem;
-      background: #fafafa;
-    }
-
-    .question-text {
-      display: block;
-      font-weight: 500;
-      margin-bottom: 0.5rem;
-      font-size: 0.95rem;
-      line-height: 1.4;
-      color: #333;
-    }
-
-    .scale-labels {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.8rem;
-      color: #666;
-      margin-bottom: 0.75rem;
-      padding: 0 0.5rem;
-    }
-
-    .rating-scale {
-      display: flex;
-      gap: 0.5rem;
-      justify-content: flex-start;
-    }
-
-    .rating-scale input[type="radio"] {
-      display: none;
-    }
-
-    .rating-scale label {
+    /* Rating panel modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 35px;
-      height: 35px;
-      border: 2px solid #ddd;
-      border-radius: 0.3rem;
-      cursor: pointer;
-      font-weight: 500;
-      font-size: 0.9rem;
-      transition: all 0.2s;
+      padding: 1rem;
+      z-index: 1000;
+    }
+
+    .modal-overlay[hidden] {
+      display: none;
+    }
+
+    .modal-card {
       background: white;
+      border-radius: 0.5rem;
+      padding: 1.25rem;
+      width: 100%;
+      max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
     }
 
-    .rating-scale label:hover {
-      border-color: #3498db;
-      background: #f0f8ff;
+    .modal-card h3 {
+      margin-bottom: 0.25rem;
     }
 
-    .rating-scale input[type="radio"]:checked + label {
-      background: #3498db;
-      color: white;
-      border-color: #3498db;
+    .modal-subtitle {
+      font-size: 0.85rem;
+      color: #666;
+      margin-bottom: 1rem;
     }
 
-    .questionnaire-status {
+    .modal-actions {
       display: flex;
-      align-items: center;
+      justify-content: space-between;
       gap: 0.5rem;
-      font-size: 0.8rem;
-      color: #999;
-      margin-top: 1rem;
-    }
-
-    #questionnaireSyncIndicator {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #ccc;
-    }
-
-    #questionnaireSyncIndicator.synced {
-      background: #4CAF50;
-    }
-
-    #questionnaireSyncIndicator.syncing {
-      background: #FFC107;
-    }
-
-    #questionnaireSyncIndicator.error {
-      background: #f44336;
+      margin-top: 1.5rem;
     }
   </style>
 </head>
 <body>
-  <h1>Physical Interaction Body Map</h1>
+  <h1>Inter-individual Contacts Study</h1>
 
   <div class="controls">
     <div class="control-group">
       <label>Participant ID (must be a number):</label>
-      <input type="text" id="participantId" placeholder="e.g. 001" />
+      <input type="text" id="participantId" placeholder="e.g. 001" autocomplete="off" />
       <div class="id-status" id="idStatus"></div>
     </div>
 
     <div class="control-group">
       <label>Participant Name:</label>
-      <input type="text" id="participantName" placeholder="e.g. John" />
+      <input type="text" id="participantName" placeholder="e.g. John" autocomplete="off" />
       <div class="id-status" id="nameStatus"></div>
     </div>
 
     <div class="control-group">
-      <label>&nbsp;</label>
-      <button id="clearPoints" class="secondary">Clear all points</button>
+      <label>Trial number:</label>
+      <input type="text" id="trialNumber" placeholder="e.g. 2" autocomplete="off" />
+      <div class="id-status" id="trialStatus"></div>
     </div>
   </div>
 
+  <div class="requirement-banner" id="requirementBannerTop"></div>
+
+  <!-- Trial questions asked before marking -->
+  <div class="card" id="preMarkingQuestions">
+    <h3>About this trial</h3>
+    <div class="question-block">
+      <label class="question-text">On average during this trial, how far did you think you were from neighbouring participants?</label>
+      <div class="choice-options" id="distanceOptions"></div>
+    </div>
+    <div class="question-block">
+      <label class="question-text">During this trial, you felt comfortable with the distance you had with your neighbours.</label>
+      <div class="choice-options" id="comfortOptions"></div>
+    </div>
+  </div>
+
+  <p class="hint">If you felt bodily contact with other participants during this trial, mark the areas below. Otherwise, leave the figures blank and answer the two questions further down the page.</p>
+
   <!-- Marking Mode -->
-  <div class="filter-container">
+  <div class="card">
     <div class="filter-options">
       <label>
         <input type="radio" name="markingMode" value="mark_touched_by" checked />
         Mark "I was touched" <span class="filter-preview" style="background: #e74c3c;"></span>
-        <span class="mode-hint">(Records & Shows: I was touched)</span>
+        <span class="mode-hint">Drag to draw the area where you felt contact (or tap for a small area)</span>
       </label>
       <label>
         <input type="radio" name="markingMode" value="mark_touched" />
         Mark "I touched" <span class="filter-preview" style="background: #3498db;"></span>
-        <span class="mode-hint">(Records & Shows: I touched)</span>
+        <span class="mode-hint">Drag to draw the area where you made contact</span>
       </label>
       <label>
         <input type="radio" name="markingMode" value="view_all" />
-        View All Points
-        <span class="mode-hint">(Viewing only - no recording)</span>
+        View All Areas
+        <span class="mode-hint">Viewing only - no drawing</span>
       </label>
     </div>
   </div>
 
+  <div class="requirement-banner" id="requirementBannerFigures"></div>
+
   <div class="figures">
-    <div class="figure-wrapper">
-      <div class="figure-label">Front</div>
-      <canvas id="figure_front" width="200" height="600"></canvas>
+    <div class="figure-main-slot" id="figureMainSlot">
+      <div class="zoom-control">
+        <button type="button" class="zoom-btn zoom-btn-out" id="figureZoomOutBtn" aria-label="Decrease outline size" title="Decrease outline size">
+          <span class="zoom-sign">&minus;</span>
+        </button>
+        <div class="zoom-icon-box" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round">
+            <circle cx="10.2" cy="10.2" r="6.2"></circle>
+            <line x1="15" y1="15" x2="20.5" y2="20.5"></line>
+          </svg>
+        </div>
+        <button type="button" class="zoom-btn zoom-btn-in" id="figureZoomInBtn" aria-label="Increase outline size" title="Increase outline size">
+          <span class="zoom-sign">+</span>
+        </button>
+      </div>
     </div>
-    <div class="figure-wrapper">
-      <div class="figure-label">Right</div>
-      <canvas id="figure_right" width="100" height="600"></canvas>
-    </div>
-    <div class="figure-wrapper">
-      <div class="figure-label">Back</div>
-      <canvas id="figure_back" width="200" height="600"></canvas>
-    </div>
-    <div class="figure-wrapper">
-      <div class="figure-label">Left</div>
-      <canvas id="figure_left" width="100" height="600"></canvas>
-    </div>
+    <div class="figure-thumbs-rail" id="figureThumbsRail"></div>
+  </div>
+
+  <div id="figureWrapper_front" class="figure-wrapper" style="display: none;">
+    <div class="figure-label">Front</div>
+    <canvas id="figure_front" width="200" height="600"></canvas>
+  </div>
+  <div id="figureWrapper_back" class="figure-wrapper" style="display: none;">
+    <div class="figure-label">Back</div>
+    <canvas id="figure_back" width="200" height="600"></canvas>
+  </div>
+  <div id="figureWrapper_left" class="figure-wrapper" style="display: none;">
+    <div class="figure-label">Left</div>
+    <canvas id="figure_left" width="100" height="600"></canvas>
+  </div>
+  <div id="figureWrapper_right" class="figure-wrapper" style="display: none;">
+    <div class="figure-label">Right</div>
+    <canvas id="figure_right" width="100" height="600"></canvas>
   </div>
 
   <div class="status" id="status">
-    <span>Ready</span>
+    <span id="statusMessage">Ready</span>
     <span class="sync-indicator" id="syncIndicator"></span>
   </div>
 
-  <!-- Points List -->
-  <div class="points-list-container">
-    <h3>Recorded Points</h3>
-    <div class="points-list" id="pointsList">
-      <div class="empty-list">No points recorded yet</div>
+  <!-- Areas List -->
+  <div class="card">
+    <div class="card-header-row">
+      <h3>Recorded Contact Areas</h3>
+      <button id="clearAreas" class="secondary">Clear all areas</button>
+    </div>
+    <div class="areas-list" id="areasList">
+      <div class="empty-list">No contact areas recorded yet</div>
     </div>
   </div>
 
-  <!-- Questionnaire Section -->
-  <div class="questionnaire-container">
-    <h3>Questionnaire</h3>
-    <div class="questionnaire-content">
-      <!-- Question 1 -->
-      <div class="questionnaire-question">
-        <label class="question-text">
-          How would you rate your confidence in the patterns you drew to represent the physical interaction you <strong>gave</strong>?
-        </label>
-        <div class="scale-labels">
-          <span>0 = Not confident at all</span>
-          <span>5 = Extremely confident</span>
-        </div>
-        <div class="rating-scale" id="q1Scale">
-          <input type="radio" name="q1" value="0" id="q1_0"><label for="q1_0">0</label>
-          <input type="radio" name="q1" value="1" id="q1_1"><label for="q1_1">1</label>
-          <input type="radio" name="q1" value="2" id="q1_2"><label for="q1_2">2</label>
-          <input type="radio" name="q1" value="3" id="q1_3"><label for="q1_3">3</label>
-          <input type="radio" name="q1" value="4" id="q1_4"><label for="q1_4">4</label>
-          <input type="radio" name="q1" value="5" id="q1_5"><label for="q1_5">5</label>
-        </div>
-      </div>
-
-      <!-- Question 2 -->
-      <div class="questionnaire-question">
-        <label class="question-text">
-          How would you rate your confidence in the patterns you drew to represent the physical interaction you <strong>received</strong>?
-        </label>
-        <div class="scale-labels">
-          <span>0 = Not confident at all</span>
-          <span>5 = Extremely confident</span>
-        </div>
-        <div class="rating-scale" id="q2Scale">
-          <input type="radio" name="q2" value="0" id="q2_0"><label for="q2_0">0</label>
-          <input type="radio" name="q2" value="1" id="q2_1"><label for="q2_1">1</label>
-          <input type="radio" name="q2" value="2" id="q2_2"><label for="q2_2">2</label>
-          <input type="radio" name="q2" value="3" id="q2_3"><label for="q2_3">3</label>
-          <input type="radio" name="q2" value="4" id="q2_4"><label for="q2_4">4</label>
-          <input type="radio" name="q2" value="5" id="q2_5"><label for="q2_5">5</label>
-        </div>
-      </div>
-
-      <!-- Question 3 -->
-      <div class="questionnaire-question">
-        <label class="question-text">
-          How would you rate your general awareness of contacts in crowded environments?
-        </label>
-        <div class="scale-labels">
-          <span>0 = Never aware of physical interactions</span>
-          <span>5 = Extremely aware</span>
-        </div>
-        <div class="rating-scale" id="q3Scale">
-          <input type="radio" name="q3" value="0" id="q3_0"><label for="q3_0">0</label>
-          <input type="radio" name="q3" value="1" id="q3_1"><label for="q3_1">1</label>
-          <input type="radio" name="q3" value="2" id="q3_2"><label for="q3_2">2</label>
-          <input type="radio" name="q3" value="3" id="q3_3"><label for="q3_3">3</label>
-          <input type="radio" name="q3" value="4" id="q3_4"><label for="q3_4">4</label>
-          <input type="radio" name="q3" value="5" id="q3_5"><label for="q3_5">5</label>
-        </div>
-      </div>
-
-      <!-- Question 4 -->
-      <div class="questionnaire-question">
-        <label class="question-text">
-          How would you rate your awareness of contacts during the experiments?
-        </label>
-        <div class="scale-labels">
-          <span>0 = Never aware of physical interactions</span>
-          <span>5 = Extremely aware</span>
-        </div>
-        <div class="rating-scale" id="q4Scale">
-          <input type="radio" name="q4" value="0" id="q4_0"><label for="q4_0">0</label>
-          <input type="radio" name="q4" value="1" id="q4_1"><label for="q4_1">1</label>
-          <input type="radio" name="q4" value="2" id="q4_2"><label for="q4_2">2</label>
-          <input type="radio" name="q4" value="3" id="q4_3"><label for="q4_3">3</label>
-          <input type="radio" name="q4" value="4" id="q4_4"><label for="q4_4">4</label>
-          <input type="radio" name="q4" value="5" id="q4_5"><label for="q4_5">5</label>
-        </div>
-      </div>
-
-      <div class="questionnaire-status" id="questionnaireStatus">
-        <span id="qLastSaved"></span>
-        <span class="sync-indicator" id="questionnaireSyncIndicator"></span>
-      </div>
+  <!-- Trial questions asked after marking -->
+  <div class="card">
+    <h3>About your awareness during this trial</h3>
+    <div class="question-block">
+      <label class="question-text">During this trial, you were always aware of bodily contacts with other participants.</label>
+      <div class="choice-options" id="awarenessOptions"></div>
+    </div>
+    <div class="question-block">
+      <label class="question-text">During this trial, you felt that bodily interactions were acceptable.</label>
+      <div class="choice-options" id="acceptabilityOptions"></div>
     </div>
   </div>
 
-  <!-- Overall Confidence Level Section -->
-  <div class="confidence-container">
-    <h3>Overall Confidence Level</h3>
-    <div class="confidence-content">
-      <div class="star-rating" id="starRating">
-        <span class="star" data-value="1" title="Not confident">★</span>
-        <span class="star" data-value="2" title="Somewhat confident">★</span>
-        <span class="star" data-value="3" title="Moderately confident">★</span>
-        <span class="star" data-value="4" title="Confident">★</span>
-        <span class="star" data-value="5" title="Very confident">★</span>
-      </div>
-      <div class="confidence-label" id="confidenceLabel">(Not rated)</div>
-
-      <div class="save-status" id="saveStatus">
-        <span id="lastSaved"></span>
-        <span class="sync-indicator" id="noteSyncIndicator"></span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Additional Comments Section -->
-  <div class="notes-container">
+  <!-- Additional Comments -->
+  <div class="card">
     <h3>Additional Comments</h3>
-    <div class="notes-content">
-      <label for="sessionNotes">Comments (500 character limit):</label>
-      <textarea 
-        id="sessionNotes" 
-        placeholder="Any additional comments about your declarations..."
-        maxlength="500"
-      ></textarea>
-      <div class="char-counter">
-        <span id="charCount">0</span>/500
+    <label for="sessionNotes">Comments (500 character limit):</label>
+    <textarea
+      id="sessionNotes"
+      placeholder="Any additional comments about your declarations..."
+      maxlength="500"
+    ></textarea>
+    <div class="char-counter"><span id="charCount">0</span>/500</div>
+  </div>
+
+  <!-- Rating panel modal (hidden by default) -->
+  <div class="modal-overlay" id="ratingModalOverlay" hidden>
+    <div class="modal-card">
+      <h3 id="ratingModalTitle">Area</h3>
+      <div class="modal-subtitle">Rate this contact area. You can change these later from the areas list.</div>
+
+      <div class="question-block">
+        <label class="question-text">Intensity of the contact you felt at this location</label>
+        <div class="choice-options" id="ratingIntensityOptions"></div>
+      </div>
+      <div class="question-block">
+        <label class="question-text">Frequency of contact you felt at this location</label>
+        <div class="choice-options" id="ratingFrequencyOptions"></div>
+      </div>
+      <div class="question-block">
+        <label class="question-text">Level of expectation you had about having contact at this location</label>
+        <div class="choice-options" id="ratingExpectationOptions"></div>
+      </div>
+      <div class="question-block">
+        <label class="question-text">Level of confidence in this declaration</label>
+        <div class="choice-options" id="ratingConfidenceOptions"></div>
       </div>
 
-      <div class="save-status" id="saveStatus">
-        <span id="lastSaved"></span>
-        <span class="sync-indicator" id="noteSyncIndicator"></span>
+      <div class="modal-actions">
+        <button type="button" class="danger" id="ratingModalDeleteBtn">Delete this area</button>
+        <button type="button" id="ratingModalDoneBtn">Done</button>
       </div>
     </div>
   </div>
@@ -701,89 +790,153 @@
   <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-database-compat.js"></script>
 
   <script>
+    // ============ OPTION VOCABULARIES (from Questionnaire.pdf) ============
+    const DISTANCE_OPTIONS = [
+      { value: "direct_contact", label: "Direct contacts" },
+      { value: "less_20cm", label: "Less than 20cm" },
+      { value: "less_50cm", label: "Less than 50cm" },
+      { value: "less_1m", label: "Less than 1m" },
+      { value: "more_1m", label: "More than 1m" },
+    ];
+    const AGREEMENT_OPTIONS = [
+      { value: "strongly_disagree", label: "Strongly disagree" },
+      { value: "disagree", label: "Disagree" },
+      { value: "neutral", label: "Neutral" },
+      { value: "agree", label: "Agree" },
+      { value: "strongly_agree", label: "Strongly agree" },
+    ];
+    const INTENSITY_OPTIONS = [
+      { value: "very_weak", label: "Very weak" },
+      { value: "weak", label: "Weak" },
+      { value: "moderate", label: "Moderate" },
+      { value: "strong", label: "Strong" },
+      { value: "very_strong", label: "Very strong" },
+    ];
+    const FREQUENCY_OPTIONS = [
+      { value: "once", label: "Once" },
+      { value: "occasionally", label: "Occasionally" },
+      { value: "most_of_the_time", label: "Most of the time" },
+      { value: "almost_always", label: "Almost all the time" },
+    ];
+    const EXPECTATION_OPTIONS = [
+      { value: "very_unexpected", label: "Very unexpected" },
+      { value: "not_expected", label: "Not expected" },
+      { value: "neutral", label: "Neutral" },
+      { value: "strongly_expected", label: "Strongly expected" },
+      { value: "certain", label: "Certain" },
+    ];
+    const CONFIDENCE_OPTIONS = [
+      { value: "very_low", label: "Very low" },
+      { value: "low", label: "Low" },
+      { value: "moderate", label: "Moderate" },
+      { value: "high", label: "High" },
+      { value: "very_high", label: "Very high" },
+    ];
+    const OPTION_LABELS = {};
+    [DISTANCE_OPTIONS, AGREEMENT_OPTIONS, INTENSITY_OPTIONS, FREQUENCY_OPTIONS, EXPECTATION_OPTIONS, CONFIDENCE_OPTIONS]
+      .forEach(list => list.forEach(opt => { OPTION_LABELS[opt.value] = opt.label; }));
+
+    // Renders a slider for a set of ordered options: the first and last option labels
+    // stay always visible as end anchors, while the currently-selected label appears
+    // below the slider only once the participant has actually moved it (so an
+    // untouched slider doesn't silently read as an answered question).
+    function renderSliderField(container, options, selectedValue, onSelect) {
+      const selectedIndex = options.findIndex(opt => opt.value === selectedValue);
+      const answered = selectedIndex >= 0;
+      const initialIndex = answered ? selectedIndex : Math.round((options.length - 1) / 2);
+
+      const ticks = options.map((_, i) => `<span class="slider-tick${i === initialIndex ? " is-active" : ""}"></span>`).join("");
+
+      container.innerHTML = `
+        <div class="slider-field">
+          <div class="slider-track-wrap">
+            <input type="range" class="option-slider" min="0" max="${options.length - 1}" step="1" value="${initialIndex}">
+            <div class="slider-ticks" aria-hidden="true">${ticks}</div>
+          </div>
+          <div class="slider-endpoints">
+            <span>${options[0].label}</span>
+            <span>${options[options.length - 1].label}</span>
+          </div>
+          <div class="slider-current-value${answered ? " is-visible" : ""}">${options[initialIndex].label}</div>
+        </div>
+      `;
+
+      const slider = container.querySelector(".option-slider");
+      const currentValueEl = container.querySelector(".slider-current-value");
+      const tickEls = container.querySelectorAll(".slider-tick");
+
+      slider.addEventListener("input", () => {
+        const index = Number(slider.value);
+        tickEls.forEach((tick, i) => tick.classList.toggle("is-active", i === index));
+        const opt = options[index];
+        currentValueEl.textContent = opt.label;
+        currentValueEl.classList.add("is-visible");
+        onSelect(opt.value);
+      });
+    }
+
     // ============ SESSION STATE CLASS ============
+    function emptyTrial(trialNumber) {
+      return {
+        trialNumber: trialNumber,
+        distanceEstimate: null,
+        comfortWithDistance: null,
+        awarenessOfContacts: null,
+        acceptabilityOfInteractions: null,
+        notes: "",
+        areas: [],
+        firstSavedAt: null,
+        lastEdited: null,
+      };
+    }
+
     class SessionState {
       constructor() {
-        // Point collection
-        this.collectedPoints = [];
-        
-        // Validation flags
+        this.currentTrial = emptyTrial(null);
+        this.nextAreaNumber = 1;
+
         this.idIsValid = false;
         this.nameIsValid = false;
-        
-        // Session tracking
+        this.trialIsValid = false;
+
         this.isExistingSession = false;
-        this.firstEntryTimestamp = null;
         this.canEdit = true;
         this.editStatusTimer = null;
-        
-        // Notes and confidence
-        this.sessionNotes = "";
-        this.sessionConfidence = 0;
-        
-        // Questionnaire responses
-        this.questionnaireResponses = {
-          q1: null,
-          q2: null,
-          q3: null,
-          q4: null
-        };
-        
-        // Marking mode and display
+
         this.markingMode = "mark_touched_by";
         this.currentDirection = "touched_by";
         this.displayFilter = "touched_by";
       }
-      
-      // Add point to collection (newest first)
-      addPoint(point) {
-        this.collectedPoints.unshift(point);
+
+      isEditable() {
+        return !this.isExistingSession || this.canEdit;
       }
-      
-      // Remove point by index
-      removePoint(index) {
-        this.collectedPoints.splice(index, 1);
+
+      addArea(area) {
+        area.number = this.nextAreaNumber++;
+        this.currentTrial.areas.unshift(area);
+        return area;
       }
-      
-      // Clear all points
-      clearAllPoints() {
-        this.collectedPoints.length = 0;
+
+      removeArea(index) {
+        this.currentTrial.areas.splice(index, 1);
       }
-      
-      // Check if session has any points of a specific direction
-      hasPointsInDirection(direction) {
-        return this.collectedPoints.some(p => p.direction === direction);
+
+      clearAllAreas() {
+        this.currentTrial.areas.length = 0;
+        this.nextAreaNumber = 1;
       }
-      
-      // Get total points count
-      getPointsCount() {
-        return this.collectedPoints.length;
+
+      getAreasCount() {
+        return this.currentTrial.areas.length;
       }
-      
-      // Set session notes and update confidence
-      setSessionData(notes, confidence) {
-        this.sessionNotes = notes;
-        this.sessionConfidence = confidence;
+
+      getIncompleteAreas() {
+        return this.currentTrial.areas.filter(a => !a.intensity || !a.frequency || !a.expectation || !a.confidence);
       }
-      
-      // Set a questionnaire response
-      setQuestionnaireResponse(questionKey, value) {
-        if (this.questionnaireResponses.hasOwnProperty(questionKey)) {
-          this.questionnaireResponses[questionKey] = value;
-        }
-      }
-      
-      // Get all unanswered questionnaire items
-      getUnansweredItems() {
-        return Object.entries(this.questionnaireResponses)
-          .filter(([_, v]) => v === null)
-          .map(([k]) => k);
-      }
-      
-      // Set marking mode and update display accordingly
+
       setMarkingMode(mode) {
         this.markingMode = mode;
-        
         if (mode === "mark_touched_by") {
           this.currentDirection = "touched_by";
           this.displayFilter = "touched_by";
@@ -794,23 +947,12 @@
           this.displayFilter = "all";
         }
       }
-      
-      // Reset entire session state
-      reset() {
-        this.collectedPoints = [];
-        this.idIsValid = false;
-        this.nameIsValid = false;
+
+      resetForNewTrial(trialNumber) {
+        this.currentTrial = emptyTrial(trialNumber);
+        this.nextAreaNumber = 1;
         this.isExistingSession = false;
-        this.firstEntryTimestamp = null;
         this.canEdit = true;
-        this.sessionNotes = "";
-        this.sessionConfidence = 0;
-        this.questionnaireResponses = {
-          q1: null,
-          q2: null,
-          q3: null,
-          q4: null
-        };
         this.markingMode = "mark_touched_by";
         this.currentDirection = "touched_by";
         this.displayFilter = "touched_by";
@@ -825,128 +967,56 @@
 
     // ============ CUSTOM ERROR CLASSES ============
     class DataLoadError extends Error {
-      constructor(message) {
-        super(message);
-        this.name = "DataLoadError";
-      }
+      constructor(message) { super(message); this.name = "DataLoadError"; }
     }
-
     class DataSaveError extends Error {
-      constructor(message) {
-        super(message);
-        this.name = "DataSaveError";
-      }
+      constructor(message) { super(message); this.name = "DataSaveError"; }
     }
-
     class ValidationError extends Error {
-      constructor(message) {
-        super(message);
-        this.name = "ValidationError";
-      }
+      constructor(message) { super(message); this.name = "ValidationError"; }
     }
 
     // ============ DATA SERVICE CLASS ============
     class DataService {
       constructor(firebaseDb) {
         this.db = firebaseDb;
-        this.existingKeys = new Set();
       }
 
-      // Validate participant ID (must be numeric)
       isValidNumericId(id) {
         return id && /^\d+$/.test(id);
       }
 
-      // Validate participant name
       isValidName(name) {
         return name && name.trim().length > 0;
       }
 
-      // Generate participant key from ID and name
       getParticipantKey(id, name) {
         return `${id}_${name.toLowerCase()}`;
       }
 
-      // Check if participant key already exists
-      keyAlreadyExists(id, name) {
-        const key = this.getParticipantKey(id, name);
-        return this.existingKeys.has(key);
-      }
-
-      // Load all existing participant keys from Firebase
-      async loadExistingIds() {
-        try {
-          const snapshot = await this.db.ref("data").once("value");
-          if (snapshot.exists()) {
-            this.existingKeys = new Set(Object.keys(snapshot.val()));
-            console.log("Loaded existing keys:", this.existingKeys);
-          } else {
-            console.log("Database is empty - ready for new sessions");
-            this.existingKeys = new Set();
-          }
-        } catch (error) {
-          const dataLoadError = new DataLoadError(`Failed to load existing participant keys: ${error.message}`);
-          console.error(dataLoadError.name + ":", dataLoadError.message);
-          this.existingKeys = new Set();
-          // Continue gracefully - user can still add new data
-        }
-      }
-
-      // Load existing participant session data from Firebase
-      async loadExistingParticipantData(id, name) {
+      async loadExistingTrialData(id, name, trialNumber) {
         try {
           const key = this.getParticipantKey(id, name);
-          const snapshot = await this.db.ref(`data/${key}`).once("value");
-          
+          const snapshot = await this.db.ref(`data/${key}/trials/${trialNumber}`).once("value");
+
           if (snapshot.exists()) {
-            const data = snapshot.val();
-            
-            const points = Array.isArray(data.sessionPoints) ? data.sessionPoints : [];
-            let earliestTimestamp = null;
-
-            if (points.length > 0) {
-              const sortedByTime = [...points].sort((a, b) => {
-                const timeA = new Date(a.timestamp).getTime();
-                const timeB = new Date(b.timestamp).getTime();
-                return timeA - timeB;
-              });
-              earliestTimestamp = new Date(sortedByTime[0].timestamp).getTime();
-            }
-
-            // Return parsed data object (doesn't update state)
-            return {
-              exists: true,
-              points: points,
-              earliestTimestamp: earliestTimestamp,
-              sessionData: data.sessionData || null
-            };
+            const trial = snapshot.val();
+            trial.areas = Array.isArray(trial.areas) ? trial.areas : [];
+            return { exists: true, trial };
           }
-
           return { exists: false };
         } catch (error) {
-          const dataLoadError = new DataLoadError(`Failed to load participant data for ${id}_${name}: ${error.message}`);
+          const dataLoadError = new DataLoadError(`Failed to load trial data for ${id}_${name} trial ${trialNumber}: ${error.message}`);
           console.error(dataLoadError.name + ":", dataLoadError.message);
           throw dataLoadError;
         }
       }
 
-      // Save session data and points to Firebase
-      async saveSessionData(id, name, notes, confidence, questionnaire, collectedPoints) {
+      async saveTrialData(id, name, trial) {
         try {
           const key = this.getParticipantKey(id, name);
-
-          const sessionData = {
-            notes: notes || "",
-            confidence: confidence || 0,
-            questionnaire: questionnaire || {},
-            lastEdited: new Date().toISOString()
-          };
-
-          // Save in batch
-          await this.db.ref(`data/${key}/sessionData`).set(sessionData);
-          await this.db.ref(`data/${key}/sessionPoints`).set(collectedPoints);
-
-          console.log(`Successfully saved data for participant ${key}`);
+          await this.db.ref(`data/${key}/trials/${trial.trialNumber}`).set(trial);
+          console.log(`Successfully saved trial ${trial.trialNumber} for participant ${key}`);
           return true;
         } catch (error) {
           const dataSaveError = new DataSaveError(`Failed to save data: ${error.message}`);
@@ -956,7 +1026,33 @@
       }
     }
 
+    // ============ GEOMETRY HELPERS ============
+    function hexToRgba(hex, alpha) {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function makeCirclePath(cxNorm, cyNorm, rNormX, rNormY, sides = 16) {
+      const pts = [];
+      for (let i = 0; i < sides; i++) {
+        const angle = (i / sides) * 2 * Math.PI;
+        pts.push({ x: cxNorm + rNormX * Math.cos(angle), y: cyNorm + rNormY * Math.sin(angle) });
+      }
+      return pts;
+    }
+
+    function pathCentroid(path) {
+      const sum = path.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
+      return { x: sum.x / path.length, y: sum.y / path.length };
+    }
+
     // ============ CANVAS MANAGER CLASS ============
+    const TAP_THRESHOLD_PX = 12;
+    const TAP_RADIUS_PX = 16;
+    const MIN_POINT_SPACING_PX = 4;
+
     class CanvasManager {
       constructor(figureConfigs, directionColors, appState) {
         this.figureConfigs = figureConfigs;
@@ -965,14 +1061,13 @@
         this.imageCache = {};
         this.canvases = {};
         this.contexts = {};
+        this.activeDraw = null; // { figureId, direction, path: [{x,y}], activePointerId }
       }
 
-      // Preload all SVG images into cache
       async preloadImages() {
         return new Promise((resolve) => {
           let loadedCount = 0;
           const totalImages = this.figureConfigs.length;
-          
           this.figureConfigs.forEach((figureConfig) => {
             const img = new Image();
             img.onload = () => {
@@ -985,178 +1080,196 @@
         });
       }
 
-      // Setup canvas and event listeners for a figure
+      resizeCanvasToDisplaySize(canvas) {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        const w = Math.max(1, Math.round(rect.width * dpr));
+        const h = Math.max(1, Math.round(rect.height * dpr));
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+      }
+
       setupFigure(figureConfig) {
         const canvas = document.getElementById(figureConfig.canvasId);
         if (!canvas) return;
 
         this.canvases[figureConfig.id] = canvas;
-        const ctx = canvas.getContext("2d");
-        this.contexts[figureConfig.id] = ctx;
+        this.contexts[figureConfig.id] = canvas.getContext("2d");
 
-        // Draw initial figure
+        // Match the canvas box to the actual SVG's proportions so the figure is never
+        // stretched, regardless of what aspect ratio that particular image happens to be.
+        const img = this.imageCache[figureConfig.id];
+        if (img && img.naturalWidth && img.naturalHeight) {
+          canvas.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+        }
+
+        this.resizeCanvasToDisplaySize(canvas);
         this.redrawFigure(figureConfig);
 
-        // Touch event handling with move detection
-        let touchStartX = 0;
-        let touchStartY = 0;
-        let isTouchMoving = false;
-        const TOUCH_MOVE_THRESHOLD = 10;
-
-        const handleClick = (event) => {
+        const toNormalized = (event) => {
           const rect = canvas.getBoundingClientRect();
-          const x = event.clientX - rect.left;
-          const y = event.clientY - rect.top;
-          this.recordPoint(figureConfig.id, x, y);
+          return {
+            x: (event.clientX - rect.left) / rect.width,
+            y: (event.clientY - rect.top) / rect.height,
+            rect,
+          };
         };
 
-        const handleTouchStart = (event) => {
-          if (event.touches.length > 1) return;
-          const touch = event.touches[0];
-          touchStartX = touch.clientX;
-          touchStartY = touch.clientY;
-          isTouchMoving = false;
-        };
-
-        const handleTouchMove = (event) => {
-          if (event.touches.length > 1) return;
-          const touch = event.touches[0];
-          const moveX = Math.abs(touch.clientX - touchStartX);
-          const moveY = Math.abs(touch.clientY - touchStartY);
-          if (moveX > TOUCH_MOVE_THRESHOLD || moveY > TOUCH_MOVE_THRESHOLD) {
-            isTouchMoving = true;
+        canvas.addEventListener("pointerdown", (event) => {
+          if (this.activeDraw) return;
+          if (!this.appState.idIsValid || !this.appState.nameIsValid || !this.appState.trialIsValid) {
+            setStatus("❌ Participant ID, Name and Trial number are required to record contact areas.");
+            return;
           }
-        };
-
-        const handleTouchEnd = (event) => {
-          if (event.touches.length > 0) return;
-          if (!isTouchMoving) {
-            const rect = canvas.getBoundingClientRect();
-            const touch = event.changedTouches[0];
-            const x = touch.clientX - rect.left;
-            const y = touch.clientY - rect.top;
-            this.recordPoint(figureConfig.id, x, y);
+          if (this.appState.markingMode === "view_all") {
+            setStatus("⚠️ Viewing mode. Switch to 'Mark' mode to draw contact areas.");
+            return;
           }
-          isTouchMoving = false;
+          if (!this.appState.isEditable()) {
+            setStatus("❌ Edit time limit expired. Cannot record new areas.");
+            return;
+          }
+
+          event.preventDefault();
+          canvas.setPointerCapture(event.pointerId);
+          const { x, y } = toNormalized(event);
+          this.activeDraw = {
+            figureId: figureConfig.id,
+            direction: this.appState.currentDirection,
+            path: [{ x, y }],
+            pointerId: event.pointerId,
+            lastPxX: event.clientX,
+            lastPxY: event.clientY,
+          };
+        });
+
+        canvas.addEventListener("pointermove", (event) => {
+          if (!this.activeDraw || this.activeDraw.pointerId !== event.pointerId) return;
+          event.preventDefault();
+          const dx = event.clientX - this.activeDraw.lastPxX;
+          const dy = event.clientY - this.activeDraw.lastPxY;
+          if (Math.hypot(dx, dy) < MIN_POINT_SPACING_PX) return;
+          this.activeDraw.lastPxX = event.clientX;
+          this.activeDraw.lastPxY = event.clientY;
+          const { x, y } = toNormalized(event);
+          this.activeDraw.path.push({ x, y });
+          this.redrawFigure(figureConfig);
+        });
+
+        const finishDraw = (event) => {
+          if (!this.activeDraw || this.activeDraw.pointerId !== event.pointerId) return;
+          const draw = this.activeDraw;
+          this.activeDraw = null;
+
+          const { x: endX, y: endY, rect } = toNormalized(event);
+          draw.path.push({ x: endX, y: endY });
+
+          // Measure the full extent of the gesture (bounding box of every recorded point),
+          // not just the start-to-end distance: a hand-drawn loop naturally ends close to
+          // where it started, which must still count as a real drawn area, not a tap.
+          const xs = draw.path.map(p => p.x);
+          const ys = draw.path.map(p => p.y);
+          const spreadPxX = (Math.max(...xs) - Math.min(...xs)) * rect.width;
+          const spreadPxY = (Math.max(...ys) - Math.min(...ys)) * rect.height;
+          const spreadPx = Math.hypot(spreadPxX, spreadPxY);
+
+          let finalPath;
+          if (spreadPx < TAP_THRESHOLD_PX || draw.path.length < 3) {
+            const start = draw.path[0];
+            finalPath = makeCirclePath(start.x, start.y, TAP_RADIUS_PX / rect.width, TAP_RADIUS_PX / rect.height);
+          } else {
+            finalPath = draw.path;
+          }
+
+          addArea(draw.figureId, draw.direction, finalPath);
         };
 
-        canvas.addEventListener("click", handleClick);
-        canvas.addEventListener("touchstart", handleTouchStart, { passive: true });
-        canvas.addEventListener("touchmove", handleTouchMove, { passive: true });
-        canvas.addEventListener("touchend", handleTouchEnd, { passive: true });
-        
-        canvas.addEventListener("wheel", (e) => {
-          e.preventDefault();
-        }, { passive: false });
+        canvas.addEventListener("pointerup", finishDraw);
+        canvas.addEventListener("pointercancel", finishDraw);
       }
 
-      // Record a point on the figure
-      recordPoint(figureId, x, y) {
-        if (!appState.idIsValid || !appState.nameIsValid) {
-          setStatus("❌ Participant ID and Name are required to record points.");
-          return;
-        }
-
-        if (appState.markingMode === "view_all") {
-          setStatus("⚠️ Viewing mode. Switch to 'Mark' mode to record points.");
-          return;
-        }
-
-        if (appState.isExistingSession && !appState.canEdit) {
-          setStatus("❌ Edit time limit expired. Cannot record new points.");
-          return;
-        }
-
-        // Get canvas to normalize coordinates
-        const canvas = this.canvases[figureId];
-        if (!canvas) return;
-
-        const rect = canvas.getBoundingClientRect();
-        const xNorm = x / rect.width;
-        const yNorm = y / rect.height;
-
-        // Validate bounds
-        if (xNorm < 0 || xNorm > 1 || yNorm < 0 || yNorm > 1) {
-          console.log("Click outside canvas bounds");
-          return;
-        }
-
-        // Determine direction based on marking mode
-        const direction = appState.currentDirection || "touched_by";
-
-        const point = {
-          participantId: participantInput.value.trim(),
-          participantName: participantNameInput.value.trim(),
-          figure: figureId,
-          direction: direction,
-          xNorm: xNorm,
-          yNorm: yNorm,
-          timestamp: new Date().toISOString()
-        };
-
-        savePoint(point);
-        this.redrawFigure(this.figureConfigs.find(f => f.id === figureId));
+      getFilteredAreas() {
+        const areas = this.appState.currentTrial.areas;
+        if (this.appState.displayFilter === "all") return areas;
+        return areas.filter(a => a.direction === this.appState.displayFilter);
       }
 
-      // Get points filtered by current display filter
-      getFilteredPoints() {
-        if (appState.displayFilter === "all") {
-          return appState.collectedPoints;
-        } else if (appState.displayFilter === "touched") {
-          return appState.collectedPoints.filter(point => point.direction === "touched");
-        } else if (appState.displayFilter === "touched_by") {
-          return appState.collectedPoints.filter(point => point.direction === "touched_by");
-        }
-        return appState.collectedPoints;
-      }
-
-      // Redraw a single figure with current points
       redrawFigure(figureConfig) {
         const canvas = this.canvases[figureConfig.id];
         const ctx = this.contexts[figureConfig.id];
-        
         if (!canvas || !ctx) return;
 
-        // Draw background image
         const img = this.imageCache[figureConfig.id];
-        if (!img) {
-          console.warn(`Image not loaded for ${figureConfig.id}`);
-          return;
-        }
-        
+        if (!img) return;
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        // Draw points
-        const filteredPoints = this.getFilteredPoints();
-        filteredPoints.forEach(point => {
-          if (point.figure === figureConfig.id) {
-            const xPx = (point.xNorm || point.x) * canvas.width;
-            const yPx = (point.yNorm || point.y) * canvas.height;
-            this.drawMarker(ctx, xPx, yPx, point.direction);
-          }
-        });
+        this.getFilteredAreas()
+          .filter(area => area.figure === figureConfig.id)
+          .forEach(area => this.drawArea(ctx, area, canvas.width, canvas.height));
+
+        if (this.activeDraw && this.activeDraw.figureId === figureConfig.id) {
+          this.drawLivePath(ctx, this.activeDraw.path, this.activeDraw.direction, canvas.width, canvas.height);
+        }
       }
 
-      // Draw a marker (dot) for a point
-      drawMarker(ctx, x, y, direction) {
-        const radius = 6;
-        const color = this.directionColors[direction] || "#999";
+      drawArea(ctx, area, canvasW, canvasH) {
+        if (!area.path || area.path.length < 3) return;
+        const color = this.directionColors[area.direction] || "#999";
 
         ctx.save();
-        ctx.fillStyle = color;
-        ctx.strokeStyle = "black";
+        ctx.beginPath();
+        area.path.forEach((pt, i) => {
+          const x = pt.x * canvasW, y = pt.y * canvasH;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.fillStyle = hexToRgba(color, 0.35);
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        const centroid = pathCentroid(area.path);
+        const cx = centroid.x * canvasW, cy = centroid.y * canvasH;
+        ctx.font = "bold 13px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "rgba(255,255,255,0.9)";
+        ctx.strokeText(String(area.number), cx, cy);
+        ctx.fillStyle = "#000";
+        ctx.fillText(String(area.number), cx, cy);
+        ctx.restore();
+      }
+
+      drawLivePath(ctx, path, direction, canvasW, canvasH) {
+        if (path.length < 2) return;
+        ctx.save();
+        ctx.setLineDash([4, 3]);
+        ctx.strokeStyle = this.directionColors[direction] || "#999";
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(x, y, radius, 0, 2 * Math.PI);
-        ctx.fill();
+        path.forEach((pt, i) => {
+          const x = pt.x * canvasW, y = pt.y * canvasH;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
         ctx.stroke();
         ctx.restore();
       }
 
-      // Redraw all figures
       redrawAllFigures() {
+        this.figureConfigs.forEach(figureConfig => this.redrawFigure(figureConfig));
+      }
+
+      handleResize() {
         this.figureConfigs.forEach(figureConfig => {
+          const canvas = this.canvases[figureConfig.id];
+          if (!canvas) return;
+          this.resizeCanvasToDisplaySize(canvas);
           this.redrawFigure(figureConfig);
         });
       }
@@ -1178,556 +1291,595 @@
     const db = firebase.database();
     const dataService = new DataService(db);
 
-    // ============ COLOR MAPPING ============
     const directionColors = {
-      touched: "#3498db",        // I touched - blue
-      touched_by: "#e74c3c"      // I was touched - red
+      touched: "#3498db",
+      touched_by: "#e74c3c"
     };
 
-    // ============ APP CODE ============
     const figureConfigs = [
-      { id: "front", canvasId: "figure_front", imageSrc: "front.svg" },
-      { id: "back",  canvasId: "figure_back",  imageSrc: "back.svg"  },
-      { id: "left",  canvasId: "figure_left",  imageSrc: "left.svg"  },
-      { id: "right", canvasId: "figure_right", imageSrc: "right.svg" },
+      { id: "front", canvasId: "figure_front", wrapperId: "figureWrapper_front", imageSrc: "front.svg" },
+      { id: "back",  canvasId: "figure_back",  wrapperId: "figureWrapper_back",  imageSrc: "back.svg"  },
+      { id: "left",  canvasId: "figure_left",  wrapperId: "figureWrapper_left",  imageSrc: "left.svg"  },
+      { id: "right", canvasId: "figure_right", wrapperId: "figureWrapper_right", imageSrc: "right.svg" },
     ];
 
-    // Initialize CanvasManager
     const canvasManager = new CanvasManager(figureConfigs, directionColors, appState);
 
-    // DOM Elements (not state)
-    const statusEl = document.getElementById("status");
+    // ============ DOM ELEMENTS ============
+    const statusMessageEl = document.getElementById("statusMessage");
     const syncIndicator = document.getElementById("syncIndicator");
     const participantInput = document.getElementById("participantId");
     const idStatusEl = document.getElementById("idStatus");
     const participantNameInput = document.getElementById("participantName");
     const nameStatusEl = document.getElementById("nameStatus");
-    const pointsListEl = document.getElementById("pointsList");
-    
-    const EDIT_TIME_LIMIT = 60 * 60 * 1000;
-
-    const notesTextarea = document.getElementById("sessionNotes");
-    const starRating = document.getElementById("starRating");
-    const confidenceLabel = document.getElementById("confidenceLabel");
-    const charCountEl = document.getElementById("charCount");
-    const lastSavedEl = document.getElementById("lastSaved");
-    const noteSyncIndicator = document.getElementById("noteSyncIndicator");
-
-    const questionnaireRadios = {
-      q1: document.querySelectorAll('input[name="q1"]'),
-      q2: document.querySelectorAll('input[name="q2"]'),
-      q3: document.querySelectorAll('input[name="q3"]'),
-      q4: document.querySelectorAll('input[name="q4"]')
-    };
-    const qLastSavedEl = document.getElementById("qLastSaved");
-    const questionnaireSyncIndicator = document.getElementById("questionnaireSyncIndicator");
-
+    const trialInput = document.getElementById("trialNumber");
+    const trialStatusEl = document.getElementById("trialStatus");
+    const requirementBannerTop = document.getElementById("requirementBannerTop");
+    const requirementBannerFigures = document.getElementById("requirementBannerFigures");
+    const figureMainSlot = document.getElementById("figureMainSlot");
+    const figureThumbsRail = document.getElementById("figureThumbsRail");
+    const areasListEl = document.getElementById("areasList");
     const markingModeRadios = document.querySelectorAll('input[name="markingMode"]');
 
-    // Firebase and State helpers
+    const notesTextarea = document.getElementById("sessionNotes");
+    const charCountEl = document.getElementById("charCount");
 
-    // Load existing IDs from Firebase on startup
-    // Load existing IDs from Firebase on startup
-    async function loadExistingIds() {
-      return await dataService.loadExistingIds();
+    const distanceOptionsEl = document.getElementById("distanceOptions");
+    const comfortOptionsEl = document.getElementById("comfortOptions");
+    const awarenessOptionsEl = document.getElementById("awarenessOptions");
+    const acceptabilityOptionsEl = document.getElementById("acceptabilityOptions");
+
+    const ratingModalOverlay = document.getElementById("ratingModalOverlay");
+    const ratingModalTitle = document.getElementById("ratingModalTitle");
+    const ratingIntensityEl = document.getElementById("ratingIntensityOptions");
+    const ratingFrequencyEl = document.getElementById("ratingFrequencyOptions");
+    const ratingExpectationEl = document.getElementById("ratingExpectationOptions");
+    const ratingConfidenceEl = document.getElementById("ratingConfidenceOptions");
+    const ratingModalDoneBtn = document.getElementById("ratingModalDoneBtn");
+    const ratingModalDeleteBtn = document.getElementById("ratingModalDeleteBtn");
+
+    const EDIT_TIME_LIMIT = 60 * 60 * 1000;
+    let openAreaIndex = null;
+
+    // ============ TRIAL-LEVEL QUESTIONS ============
+    const TRIAL_QUESTIONS = [
+      { field: "distanceEstimate", container: distanceOptionsEl, options: DISTANCE_OPTIONS, label: "Estimated distance from neighbouring participants" },
+      { field: "comfortWithDistance", container: comfortOptionsEl, options: AGREEMENT_OPTIONS, label: "Comfort with that distance" },
+      { field: "awarenessOfContacts", container: awarenessOptionsEl, options: AGREEMENT_OPTIONS, label: "Awareness of bodily contacts" },
+      { field: "acceptabilityOfInteractions", container: acceptabilityOptionsEl, options: AGREEMENT_OPTIONS, label: "Acceptability of bodily interactions" },
+    ];
+
+    function renderTrialQuestions() {
+      TRIAL_QUESTIONS.forEach(q => {
+        renderSliderField(q.container, q.options, appState.currentTrial[q.field], (value) => {
+          appState.currentTrial[q.field] = value;
+        });
+      });
+      updateTrialQuestionsEditability();
     }
 
-    function getParticipantKey(id, name) {
-      return `${id}_${name.toLowerCase()}`;
+    function updateTrialQuestionsEditability() {
+      const disabled = !appState.isEditable();
+      TRIAL_QUESTIONS.forEach(q => {
+        q.container.querySelectorAll("input").forEach(input => { input.disabled = disabled; });
+      });
     }
 
-    function isValidNumericId(id) {
-      return id && /^\d+$/.test(id);
+    // ============ AREAS LIST + RATING PANEL ============
+    const RATING_GROUPS = [
+      { field: "intensity", container: ratingIntensityEl, options: INTENSITY_OPTIONS, label: "Intensity" },
+      { field: "frequency", container: ratingFrequencyEl, options: FREQUENCY_OPTIONS, label: "Frequency" },
+      { field: "expectation", container: ratingExpectationEl, options: EXPECTATION_OPTIONS, label: "Level of expectation" },
+      { field: "confidence", container: ratingConfidenceEl, options: CONFIDENCE_OPTIONS, label: "Level of confidence" },
+    ];
+
+    function addArea(figureId, direction, path) {
+      const area = { figure: figureId, direction, path, intensity: null, frequency: null, expectation: null, confidence: null, timestamp: new Date().toISOString() };
+      appState.addArea(area);
+      updateAreasList();
+      canvasManager.redrawAllFigures();
+      setStatus(`Recorded area #${area.number} on ${figureId}. Total areas: ${appState.getAreasCount()}`);
+      openRatingPanel(0);
     }
 
-    function isValidName(name) {
-      return name && name.trim().length > 0;
+    function areaSummary(area) {
+      const fields = ["intensity", "frequency", "expectation", "confidence"];
+      if (fields.some(f => !area[f])) return { text: "Ratings incomplete", incomplete: true };
+      const text = fields.map(f => OPTION_LABELS[area[f]]).join(" · ");
+      return { text, incomplete: false };
     }
 
-    function keyAlreadyExists(id, name) {
-      return dataService.keyAlreadyExists(id, name);
-    }
-
-    async function loadExistingParticipantData(id, name) {
-      try {
-        const result = await dataService.loadExistingParticipantData(id, name);
-        
-        if (result.exists) {
-          appState.isExistingSession = true;
-          appState.firstEntryTimestamp = result.earliestTimestamp;
-          appState.collectedPoints = result.points;
-          
-          const now = Date.now();
-          if (appState.firstEntryTimestamp !== null) {
-            const elapsed = now - appState.firstEntryTimestamp;
-            appState.canEdit = elapsed < EDIT_TIME_LIMIT;
-          } else {
-            appState.canEdit = true;
-          }
-          
-          updatePointsList();
-          redrawAllFigures();
-          
-          if (result.sessionData) {
-            appState.sessionNotes = result.sessionData.notes || "";
-            appState.sessionConfidence = result.sessionData.confidence || 0;
-            appState.questionnaireResponses = result.sessionData.questionnaire || {
-              q1: null,
-              q2: null,
-              q3: null,
-              q4: null
-            };
-            updateNotesDisplay();
-            updateQuestionnaireDisplay();
-          } else {
-            resetNotes();
-            resetQuestionnaire();
-          }
-          
-          updateEditStatus();
-          startEditStatusTimer();
-          updateNotesEditability();
-          updateQuestionnaireEditability();
-          
-          return true;
-        }
-      } catch (error) {
-        console.error("Error loading participant data:", error);
-      }
-      
-      return false;
-    }
-
-    function updateEditStatus() {
-      if (!appState.isExistingSession) {
-        idStatusEl.textContent = "✓ ID is valid";
-        idStatusEl.className = "id-status id-valid";
+    function updateAreasList() {
+      const areas = appState.currentTrial.areas;
+      if (areas.length === 0) {
+        areasListEl.innerHTML = '<div class="empty-list">No contact areas recorded yet</div>';
         return;
       }
 
-      if (appState.canEdit) {
-        const elapsed = Date.now() - appState.firstEntryTimestamp;
-        const remaining = EDIT_TIME_LIMIT - elapsed;
-        
-        if (remaining <= 0) {
-          appState.canEdit = false;
-          idStatusEl.textContent = "❌ Edit time limit expired (1 hour)";
-          idStatusEl.className = "id-status id-invalid";
-          return;
-        }
-        
-        const minutesRemaining = Math.ceil(remaining / 60000);
-        idStatusEl.textContent = `✓ Editing enabled (${minutesRemaining} min remaining)`;
-        idStatusEl.className = "id-status id-valid";
-      } else {
-        idStatusEl.textContent = "❌ Edit time limit expired (1 hour)";
-        idStatusEl.className = "id-status id-invalid";
+      areasListEl.innerHTML = areas.map((area, index) => {
+        const directionLabel = area.direction === "touched_by" ? "I was touched" : "I touched";
+        const summary = areaSummary(area);
+        return `
+        <div class="area-item">
+          <div class="area-color" style="background: ${directionColors[area.direction]}"></div>
+          <div class="area-info">
+            <strong>#${area.number}</strong> ${area.figure} — <strong>${directionLabel}</strong>
+            <span class="area-ratings-summary ${summary.incomplete ? "incomplete" : ""}">${summary.text}</span>
+          </div>
+          <div class="area-actions">
+            <button type="button" onclick="openRatingPanel(${index})">Edit ratings</button>
+            <button type="button" class="danger" onclick="deleteArea(${index})">Delete</button>
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    function openRatingPanel(index) {
+      const area = appState.currentTrial.areas[index];
+      if (!area) return;
+      openAreaIndex = index;
+
+      const directionLabel = area.direction === "touched_by" ? "I was touched" : "I touched";
+      ratingModalTitle.textContent = `Area #${area.number} — ${area.figure} (${directionLabel})`;
+
+      RATING_GROUPS.forEach(g => renderSliderField(g.container, g.options, area[g.field], (value) => {
+        appState.currentTrial.areas[index][g.field] = value;
+      }));
+      const disabled = !appState.isEditable();
+      RATING_GROUPS.forEach(g => g.container.querySelectorAll("input").forEach(input => { input.disabled = disabled; }));
+      ratingModalDeleteBtn.disabled = disabled;
+
+      ratingModalOverlay.hidden = false;
+    }
+
+    function closeRatingPanel() {
+      ratingModalOverlay.hidden = true;
+      openAreaIndex = null;
+      updateAreasList();
+    }
+
+    ratingModalDoneBtn.addEventListener("click", closeRatingPanel);
+    ratingModalDeleteBtn.addEventListener("click", () => {
+      if (openAreaIndex === null) return;
+      deleteArea(openAreaIndex);
+      ratingModalOverlay.hidden = true;
+      openAreaIndex = null;
+    });
+
+    function deleteArea(index) {
+      if (!appState.isEditable()) {
+        setStatus("❌ Edit time limit expired. Cannot delete areas.");
+        return;
+      }
+      appState.removeArea(index);
+      updateAreasList();
+      canvasManager.redrawAllFigures();
+      setStatus(`Deleted area. Total areas: ${appState.getAreasCount()}`);
+    }
+
+    function clearAreas() {
+      if (confirm("Are you sure you want to delete ALL contact areas for this trial?")) {
+        appState.clearAllAreas();
+        updateAreasList();
+        canvasManager.redrawAllFigures();
+        setStatus("Cleared all areas for this trial.");
       }
     }
 
-    let editStatusTimer = null;
-    
+    document.getElementById("clearAreas").addEventListener("click", clearAreas);
+
+    // ============ COMMENTS ============
+    notesTextarea.addEventListener("input", () => {
+      appState.currentTrial.notes = notesTextarea.value;
+      charCountEl.textContent = notesTextarea.value.length;
+    });
+
+    function updateNotesDisplay() {
+      notesTextarea.value = appState.currentTrial.notes || "";
+      charCountEl.textContent = notesTextarea.value.length;
+      notesTextarea.disabled = !appState.isEditable();
+    }
+
+    // ============ STATUS HELPERS ============
+    function setStatus(message) {
+      statusMessageEl.textContent = message;
+    }
+
+    function setSyncStatus(status) {
+      syncIndicator.className = "sync-indicator";
+      if (status) syncIndicator.classList.add(status);
+    }
+
+    // ============ MARKING MODE ============
+    markingModeRadios.forEach(radio => {
+      radio.addEventListener("change", (e) => {
+        appState.setMarkingMode(e.target.value);
+        canvasManager.redrawAllFigures();
+        setStatus(`Mode: ${e.target.parentElement.textContent.split('\n')[0].trim()}`);
+      });
+    });
+
+    // ============ EDIT WINDOW ============
+    function updateEditStatus() {
+      if (!appState.isExistingSession) {
+        trialStatusEl.textContent = "✓ New trial";
+        trialStatusEl.className = "id-status id-valid";
+        return;
+      }
+
+      const elapsed = Date.now() - new Date(appState.currentTrial.firstSavedAt).getTime();
+      const remaining = EDIT_TIME_LIMIT - elapsed;
+
+      if (remaining <= 0) {
+        appState.canEdit = false;
+        trialStatusEl.textContent = "❌ Edit time limit expired (1 hour)";
+        trialStatusEl.className = "id-status id-invalid";
+      } else {
+        appState.canEdit = true;
+        const minutesRemaining = Math.ceil(remaining / 60000);
+        trialStatusEl.textContent = `✓ Editing enabled (${minutesRemaining} min remaining)`;
+        trialStatusEl.className = "id-status id-valid";
+      }
+
+      updateEditability();
+    }
+
+    function updateEditability() {
+      updateNotesDisplay();
+      updateTrialQuestionsEditability();
+    }
+
     function startEditStatusTimer() {
       if (appState.editStatusTimer) clearInterval(appState.editStatusTimer);
       appState.editStatusTimer = setInterval(() => {
-        if (appState.isExistingSession) {
-          updateEditStatus();
-        }
+        if (appState.isExistingSession) updateEditStatus();
       }, 30000);
     }
 
-    function stopEditStatusTimer() {
-      if (appState.editStatusTimer) {
-        clearInterval(appState.editStatusTimer);
-        appState.editStatusTimer = null;
-      }
-    }
-
-    function resetNotes() {
-      appState.sessionNotes = "";
-      appState.sessionConfidence = 0;
-      notesTextarea.value = "";
-      charCountEl.textContent = "0";
-      confidenceLabel.textContent = "(Not rated)";
-      document.querySelectorAll(".star").forEach(star => star.classList.remove("active"));
-      lastSavedEl.textContent = "";
-    }
-
-    function updateNotesDisplay() {
-      notesTextarea.value = appState.sessionNotes;
-      charCountEl.textContent = appState.sessionNotes.length;
-      updateStarsDisplay();
-      updateNotesEditability();
-    }
-
-    function updateStarsDisplay() {
-      document.querySelectorAll(".star").forEach(star => {
-        const value = parseInt(star.dataset.value);
-        if (value <= appState.sessionConfidence) {
-          star.classList.add("active");
-        } else {
-          star.classList.remove("active");
-        }
-      });
-
-      const labels = {
-        0: "(Not rated)",
-        1: "Not confident",
-        2: "Somewhat confident",
-        3: "Moderately confident",
-        4: "Confident",
-        5: "Very confident"
-      };
-      confidenceLabel.textContent = labels[appState.sessionConfidence] || "(Not rated)";
-    }
-
-    function updateNotesEditability() {
-      const disabled = appState.isExistingSession && !appState.canEdit;
-      notesTextarea.disabled = disabled;
-      document.querySelectorAll(".star").forEach(star => {
-        if (disabled) {
-          star.style.pointerEvents = "none";
-          star.style.opacity = "0.5";
-        } else {
-          star.style.pointerEvents = "auto";
-          star.style.opacity = "1";
-        }
-      });
-    }
-
-    function updateCharCounter() {
-      charCountEl.textContent = notesTextarea.value.length;
-    }
-
-    notesTextarea.addEventListener("input", (e) => {
-      updateCharCounter();
-    });
-
-    document.querySelectorAll(".star").forEach(star => {
-      star.addEventListener("click", (e) => {
-        if (appState.isExistingSession && !appState.canEdit) return;
-        
-        appState.sessionConfidence = parseInt(e.target.dataset.value);
-        updateStarsDisplay();
-      });
-
-      star.addEventListener("mouseover", (e) => {
-        const value = parseInt(e.target.dataset.value);
-        document.querySelectorAll(".star").forEach(s => {
-          if (parseInt(s.dataset.value) <= value) {
-            s.style.color = "#ffc107";
-          } else {
-            s.style.color = "#ddd";
-          }
-        });
-      });
-    });
-
-    starRating.addEventListener("mouseleave", () => {
-      updateStarsDisplay();
-    });
-
-    function resetQuestionnaire() {
-      appState.questionnaireResponses = {
-        q1: null,
-        q2: null,
-        q3: null,
-        q4: null
-      };
-      Object.values(questionnaireRadios).forEach(radios => {
-        radios.forEach(radio => radio.checked = false);
-      });
-      qLastSavedEl.textContent = "";
-      updateQuestionnaireEditability();
-    }
-
-    function updateQuestionnaireDisplay() {
-      Object.entries(appState.questionnaireResponses).forEach(([key, value]) => {
-        if (value !== null) {
-          const radio = document.querySelector(`input[name="${key}"][value="${value}"]`);
-          if (radio) radio.checked = true;
-        }
-      });
-      updateQuestionnaireEditability();
-    }
-
-    function updateQuestionnaireEditability() {
-      const disabled = appState.isExistingSession && !appState.canEdit;
-      Object.values(questionnaireRadios).forEach(radios => {
-        radios.forEach(radio => {
-          radio.disabled = disabled;
-        });
-      });
-    }
-
-    Object.entries(questionnaireRadios).forEach(([key, radios]) => {
-      radios.forEach(radio => {
-        radio.addEventListener("change", (e) => {
-          if (appState.isExistingSession && !appState.canEdit) return;
-          appState.setQuestionnaireResponse(key, parseInt(e.target.value));
-        });
-      });
-    });
-
-    function redrawAllFigures() {
+    // ============ PARTICIPANT / TRIAL IDENTIFICATION ============
+    function refreshUiForCurrentTrial() {
+      renderTrialQuestions();
+      updateNotesDisplay();
+      updateAreasList();
       canvasManager.redrawAllFigures();
     }
 
     async function updateIdStatus() {
       const id = participantInput.value.trim();
-
       if (!id) {
         appState.idIsValid = false;
         idStatusEl.textContent = "";
         idStatusEl.className = "id-status";
         return;
       }
-
       if (!dataService.isValidNumericId(id)) {
         appState.idIsValid = false;
-        const validationError = new ValidationError("Participant ID must be numeric (digits only)");
-        console.warn(validationError.name + ":", validationError.message);
         idStatusEl.textContent = "❌ ID must be a number (digits only)";
         idStatusEl.className = "id-status id-invalid";
         return;
       }
-
       appState.idIsValid = true;
       idStatusEl.textContent = "✓ ID is valid";
       idStatusEl.className = "id-status id-valid";
-      
       updateCombinedKeyStatus();
     }
 
     async function updateNameStatus() {
       const name = participantNameInput.value.trim();
-
       if (!name) {
         appState.nameIsValid = false;
         nameStatusEl.textContent = "";
         nameStatusEl.className = "id-status";
         return;
       }
-
       if (!dataService.isValidName(name)) {
         appState.nameIsValid = false;
-        const validationError = new ValidationError("Participant name must not be empty");
-        console.warn(validationError.name + ":", validationError.message);
         nameStatusEl.textContent = "❌ Name must not be empty";
         nameStatusEl.className = "id-status id-invalid";
         return;
       }
-
       appState.nameIsValid = true;
       nameStatusEl.textContent = "✓ Name is valid";
       nameStatusEl.className = "id-status id-valid";
-      
+      updateCombinedKeyStatus();
+    }
+
+    async function updateTrialStatus() {
+      const trial = trialInput.value.trim();
+      if (!trial) {
+        appState.trialIsValid = false;
+        trialStatusEl.textContent = "";
+        trialStatusEl.className = "id-status";
+        return;
+      }
+      if (!dataService.isValidNumericId(trial)) {
+        appState.trialIsValid = false;
+        trialStatusEl.textContent = "❌ Trial number must be numeric";
+        trialStatusEl.className = "id-status id-invalid";
+        return;
+      }
+      appState.trialIsValid = true;
+      trialStatusEl.textContent = "✓ Trial number is valid";
+      trialStatusEl.className = "id-status id-valid";
       updateCombinedKeyStatus();
     }
 
     async function updateCombinedKeyStatus() {
+      if (!appState.idIsValid || !appState.nameIsValid || !appState.trialIsValid) return;
+
       const id = participantInput.value.trim();
       const name = participantNameInput.value.trim();
-      
-      if (!appState.idIsValid || !appState.nameIsValid) {
+      const trialNumber = trialInput.value.trim();
+
+      let result;
+      try {
+        result = await dataService.loadExistingTrialData(id, name, trialNumber);
+      } catch (error) {
+        setStatus(`❌ Failed to check existing data: ${error.message}`);
         return;
       }
 
-      const dataExists = await loadExistingParticipantData(id, name);
-      
-      if (!dataExists) {
-        stopEditStatusTimer();
-        appState.isExistingSession = false;
-        appState.firstEntryTimestamp = null;
-        appState.canEdit = true;
-        appState.collectedPoints = [];
-        updatePointsList();
-        redrawAllFigures();
-        resetNotes();
-        resetQuestionnaire();
-        updateNotesEditability();
-        updateQuestionnaireEditability();
-        idStatusEl.textContent = "✓ ID is valid (New session)";
-        idStatusEl.className = "id-status id-valid";
+      if (result.exists) {
+        appState.isExistingSession = true;
+        appState.currentTrial = result.trial;
+        appState.currentTrial.areas.forEach(a => { appState.nextAreaNumber = Math.max(appState.nextAreaNumber, (a.number || 0) + 1); });
+
+        updateEditStatus();
+        startEditStatusTimer();
+        refreshUiForCurrentTrial();
+        trialStatusEl.textContent = appState.canEdit ? trialStatusEl.textContent : "❌ Edit time limit expired (1 hour)";
+      } else {
+        appState.resetForNewTrial(trialNumber);
+        trialStatusEl.textContent = "✓ New trial";
+        trialStatusEl.className = "id-status id-valid";
+        refreshUiForCurrentTrial();
       }
     }
 
-    participantInput.addEventListener("input", updateIdStatus);
-    participantNameInput.addEventListener("input", updateNameStatus);
+    function updateRequirementBanners() {
+      const ready = appState.idIsValid && appState.nameIsValid && appState.trialIsValid;
+      const missingParts = [];
+      if (!appState.idIsValid) missingParts.push("Participant ID");
+      if (!appState.nameIsValid) missingParts.push("Participant Name");
+      if (!appState.trialIsValid) missingParts.push("Trial number");
 
-    markingModeRadios.forEach(radio => {
-      radio.addEventListener("change", (e) => {
-        appState.setMarkingMode(e.target.value);
-        
-        updatePointsList();
-        redrawAllFigures();
-        setStatus(`Mode: ${e.target.parentElement.textContent.split('(')[0].trim()}`);
+      const text = ready
+        ? "✓ Ready to record contact areas."
+        : `⚠️ ${missingParts.join(", ")} ${missingParts.length > 1 ? "are" : "is"} required before you can record contact areas.`;
+      const cls = ready ? "ok" : "missing";
+
+      [requirementBannerTop, requirementBannerFigures].forEach(el => {
+        el.textContent = text;
+        el.className = `requirement-banner ${cls}`;
+      });
+    }
+
+    participantInput.addEventListener("input", () => { updateIdStatus(); updateRequirementBanners(); });
+    participantNameInput.addEventListener("input", () => { updateNameStatus(); updateRequirementBanners(); });
+    trialInput.addEventListener("input", () => { updateTrialStatus(); updateRequirementBanners(); });
+
+    // ============ ACTIVE FIGURE (main view + thumbnail rail) ============
+    // Exactly one figure is shown large at a time; the other three sit as small
+    // click-to-switch thumbnails. The underlying canvases keep their own aspect ratio
+    // (see CanvasManager.setupFigure), so each just scales to whichever slot it's in.
+    let activeFigureId = "front";
+    const THUMB_RAIL_GAP_PX = 8; // must match .figure-thumbs-rail { gap: 0.5rem }
+
+    function getFigureConfig(figureId) {
+      return figureConfigs.find(fc => fc.id === figureId);
+    }
+
+    function aspectRatioHeightPerWidth(figureId) {
+      const img = canvasManager.imageCache[figureId];
+      return img && img.naturalWidth && img.naturalHeight ? img.naturalHeight / img.naturalWidth : 1;
+    }
+
+    // Picks a width for the thumbnail rail so the 3 stacked thumbnails (each keeping
+    // its own correct aspect ratio) add up to the same total height as the main figure,
+    // rather than a fixed width that happens to make them taller or shorter than it.
+    function syncThumbRailHeight() {
+      const mainWrapper = document.getElementById(getFigureConfig(activeFigureId).wrapperId);
+      const targetHeight = mainWrapper.getBoundingClientRect().height;
+      if (!targetHeight) return;
+
+      const thumbIds = figureConfigs.map(fc => fc.id).filter(id => id !== activeFigureId);
+      let ratioSum = 0;
+      let overheadSum = 0;
+      thumbIds.forEach(id => {
+        const rect = document.getElementById(getFigureConfig(id).wrapperId).getBoundingClientRect();
+        const ratio = aspectRatioHeightPerWidth(id);
+        ratioSum += ratio;
+        overheadSum += rect.height - rect.width * ratio; // padding + label, independent of width
+      });
+
+      const numGaps = thumbIds.length - 1;
+      const available = targetHeight - numGaps * THUMB_RAIL_GAP_PX - overheadSum;
+      figureThumbsRail.style.width = `${Math.max(36, available / ratioSum)}px`;
+    }
+
+    function setActiveFigure(figureId) {
+      activeFigureId = figureId;
+
+      figureConfigs.forEach(fc => {
+        const wrapper = document.getElementById(fc.wrapperId);
+        wrapper.style.display = "";
+        if (fc.id === figureId) {
+          wrapper.classList.add("figure-main");
+          wrapper.classList.remove("figure-thumb");
+          wrapper.removeAttribute("role");
+          wrapper.removeAttribute("tabindex");
+          figureMainSlot.appendChild(wrapper);
+        } else {
+          wrapper.classList.add("figure-thumb");
+          wrapper.classList.remove("figure-main");
+          wrapper.setAttribute("role", "button");
+          wrapper.setAttribute("tabindex", "0");
+          figureThumbsRail.appendChild(wrapper);
+        }
+      });
+
+      syncThumbRailHeight();
+
+      figureConfigs.forEach(fc => {
+        const canvas = canvasManager.canvases[fc.id];
+        if (!canvas) return;
+        canvasManager.resizeCanvasToDisplaySize(canvas);
+        canvasManager.redrawFigure(fc);
+      });
+    }
+
+    figureConfigs.forEach(fc => {
+      const wrapper = document.getElementById(fc.wrapperId);
+      wrapper.addEventListener("click", () => {
+        if (wrapper.classList.contains("figure-thumb")) setActiveFigure(fc.id);
+      });
+      wrapper.addEventListener("keydown", (e) => {
+        if ((e.key === "Enter" || e.key === " ") && wrapper.classList.contains("figure-thumb")) {
+          e.preventDefault();
+          setActiveFigure(fc.id);
+        }
       });
     });
 
-    function setStatus(message) {
-      statusEl.childNodes[0].textContent = message;
+    // ============ RESIZE HANDLING ============
+    function handleViewportChange() {
+      canvasManager.handleResize(); // sync canvases to their current CSS size first
+      syncThumbRailHeight(); // then recompute thumb width from the (possibly new) main height
+      canvasManager.handleResize(); // and re-sync thumb canvases now that their width changed
     }
 
-    function setSyncStatus(status) {
-      syncIndicator.className = "sync-indicator";
-      if (status) {
-        syncIndicator.classList.add(status);
-      }
+    let resizeTimer = null;
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(handleViewportChange, 150);
+    });
+    window.addEventListener("orientationchange", handleViewportChange);
+
+    // ============ MAIN FIGURE ZOOM ============
+    const BASE_MAIN_FIGURE_HEIGHT = 530;
+    const ZOOM_MIN = 0.6;
+    const ZOOM_MAX = 1.8;
+    const ZOOM_STEP = 0.15;
+    let mainFigureZoom = 1;
+
+    const zoomOutBtn = document.getElementById("figureZoomOutBtn");
+    const zoomInBtn = document.getElementById("figureZoomInBtn");
+
+    function applyMainFigureZoom() {
+      const height = Math.round(BASE_MAIN_FIGURE_HEIGHT * mainFigureZoom);
+      document.documentElement.style.setProperty("--main-figure-height", `${height}px`);
+      handleViewportChange();
+      zoomOutBtn.disabled = mainFigureZoom <= ZOOM_MIN + 1e-9;
+      zoomInBtn.disabled = mainFigureZoom >= ZOOM_MAX - 1e-9;
     }
 
-    function savePoint(point) {
-      appState.addPoint(point);
-      updatePointsList();
-      const directionLabel = point.direction === "touched_by" ? "was touched" : "touched";
-      setStatus(
-        `Recorded: ${point.figure} (${directionLabel}). Total: ${appState.getPointsCount()}`
-      );
-    }
+    zoomOutBtn.addEventListener("click", () => {
+      mainFigureZoom = Math.max(ZOOM_MIN, +(mainFigureZoom - ZOOM_STEP).toFixed(2));
+      applyMainFigureZoom();
+    });
 
-    function updatePointsList() {
-      if (appState.getPointsCount() === 0) {
-        pointsListEl.innerHTML = '<div class="empty-list">No points recorded yet</div>';
+    zoomInBtn.addEventListener("click", () => {
+      mainFigureZoom = Math.min(ZOOM_MAX, +(mainFigureZoom + ZOOM_STEP).toFixed(2));
+      applyMainFigureZoom();
+    });
+
+    // ============ SAVE ============
+    window.saveAllAndReload = async function (isRetry = false) {
+      const btn = document.getElementById("saveAndSend");
+
+      if (!appState.idIsValid || !appState.nameIsValid || !appState.trialIsValid) {
+        alert("Participant ID, Name and Trial number must all be valid before saving.");
         return;
       }
 
-      const filteredWithIndices = appState.collectedPoints
-        .map((point, index) => ({ point, index }))
-        .reverse()
-        .filter(({ point }) => {
-          if (appState.displayFilter === "all") return true;
-          if (appState.displayFilter === "touched") return point.direction === "touched";
-          if (appState.displayFilter === "touched_by") return point.direction === "touched_by";
-          return true;
-        });
+      const missingQuestions = TRIAL_QUESTIONS.filter(q => !appState.currentTrial[q.field]).map(q => q.label);
+      const incompleteAreas = appState.getIncompleteAreas().map(area => {
+        const missingFields = RATING_GROUPS.filter(g => !area[g.field]).map(g => g.label);
+        return `Area #${area.number}: ${missingFields.join(", ")}`;
+      });
 
-      if (filteredWithIndices.length === 0) {
-        pointsListEl.innerHTML = '<div class="empty-list">No points match current filter</div>';
+      if (missingQuestions.length || incompleteAreas.length) {
+        let message = "Please complete the following before saving:";
+        if (missingQuestions.length) {
+          message += "\n\nQuestions not yet answered:\n" + missingQuestions.map(q => `• ${q}`).join("\n");
+        }
+        if (incompleteAreas.length) {
+          message += "\n\nContact areas missing ratings:\n" + incompleteAreas.map(a => `• ${a}`).join("\n");
+        }
+        alert(message);
         return;
       }
 
-      pointsListEl.innerHTML = filteredWithIndices.map(({ point, index }) => {
-        const directionLabel = point.direction === "touched_by" ? "I was touched" : "I touched";
-        return `
-        <div class="point-item">
-          <div class="point-color" style="background: ${directionColors[point.direction]}"></div>
-          <div class="point-info">
-            <strong>${point.figure}</strong> - <strong>${directionLabel}</strong>
-          </div>
-          <button class="point-delete-btn" onclick="deletePoint(${index})">Delete</button>
-        </div>
-      `;
-      }).join("");
-    }
-
-    function deletePoint(index) {
-      if (appState.isExistingSession && !appState.canEdit) {
-        setStatus("❌ Edit time limit expired. Cannot delete points.");
-        return;
-      }
-
-      appState.removePoint(index);
-      updatePointsList();
-      setStatus(`Deleted point. Total: ${appState.getPointsCount()}`);
-      
-      canvasManager.redrawAllFigures();
-    }
-
-    function clearPoints() {
-      if (confirm("Are you sure you want to delete ALL points?")) {
-        appState.clearAllPoints();
-        updatePointsList();
-        setStatus("Cleared all points for this session.");
-        canvasManager.redrawAllFigures();
-      }
-    }
-
-    document.getElementById("clearPoints").addEventListener("click", clearPoints);
-
-    // Initialize
-    (async () => {
-      await canvasManager.preloadImages();
-      await loadExistingIds();
-      figureConfigs.forEach(figureConfig => canvasManager.setupFigure(figureConfig));
-      setStatus("Ready. Click or tap to mark contact.");
-    })();
-
-    // Save all session data and points
-    window.saveAllAndReload = async function(isRetry = false) {
-      const btn = document.getElementById('saveAndSend');
-
-      if (!appState.idIsValid || !appState.nameIsValid) {
-        const validationError = new ValidationError('Participant ID and Name must be valid before saving');
-        console.error(validationError.name + ":", validationError.message);
-        alert('Participant ID and Name must be valid before saving.');
-        return;
-      }
-
-      const hasTouched = appState.hasPointsInDirection('touched');
-      const hasTouchedBy = appState.hasPointsInDirection('touched_by');
-      const unanswered = appState.getUnansweredItems().map(k => k.toUpperCase());
-
-      const missing = [];
-      if (!hasTouched) missing.push('No points recorded for "I touched".');
-      if (!hasTouchedBy) missing.push('No points recorded for "I was touched".');
-      if (unanswered.length) missing.push(`Unanswered questionnaire items: ${unanswered.join(', ')}`);
-      if (missing.length) {
-        const validationError = new ValidationError(missing.join(' | '));
-        console.error(validationError.name + ":", validationError.message);
-        alert(missing.join('\n') + '\n\nPlease complete before saving.');
-        return;
-      }
-
-      let prevText = 'Save and Send';
+      let prevText = "Save and Send";
       try {
         if (btn) {
           btn.disabled = true;
           prevText = btn.textContent;
-          btn.textContent = isRetry ? 'Retrying...' : 'Saving...';
+          btn.textContent = isRetry ? "Retrying..." : "Saving...";
         }
 
-        setSyncStatus('syncing');
-        setStatus(`📤 ${isRetry ? 'Retrying' : 'Saving'} your data... (${appState.getPointsCount()} points + questionnaire)`);
+        setSyncStatus("syncing");
+        setStatus(`📤 ${isRetry ? "Retrying" : "Saving"} your data... (${appState.getAreasCount()} area(s) + questionnaire)`);
 
         const id = participantInput.value.trim();
         const name = participantNameInput.value.trim();
+        const nowIso = new Date().toISOString();
 
-        await dataService.saveSessionData(
-          id,
-          name,
-          notesTextarea.value,
-          appState.sessionConfidence,
-          appState.questionnaireResponses,
-          appState.collectedPoints
-        );
+        appState.currentTrial.notes = notesTextarea.value;
+        if (!appState.currentTrial.firstSavedAt) appState.currentTrial.firstSavedAt = nowIso;
+        appState.currentTrial.lastEdited = nowIso;
 
-        setSyncStatus('synced');
+        await dataService.saveTrialData(id, name, appState.currentTrial);
 
-        setStatus('✅ All data saved successfully! Thank you for your participation.');
-        if (btn) {
-          btn.textContent = '✅ Saved!';
-        }
+        appState.clearAllAreas();
+        updateAreasList();
+        canvasManager.redrawAllFigures();
+
+        participantInput.value = "";
+        participantNameInput.value = "";
+        trialInput.value = "";
+        idStatusEl.textContent = "";
+        idStatusEl.className = "id-status";
+        nameStatusEl.textContent = "";
+        nameStatusEl.className = "id-status";
+        trialStatusEl.textContent = "";
+        trialStatusEl.className = "id-status";
+        appState.idIsValid = false;
+        appState.nameIsValid = false;
+        appState.trialIsValid = false;
+        updateRequirementBanners();
+
+        setSyncStatus("synced");
+        setStatus("✅ All data saved successfully! Thank you for your participation.");
+        if (btn) btn.textContent = "✅ Saved!";
 
         setTimeout(() => {
-          alert('All data are saved. Thank you for your participation.');
+          alert("All data are saved. Thank you for your participation.");
           setSyncStatus(null);
           location.reload();
         }, 1000);
-
       } catch (error) {
         const dataSaveError = new DataSaveError(`Failed to save data: ${error.message}`);
         console.error(dataSaveError.name + ":", dataSaveError.message);
-        setSyncStatus('error');
-        
+        setSyncStatus("error");
         setStatus(`❌ Save failed: ${dataSaveError.message}. Click "Retry" to try again.`);
-        
         if (btn) {
           btn.disabled = false;
-          btn.textContent = '⚠️ Retry';
+          btn.textContent = "⚠️ Retry";
           btn.onclick = () => window.saveAllAndReload(true);
         }
       }
     };
+
+    // ============ INIT ============
+    renderTrialQuestions();
+    updateRequirementBanners();
+    (async () => {
+      await canvasManager.preloadImages();
+      figureConfigs.forEach(figureConfig => canvasManager.setupFigure(figureConfig));
+      setActiveFigure("front");
+      setStatus("Ready. Drag on a body figure to mark a contact area (or tap for a small one).");
+    })();
   </script>
 
   <div style="text-align: center; margin: 2rem 0;">
