@@ -447,9 +447,13 @@
     /* Choice / Likert option groups */
     .question-block {
       padding: 1rem;
-      border: 1px solid #eee;
+      border: 2px solid #eee;
       border-radius: 0.3rem;
       background: #fafafa;
+    }
+
+    .question-block.is-answered {
+      border-color: #27ae60;
     }
 
     .question-block + .question-block {
@@ -537,15 +541,17 @@
 
     .slider-current-value {
       text-align: center;
-      font-weight: 600;
+      font-weight: 400;
+      font-style: italic;
       font-size: 0.9rem;
-      color: #2c3e50;
+      color: #999;
       min-height: 1.2rem;
-      visibility: hidden;
     }
 
-    .slider-current-value.is-visible {
-      visibility: visible;
+    .slider-current-value.is-answered {
+      font-weight: 600;
+      font-style: normal;
+      color: #2c3e50;
     }
 
     /* Comments */
@@ -766,8 +772,8 @@
         <div class="choice-options" id="ratingIntensityOptions"></div>
       </div>
       <div class="question-block">
-        <label class="question-text">Frequency of contact you felt at this location</label>
-        <div class="choice-options" id="ratingFrequencyOptions"></div>
+        <label class="question-text">Duration of contact you felt at this location.</label>
+        <div class="choice-options" id="ratingDurationOptions"></div>
       </div>
       <div class="question-block">
         <label class="question-text">Level of expectation you had about having contact at this location</label>
@@ -812,11 +818,12 @@
       { value: "strong", label: "Strong" },
       { value: "very_strong", label: "Very strong" },
     ];
-    const FREQUENCY_OPTIONS = [
-      { value: "once", label: "Once" },
-      { value: "occasionally", label: "Occasionally" },
-      { value: "most_of_the_time", label: "Most of the time" },
-      { value: "almost_always", label: "Almost all the time" },
+    const DURATION_OPTIONS = [
+      { value: "less_1s", label: "Less than 1s" },
+      { value: "less_3s", label: "Less than 3s" },
+      { value: "less_5s", label: "Less than 5s" },
+      { value: "less_10s", label: "Less than 10s" },
+      { value: "10s_or_more", label: "10s or more" },
     ];
     const EXPECTATION_OPTIONS = [
       { value: "very_unexpected", label: "Very unexpected" },
@@ -833,7 +840,7 @@
       { value: "very_high", label: "Very high" },
     ];
     const OPTION_LABELS = {};
-    [DISTANCE_OPTIONS, AGREEMENT_OPTIONS, INTENSITY_OPTIONS, FREQUENCY_OPTIONS, EXPECTATION_OPTIONS, CONFIDENCE_OPTIONS]
+    [DISTANCE_OPTIONS, AGREEMENT_OPTIONS, INTENSITY_OPTIONS, DURATION_OPTIONS, EXPECTATION_OPTIONS, CONFIDENCE_OPTIONS]
       .forEach(list => list.forEach(opt => { OPTION_LABELS[opt.value] = opt.label; }));
 
     // Renders a slider for a set of ordered options: the first and last option labels
@@ -857,20 +864,23 @@
             <span>${options[0].label}</span>
             <span>${options[options.length - 1].label}</span>
           </div>
-          <div class="slider-current-value${answered ? " is-visible" : ""}">${options[initialIndex].label}</div>
+          <div class="slider-current-value${answered ? " is-answered" : ""}">${answered ? options[initialIndex].label : "Please select an answer"}</div>
         </div>
       `;
 
       const slider = container.querySelector(".option-slider");
       const currentValueEl = container.querySelector(".slider-current-value");
       const tickEls = container.querySelectorAll(".slider-tick");
+      const questionBlock = container.closest(".question-block");
+      if (questionBlock) questionBlock.classList.toggle("is-answered", answered);
 
       slider.addEventListener("input", () => {
         const index = Number(slider.value);
         tickEls.forEach((tick, i) => tick.classList.toggle("is-active", i === index));
         const opt = options[index];
         currentValueEl.textContent = opt.label;
-        currentValueEl.classList.add("is-visible");
+        currentValueEl.classList.add("is-answered");
+        if (questionBlock) questionBlock.classList.add("is-answered");
         onSelect(opt.value);
       });
     }
@@ -932,7 +942,7 @@
       }
 
       getIncompleteAreas() {
-        return this.currentTrial.areas.filter(a => !a.intensity || !a.frequency || !a.expectation || !a.confidence);
+        return this.currentTrial.areas.filter(a => !a.intensity || !a.duration || !a.expectation || !a.confidence);
       }
 
       setMarkingMode(mode) {
@@ -1332,7 +1342,7 @@
     const ratingModalOverlay = document.getElementById("ratingModalOverlay");
     const ratingModalTitle = document.getElementById("ratingModalTitle");
     const ratingIntensityEl = document.getElementById("ratingIntensityOptions");
-    const ratingFrequencyEl = document.getElementById("ratingFrequencyOptions");
+    const ratingDurationEl = document.getElementById("ratingDurationOptions");
     const ratingExpectationEl = document.getElementById("ratingExpectationOptions");
     const ratingConfidenceEl = document.getElementById("ratingConfidenceOptions");
     const ratingModalDoneBtn = document.getElementById("ratingModalDoneBtn");
@@ -1368,13 +1378,13 @@
     // ============ AREAS LIST + RATING PANEL ============
     const RATING_GROUPS = [
       { field: "intensity", container: ratingIntensityEl, options: INTENSITY_OPTIONS, label: "Intensity" },
-      { field: "frequency", container: ratingFrequencyEl, options: FREQUENCY_OPTIONS, label: "Frequency" },
+      { field: "duration", container: ratingDurationEl, options: DURATION_OPTIONS, label: "Duration" },
       { field: "expectation", container: ratingExpectationEl, options: EXPECTATION_OPTIONS, label: "Level of expectation" },
       { field: "confidence", container: ratingConfidenceEl, options: CONFIDENCE_OPTIONS, label: "Level of confidence" },
     ];
 
     function addArea(figureId, direction, path) {
-      const area = { figure: figureId, direction, path, intensity: null, frequency: null, expectation: null, confidence: null, timestamp: new Date().toISOString() };
+      const area = { figure: figureId, direction, path, intensity: null, duration: null, expectation: null, confidence: null, timestamp: new Date().toISOString() };
       appState.addArea(area);
       updateAreasList();
       canvasManager.redrawAllFigures();
@@ -1383,7 +1393,7 @@
     }
 
     function areaSummary(area) {
-      const fields = ["intensity", "frequency", "expectation", "confidence"];
+      const fields = ["intensity", "duration", "expectation", "confidence"];
       if (fields.some(f => !area[f])) return { text: "Ratings incomplete", incomplete: true };
       const text = fields.map(f => OPTION_LABELS[area[f]]).join(" · ");
       return { text, incomplete: false };
@@ -1662,7 +1672,7 @@
     // Exactly one figure is shown large at a time; the other three sit as small
     // click-to-switch thumbnails. The underlying canvases keep their own aspect ratio
     // (see CanvasManager.setupFigure), so each just scales to whichever slot it's in.
-    let activeFigureId = "front";
+    let activeFigureId = "back";
     const THUMB_RAIL_GAP_PX = 8; // must match .figure-thumbs-rail { gap: 0.5rem }
 
     function getFigureConfig(figureId) {
@@ -1877,7 +1887,7 @@
     (async () => {
       await canvasManager.preloadImages();
       figureConfigs.forEach(figureConfig => canvasManager.setupFigure(figureConfig));
-      setActiveFigure("front");
+      setActiveFigure("back");
       setStatus("Ready. Drag on a body figure to mark a contact area (or tap for a small one).");
     })();
   </script>
