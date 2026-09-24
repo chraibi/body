@@ -1053,15 +1053,42 @@
       return pts;
     }
 
-    function pathCentroid(path) {
-      const sum = path.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
-      return { x: sum.x / path.length, y: sum.y / path.length };
+    // Scans a mask canvas's alpha channel to find its drawn extent: the tight
+    // bounding box (for cropping before storage) and centroid (for the number
+    // label). Returns null when the mask is entirely empty (e.g. a drawn shape
+    // that landed fully outside the body outline or fully atop existing areas).
+    function analyzeMaskCanvas(canvas) {
+      const w = canvas.width, h = canvas.height;
+      const data = canvas.getContext("2d").getImageData(0, 0, w, h).data;
+      let count = 0, sumX = 0, sumY = 0;
+      let minX = w, minY = h, maxX = -1, maxY = -1;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const alpha = data[(y * w + x) * 4 + 3];
+          if (alpha > 10) {
+            count++;
+            sumX += x; sumY += y;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+      if (count === 0) return null;
+      return {
+        centroid: { x: (sumX / count) / w, y: (sumY / count) / h },
+        bbox: { x: minX / w, y: minY / h, w: (maxX - minX + 1) / w, h: (maxY - minY + 1) / h },
+      };
     }
 
     // ============ CANVAS MANAGER CLASS ============
     const TAP_THRESHOLD_PX = 12;
     const TAP_RADIUS_PX = 16;
     const MIN_POINT_SPACING_PX = 4;
+    // Working resolution for body masks and area masks (independent of display
+    // size/DPR, so stored areas look the same regardless of zoom or screen).
+    const MASK_TARGET_WIDTH = 400;
 
     class CanvasManager {
       constructor(figureConfigs, directionColors, appState) {
@@ -1072,6 +1099,8 @@
         this.canvases = {};
         this.contexts = {};
         this.activeDraw = null; // { figureId, direction, path: [{x,y}], activePointerId }
+        this.bodyMasks = {}; // figureId -> { canvas, width, height } filled-silhouette mask
+        this.areaMaskCache = new Map(); // area.number -> { drawable, bbox }
       }
 
       async preloadImages() {
@@ -1088,6 +1117,125 @@
             img.src = figureConfig.imageSrc;
           });
         });
+      }
+
+      // Loads each figure's filled-silhouette SVG and rasterizes it into an
+      // offscreen "inside the body" mask, used to clip drawn contact areas to
+      // the actual outline instead of the drawn shape's raw bounding path.
+      async preloadBodyMasks() {
+        return new Promise((resolve) => {
+          let loadedCount = 0;
+          const totalImages = this.figureConfigs.length;
+          this.figureConfigs.forEach((figureConfig) => {
+            const img = new Image();
+            img.onload = () => {
+              const width = MASK_TARGET_WIDTH;
+              const height = Math.round(width * img.naturalHeight / img.naturalWidth);
+              const canvas = document.createElement("canvas");
+              canvas.width = width;
+              canvas.height = height;
+              canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+              this.bodyMasks[figureConfig.id] = { canvas, width, height };
+              loadedCount++;
+              if (loadedCount === totalImages) resolve();
+            };
+            img.src = figureConfig.maskSrc;
+          });
+        });
+      }
+
+      // Loads the stored (cropped) mask bitmaps for areas coming from an
+      // existing trial, so they're drawable and can be subtracted from when
+      // computing new areas, before the figures are first rendered.
+      async loadAreaMaskCache(areas) {
+        await Promise.all(areas.map(area => new Promise((resolve) => {
+          if (this.areaMaskCache.has(area.number) || !area.maskDataUrl) return resolve();
+          const img = new Image();
+          img.onload = () => {
+            this.cacheAreaMask(area.number, img, area.bbox, area.direction);
+            resolve();
+          };
+          img.onerror = () => resolve();
+          img.src = area.maskDataUrl;
+        })));
+      }
+
+      clearAreaMaskCache() {
+        this.areaMaskCache.clear();
+      }
+
+      // Computes the actual shape to save/display for a freshly drawn stroke:
+      // the drawn path intersected with the body outline, minus any existing
+      // areas already recorded for the same figure + direction (so areas never
+      // overlap each other). Returns null when nothing is left after clipping.
+      computeClippedAreaMask(figureId, direction, path) {
+        const bodyMask = this.bodyMasks[figureId];
+        if (!bodyMask) return null;
+        const { width: w, height: h, canvas: bodyCanvas } = bodyMask;
+
+        const working = document.createElement("canvas");
+        working.width = w;
+        working.height = h;
+        const ctx = working.getContext("2d");
+
+        ctx.beginPath();
+        path.forEach((pt, i) => {
+          const x = pt.x * w, y = pt.y * h;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.fillStyle = "#000";
+        ctx.fill();
+
+        ctx.globalCompositeOperation = "destination-in";
+        ctx.drawImage(bodyCanvas, 0, 0);
+
+        ctx.globalCompositeOperation = "destination-out";
+        this.appState.currentTrial.areas
+          .filter(a => a.figure === figureId && a.direction === direction)
+          .forEach(a => {
+            const cached = this.areaMaskCache.get(a.number);
+            if (!cached) return;
+            ctx.drawImage(cached.raw, cached.bbox.x * w, cached.bbox.y * h, cached.bbox.w * w, cached.bbox.h * h);
+          });
+        ctx.globalCompositeOperation = "source-over";
+
+        const analysis = analyzeMaskCanvas(working);
+        if (!analysis) return null;
+
+        const { bbox, centroid } = analysis;
+        const cropCanvas = document.createElement("canvas");
+        cropCanvas.width = Math.max(1, Math.round(bbox.w * w));
+        cropCanvas.height = Math.max(1, Math.round(bbox.h * h));
+        cropCanvas.getContext("2d").drawImage(
+          working, bbox.x * w, bbox.y * h, cropCanvas.width, cropCanvas.height,
+          0, 0, cropCanvas.width, cropCanvas.height
+        );
+
+        return { canvas: cropCanvas, dataUrl: cropCanvas.toDataURL("image/png"), bbox, centroid };
+      }
+
+      // Caches an area's raw (opaque, colorless) mask - used later to subtract
+      // from newly-drawn same-direction areas - plus a pre-tinted copy for
+      // display. Tinting is done once here, on its own small offscreen canvas,
+      // rather than on every redraw against the shared display canvas: doing
+      // the source-in tint composite directly on a shared canvas would wipe
+      // every pixel outside this area's rect to transparent (a Canvas 2D
+      // gotcha - globalCompositeOperation isn't scoped to the shape you just
+      // drew, it re-evaluates the whole canvas against that shape).
+      cacheAreaMask(areaNumber, rawDrawable, bbox, direction) {
+        const w = rawDrawable.naturalWidth || rawDrawable.width;
+        const h = rawDrawable.naturalHeight || rawDrawable.height;
+        const tinted = document.createElement("canvas");
+        tinted.width = w;
+        tinted.height = h;
+        const tctx = tinted.getContext("2d");
+        tctx.drawImage(rawDrawable, 0, 0, w, h);
+        tctx.globalCompositeOperation = "source-in";
+        tctx.fillStyle = hexToRgba(this.directionColors[direction] || "#999", 0.55);
+        tctx.fillRect(0, 0, w, h);
+
+        this.areaMaskCache.set(areaNumber, { raw: rawDrawable, tinted, bbox });
       }
 
       resizeCanvasToDisplaySize(canvas) {
@@ -1227,24 +1375,15 @@
       }
 
       drawArea(ctx, area, canvasW, canvasH) {
-        if (!area.path || area.path.length < 3) return;
-        const color = this.directionColors[area.direction] || "#999";
+        const cached = this.areaMaskCache.get(area.number);
+        if (!cached) return; // mask still loading (existing-session area)
+        const { bbox, tinted } = cached;
+        const dx = bbox.x * canvasW, dy = bbox.y * canvasH, dw = bbox.w * canvasW, dh = bbox.h * canvasH;
 
+        ctx.drawImage(tinted, dx, dy, dw, dh);
+
+        const cx = area.centroid.x * canvasW, cy = area.centroid.y * canvasH;
         ctx.save();
-        ctx.beginPath();
-        area.path.forEach((pt, i) => {
-          const x = pt.x * canvasW, y = pt.y * canvasH;
-          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        });
-        ctx.closePath();
-        ctx.fillStyle = hexToRgba(color, 0.35);
-        ctx.fill();
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        const centroid = pathCentroid(area.path);
-        const cx = centroid.x * canvasW, cy = centroid.y * canvasH;
         ctx.font = "bold 13px system-ui, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -1306,11 +1445,24 @@
       touched_by: "#e74c3c"
     };
 
+    // Inline data URIs for the filled body-silhouette masks (used only to build
+    // the offscreen "inside the body" pixel masks for clipping drawn areas).
+    // Embedded directly rather than fetched as separate files: an externally
+    // loaded image taints the canvas it's drawn into when the page is opened
+    // via file://, and getImageData/toDataURL (used to clip and store areas)
+    // throw on a tainted canvas. data: URIs never taint, under any protocol.
+    const BODY_MASK_DATA_URIS = {
+      front: "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjwhLS0gQ3JlYXRlZCB3aXRoIElua3NjYXBlIChodHRwOi8vd3d3Lmlua3NjYXBlLm9yZy8pIC0tPgoKPHN2ZwogICB3aWR0aD0iMjQuMzgxNzQybW0iCiAgIGhlaWdodD0iOTAuODcyNzcybW0iCiAgIHZpZXdCb3g9IjAgMCA5Mi4xNTE0NjkgMzQzLjQ1NjE2IgogICB2ZXJzaW9uPSIxLjEiCiAgIGlkPSJzdmcxIgogICBzb2RpcG9kaTpkb2NuYW1lPSJmcm9udF9maWxsLnN2ZyIKICAgaW5rc2NhcGU6dmVyc2lvbj0iMS40LjIgKGViZjBlOTQwLCAyMDI1LTA1LTA4KSIKICAgeG1sbnM6aW5rc2NhcGU9Imh0dHA6Ly93d3cuaW5rc2NhcGUub3JnL25hbWVzcGFjZXMvaW5rc2NhcGUiCiAgIHhtbG5zOnNvZGlwb2RpPSJodHRwOi8vc29kaXBvZGkuc291cmNlZm9yZ2UubmV0L0RURC9zb2RpcG9kaS0wLmR0ZCIKICAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICB4bWxuczpzdmc9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8c29kaXBvZGk6bmFtZWR2aWV3CiAgICAgaWQ9Im5hbWVkdmlldzEiCiAgICAgcGFnZWNvbG9yPSIjNTA1MDUwIgogICAgIGJvcmRlcmNvbG9yPSIjZWVlZWVlIgogICAgIGJvcmRlcm9wYWNpdHk9IjEiCiAgICAgaW5rc2NhcGU6c2hvd3BhZ2VzaGFkb3c9IjAiCiAgICAgaW5rc2NhcGU6cGFnZW9wYWNpdHk9IjAiCiAgICAgaW5rc2NhcGU6cGFnZWNoZWNrZXJib2FyZD0iMCIKICAgICBpbmtzY2FwZTpkZXNrY29sb3I9IiM1MDUwNTAiCiAgICAgaW5rc2NhcGU6ZG9jdW1lbnQtdW5pdHM9Im1tIgogICAgIGlua3NjYXBlOnpvb209IjEuNjc1Njc4OCIKICAgICBpbmtzY2FwZTpjeD0iLTQwLjI4MjE4MyIKICAgICBpbmtzY2FwZTpjeT0iMTMzLjA4MDQiCiAgICAgaW5rc2NhcGU6d2luZG93LXdpZHRoPSIxOTIwIgogICAgIGlua3NjYXBlOndpbmRvdy1oZWlnaHQ9IjkyOSIKICAgICBpbmtzY2FwZTp3aW5kb3cteD0iMCIKICAgICBpbmtzY2FwZTp3aW5kb3cteT0iMzAiCiAgICAgaW5rc2NhcGU6d2luZG93LW1heGltaXplZD0iMSIKICAgICBpbmtzY2FwZTpjdXJyZW50LWxheWVyPSJzdmcxIiAvPgogIDxkZWZzCiAgICAgaWQ9ImRlZnMxIiAvPgogIDxwYXRoCiAgICAgaWQ9InBhdGgxIgogICAgIHN0eWxlPSJkaXNwbGF5OmlubGluZTtmaWxsOiMwMDAwMDA7ZmlsbC1vcGFjaXR5OjE7ZmlsbC1ydWxlOmV2ZW5vZGQ7c3Ryb2tlOiMwMDAwMDA7c3Ryb2tlLXdpZHRoOjAuOTk5MzYzO3N0cm9rZS1saW5lY2FwOmJ1dHQ7c3Ryb2tlLWxpbmVqb2luOm1pdGVyO3N0cm9rZS1taXRlcmxpbWl0Ojg7c3Ryb2tlLW9wYWNpdHk6MSIKICAgICBkPSJtIDQ2Ljk1OTY3MywwLjg0ODI2NTk5IGMgLTAuOTEwODIsLTAuMDIyMDA0IC0xLjcxMTgyLC0wLjAwNDEzIC0yLjMzMDA2LDAuMDIyOTAyIC05Ljk3MjgxNiwwLjQyMjkwMjYxIC0xNS40MTI1NCw5LjQwNzQxODAxIC0xNS4wMzQ2NywxOS43NjY3MjEwMSAtMC4xMzAzMSw4LjE2MzA1NSAzLjA4MzMzOCwxNi4wOTU1MTMgOC41Njk0NCwyMS4wMTAzOTUgLTIuNDkzMDYsMTguNzEzODIxIC0yMi45NDE0MiwxMS40NDY2MjEgLTI5LjA5NDU4LDI0LjgzMjM2NiAtMy44MTA2OSw4LjI4NTQzNyAtMi4wMjA2LDE4LjkzNTQyMyAtMi44MzIxMSwyNy43NjgyMDIgLTEuMzAzLDE0LjE4NzYyOCAtNC41Njc2NCwyOS4wMTE1NTggLTQuNzk5OCw0My4xOTQ5OTggLTAuMTY1MjMsMTAuMDY2OTYgMi40NjM4LDE5LjY0MTgyIDIuOTk3MTIsMjkuNjIwMzEgMC40NDEzLDguMzA1MzIgLTMuOTk3MTAwMDEsMTUuNjY3NDcgLTEuNDg3MzIsMjQuMDY0NzkgMC42MDQ0NCwyLjAyMjQ4IDIuMDYwMDYsNy4wMjUzMiA0LjcwNzg4LDcuMDU4NzkgMS43MjU0OSwwLjAyMDkgMi42Njg5OCwtMS44NTUyNiAyLjY5MTk4LC0zLjM1OTA1IDAuMTAwMzgsLTYuNjI3OTIgLTAuNTA0MTksLTExLjc5MzkxIDAuNzIxNDIsLTE4LjUwOTY4IDMuMTAzNzgsLTE3LjAyMjY1IDMuNzEyNSwtMzUuMTg3MDcgNS44Njg4MiwtNTIuNDUwNjUgMC43ODg1LC02LjMyMDkxIDIuMDg1MiwtMTUuNzEwNSAzLjU5MTA3LC0yMC4zNjM0NCBsIC0wLjUzMzQ5LC0xNC40NTcwMDkgYyAtMC4wNDMsLTAuNzQ0OTg3IC0wLjA3MTYsLTEuNDgxNTg2IC0wLjA4MTMsLTIuMjAzODI1IGwgMC4wODEzLDIuMjAzODI1IGMgMC4xNzE1NywyLjk3MjE1NiAwLjU2OTMsNi4wNzQ5NzMgMC44Nzg2Nyw4LjkwMzUyNyAwLjE4NjE1LDEuNzA5NTk0IDAuMDgzNywzLjIyMzk0MiAwLjI5Njk4LDQuOTM2MjUyIDAuMjE3NSwxLjcyNTI2IDAuNTQxNjMsMy4yMjA3OCAwLjc2OTYsNC45MzcwNiAwLjUyOTE1LDMuOTYwNjUgMS4yNjkzNyw4LjkyNTIyIDAuOTMwNTUsMTIuOTU4MjUgLTEuNjk0MTEsMjAuMTA4MjIgLTguODMwMTMsMzkuMzgzNTEgLTcuODQ5MjIsNTkuODU1MDEgMC45ODkyNywyMC42ODI3NiA5LjA2NDQzLDQwLjQ4MDc2IDEwLjkzMjEzLDYxLjA5MDI5IDEuMTE2ODYsMTIuMzM1NjIgLTEuNTMxMDEsMjMuOTM1MDQgMC44NTUzOCwzNi40MDg2OSAyLjIzNzg5LDExLjY5NTYxIDcuNDM3NDQsMjUuMDIyNDggNi41MzE4MywzNy4wMjM0NSAtMC4zMjQxOCw0LjI5MTc0IC0wLjUxODU0LDguNDk5NzggLTIuNjIwNDksMTIuMzQxODIgLTEuMzM0MzgsMi40MzQ0NyAtNS4wMzIzOCw2LjE4MDQ5IC00LjUzODc4LDkuMTI1MzEgMC42Nzc2NCw0LjAzMjQxIDEyLjYyODY1LDcuMDYwODQgMTUuNjA2OTMsNC42MjIxNyAyLjY1MiwtMi4xNzA5OSAzLjM2NzEyLC03LjQ2ODggMy4zNzEzMSwtMTAuNjYyNTMgMC4wMTI1LC05LjYwMjAxIC0xLjIxOTM1LC0xOS4zMTA2OCAtMS4yMTkzNSwtMjkuMDAyNjUgMCwtMzEuNTE0NTcgMC41Nzk1NiwtNjIuOTMyOTkgMC42MTcyLC05NC40MTE5OSAwLjAxMDQsLTguMTkyMzcgLTAuNjk2MzcsLTEzLjUxNzE2IDAuMjc2MTcsLTIxLjY1MzA1IDAuMzU5NzQsLTMuMDA5NjYgMC44MTEyNSwtOS41Mzk1MSAxLjk0NDg0LC0xMi44MzU3IDAuOTkxMzYsMy40ODIzMyAxLjE5MDAxLDguMzgwOCAxLjU4NzM5LDEyLjY5NzYzIDEuNTIwNTEsMTYuNTY0NjEgMC4wNDQxLDMzLjYzOTU0IC0wLjY4OTkzLDUwLjE3Njk3IC0wLjI0NjgsNS41NDQ1MyAxLjAzOTI2LDExLjEyNDY2IDEuMTQxNzMsMTYuNjYwODUgMC4wOTIsNS4xMjQxNSAtMS4xMDYyMSwxMC4zMDI2MSAtMS4xMDYyMSwxNS40MjY3NSAwLDEwLjg4ODMyIDEuNzc1NzUsMjEuNzcwMTcgMS43NzU3NSwzMi43MDQ0OCAwLDEwLjU1OTkzIC0xLjM2Mzc0LDIwLjk1Njg4IC0xLjU4MzM0LDMxLjQ3MDc2IC0wLjA1ODYsMi43NTI0MyAxLjMxMTQ0LDguODc2MTMgNC4xNjIxNSwxMC4wMjg1NiAzLjI1MDE2NCwxLjMxNTUzIDE0LjczODY4NCwtMS4zNjEyNiAxNC41OTAxOTQsLTUuNzgyNjUgLTAuMTEyOTQsLTMuMzQ0MzEgLTMuNjU1OTgsLTYuODQ1NzUgLTUuMDE3NTIsLTkuNzk4OTUgLTEuNDY4MjQsLTMuMTkxNjEgLTEuNTYwNTIsLTcuNjIzMzYgLTEuNjYzLC0xMS4xMDc3OCAtMC40NDk2NywtMTUuNDE4NDYgNi4wMDY4NywtMzAuNDY0NjcgNy44MDM0NiwtNDUuNjYzNTIgMS40MzA1OCwtMTIuMTAxMzYgLTEuMDUxODEsLTI0LjI0ODggMC4zMDU1NywtMzYuNDA2NjQgMi44MzE4OCwtMjUuMzY1NTggMTIuNTQwNDQsLTQ3LjQ1NTgxIDguNzcxNTgsLTczLjQzMjEyIC0xLjgyMTY4LC0xMi41NjE0OCAtNS43ODA3MywtMjUuNjQyMjYgLTYuMzg1MTcsLTM4LjI1ODMzIC0wLjI5MDcyLC02LjA1NDI1IDAuMzIxNzEsLTEzLjkxNjkyIDEuODEwODUsLTE4LjUxMjE0IDAsLTUuNjA4OTYzIDAuNjkyNDMsLTkuODQ1ODk4IDEuMjMyMDMsLTE2LjA0MzYwNCBsIC0xLjIzMjAzLDE2LjA0MzYwNCBjIDEuODY5NzksNC42MjU3NCAyLjg4NDE5LDE0LjAxMTM3IDMuNzgxNDQsMjAuMzYzNDMgMi40NzYzMiwxNy41MjkyIDMuMDI4NDUsMzUuNzMzNjIgNS45MjcyNiw1My4wNjc4OSAxLjE0ODIzLDYuODcwNTUgMS4zMTM4MywxMS4xMTAxIDAuNjExMDgsMTcuODk0OSAtMC4xNTY4NCwxLjUxMDA2IDAuNTAxODcsMy41MDc0MiAyLjEzMTEzLDMuOTczODMgMy4wMjIyMSwwLjg2NTg3IDQuNzYyMDUsLTUuMDMyMTMgNS4zNzkwNCwtNy4wNTg3OSAyLjUxODE1LC04LjI1OTI5IC0xLjMyMTczLC0xNS43MzAyIC0xLjE4Nzg4LC0yNC4wNjQ3OSAwLjE0NDMxLC05LjA5NTg5IDMuMTQxNDksLTE4LjAyNjYyIDMuMDY0MSwtMjcuMTUxNzkgLTAuMTE5MjIsLTE0LjI4MTExIC0zLjg1MjQ0LC0yOC44ODcxIC00Ljg0Nzk5LC00My4xOTQ5OCAtMC42NjMsLTkuNTIzNjA0IDAuNjgxODksLTIwLjU2Nzc0NSAtMi45MTMzOSwtMjkuNjE5NTA5IC0zLjc2MDUsLTkuNDcyNTY3IC0xNS43NzgxMSwtOC40OTMyNTUgLTIzLjAyNzIyLC0xMy41MTk1MTkgLTQuNTE5NzEsLTMuMTMzNDcyIC01LjcyODIyLC02LjEyNzg2OCAtNi40ODMyNCwtMTIuMTE1NTk1IDUuMzQ3NDgxLC04Ljg4ODA5OCA3Ljg4MjI5OSwtMTEuNTk0OTUzIDcuNzg2Mjg5LC0yMS4zMTkwNzkgQyA2Mi40MzUyNTksMTMuMjU3NzM4IDU3LjY1NDc5NSwxLjMzNTQxMDYgNDYuOTU5NjczLDAuODQ4Mjk1ODkgWiIKICAgICBzb2RpcG9kaTpub2RldHlwZXM9ImNjemNjY2Njc2NjY2NjY2NjY2NjY2NjY2NjY2Njc2NzY2NjY3NzY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NzY2MiIC8+CiAgPHBhdGgKICAgICBkPSJtIDg4Ljc1ODQ1OSwxODQuNTEzNiAtMS44NTYyMSw4LjA0MzY5IC0xLjg1NjI3LC0zLjcxMjQ3IgogICAgIHN0eWxlPSJkaXNwbGF5OmlubGluZTtmaWxsOm5vbmU7c3Ryb2tlOiMwMDAwMDA7c3Ryb2tlLXdpZHRoOjEuMjAxODE7c3Ryb2tlLWRhc2hhcnJheTpub25lO3N0cm9rZS1vcGFjaXR5OjEiCiAgICAgaWQ9InBhdGgxLTEiIC8+CiAgPHBhdGgKICAgICBkPSJtIDQuNDgxMzY2MiwxODQuMDAxMiAxLjg1NjIxLDguMDQzNjkgMS44NTYyNywtMy43MTI0NyIKICAgICBzdHlsZT0iZGlzcGxheTppbmxpbmU7ZmlsbDpub25lO3N0cm9rZTojMDAwMDAwO3N0cm9rZS13aWR0aDoxLjIwMTgxO3N0cm9rZS1kYXNoYXJyYXk6bm9uZTtzdHJva2Utb3BhY2l0eToxIgogICAgIGlkPSJwYXRoMS0xLTciIC8+Cjwvc3ZnPgo=",
+      back: "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjwhLS0gQ3JlYXRlZCB3aXRoIElua3NjYXBlIChodHRwOi8vd3d3Lmlua3NjYXBlLm9yZy8pIC0tPgoKPHN2ZwogICB3aWR0aD0iMjQuMTUxMDA3bW0iCiAgIGhlaWdodD0iODkuNTQ3NjYxbW0iCiAgIHZpZXdCb3g9IjAgMCA5MS4yNzkzOTYgMzM4LjQ0Nzg2IgogICB2ZXJzaW9uPSIxLjEiCiAgIGlkPSJzdmcxIgogICBzb2RpcG9kaTpkb2NuYW1lPSJiYWNrX2ZpbGwuc3ZnIgogICBpbmtzY2FwZTp2ZXJzaW9uPSIxLjQuMiAoZWJmMGU5NDAsIDIwMjUtMDUtMDgpIgogICB4bWxuczppbmtzY2FwZT0iaHR0cDovL3d3dy5pbmtzY2FwZS5vcmcvbmFtZXNwYWNlcy9pbmtzY2FwZSIKICAgeG1sbnM6c29kaXBvZGk9Imh0dHA6Ly9zb2RpcG9kaS5zb3VyY2Vmb3JnZS5uZXQvRFREL3NvZGlwb2RpLTAuZHRkIgogICB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciCiAgIHhtbG5zOnN2Zz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgogIDxzb2RpcG9kaTpuYW1lZHZpZXcKICAgICBpZD0ibmFtZWR2aWV3MSIKICAgICBwYWdlY29sb3I9IiM1MDUwNTAiCiAgICAgYm9yZGVyY29sb3I9IiNlZWVlZWUiCiAgICAgYm9yZGVyb3BhY2l0eT0iMSIKICAgICBpbmtzY2FwZTpzaG93cGFnZXNoYWRvdz0iMCIKICAgICBpbmtzY2FwZTpwYWdlb3BhY2l0eT0iMCIKICAgICBpbmtzY2FwZTpwYWdlY2hlY2tlcmJvYXJkPSIwIgogICAgIGlua3NjYXBlOmRlc2tjb2xvcj0iIzUwNTA1MCIKICAgICBpbmtzY2FwZTpkb2N1bWVudC11bml0cz0ibW0iCiAgICAgaW5rc2NhcGU6em9vbT0iMi4xMjM0MDkyIgogICAgIGlua3NjYXBlOmN4PSI1LjQxNTgxOTEiCiAgICAgaW5rc2NhcGU6Y3k9IjEyMS45NzM2NiIKICAgICBpbmtzY2FwZTp3aW5kb3ctd2lkdGg9IjE5MjAiCiAgICAgaW5rc2NhcGU6d2luZG93LWhlaWdodD0iOTI5IgogICAgIGlua3NjYXBlOndpbmRvdy14PSIwIgogICAgIGlua3NjYXBlOndpbmRvdy15PSIzMCIKICAgICBpbmtzY2FwZTp3aW5kb3ctbWF4aW1pemVkPSIxIgogICAgIGlua3NjYXBlOmN1cnJlbnQtbGF5ZXI9InN2ZzEiIC8+CiAgPGRlZnMKICAgICBpZD0iZGVmczEiPgogICAgPHJlY3QKICAgICAgIHg9IjEwNzYuNTQ1OCIKICAgICAgIHk9Ii0yODkuMTA3NyIKICAgICAgIHdpZHRoPSI5MjguMTg3OTMiCiAgICAgICBoZWlnaHQ9IjE2Ny4zNzgxNCIKICAgICAgIGlkPSJyZWN0MSIgLz4KICAgIDxyZWN0CiAgICAgICB4PSIxMDc2LjU0NTgiCiAgICAgICB5PSItMjg5LjEwNzciCiAgICAgICB3aWR0aD0iOTI4LjE4NzkzIgogICAgICAgaGVpZ2h0PSIxNjcuMzc4MTQiCiAgICAgICBpZD0icmVjdDEtMSIgLz4KICAgIDxyZWN0CiAgICAgICB4PSIxMDc2LjU0NTgiCiAgICAgICB5PSItMjg5LjEwNzciCiAgICAgICB3aWR0aD0iOTI4LjE4NzkzIgogICAgICAgaGVpZ2h0PSIxNjcuMzc4MTQiCiAgICAgICBpZD0icmVjdDEtMyIgLz4KICAgIDxyZWN0CiAgICAgICB4PSIxMDc2LjU0NTgiCiAgICAgICB5PSItMjg5LjEwNzciCiAgICAgICB3aWR0aD0iOTI4LjE4NzkzIgogICAgICAgaGVpZ2h0PSIxNjcuMzc4MTQiCiAgICAgICBpZD0icmVjdDEtMS01IiAvPgogIDwvZGVmcz4KICA8cGF0aAogICAgIGQ9Im0gNTkuMjg4OTM0LDMwLjEzMzU2IGMgMi40NzE2NjUsLTAuMDg4MTQgNC41MTM5MzMsLTIuOTE4MjQgNC45MjQ0ODMsLTYuMDIwODEzIDAuMjU3NjM4LC0xLjkzMTY3MiAtMC4zNTgxODIsLTQuODUwNzU2IC0zLjI2OTcyOCwtMy43MDM5NDQgbCAtMC40NjUwMDgsMS4wNzE4MjkgYyAyLjE5NzI3MSwtMy4yNjM2NTIgMS42Mjk2MjcsLTYuODM4MzUgMC4wNTIzMiwtMTAuNTA0MTcgQyA1Ny41MTY4MjEsMy45Njc4MTYzIDUwLjkxNjYzNSwtMC40Njc1Njk5MSA0My4xNjY0ODYsMC42Nzk2NjM5MyAzNi43MTI5MTksMS42MzU0MzkxIDMxLjUzMjg5LDYuNTYzMjc5NCAyOS45MDUzNjIsMTIuODMwMjE3IGMgLTAuODMzNjY0LDMuMjE2NzIxIC0wLjgwNjQzNSw2Ljk0ODk0NSAxLjM5OTIxOSw5LjQ2ODk5MiBMIDMwLjUwODYxOSwyMS4wNzA3MSBjIC0zLjIxNTI2OSwtMC44MDMyOTUgLTMuNzg5MTk1LDEuNzAwNDI4IC0zLjM1NzY5OCwzLjE1OTEzMSAwLjgzNzg0NywyLjgyMTA1MiA0LjI3NTE0MSw2LjQ0NzQ5MSA0Ljg5MzA2Miw2LjI3MTExOCBsIC0wLjU0NDYwNiwtMC41MDQzOCBjIDEuMzg4NzQ1LDguMTMzMDM4IDguNjIzNjA4LDYuOTk1NDQyIDMuMjAwNjA0LDE2LjgxNzYwMiBDIDI4Ljg4NTI3NCw1Ny4zNDM5MDEgMTIuNzk2Mzk0LDU1LjI4NDA0MyA4LjAyNDgxMjcsNjUuOTY5MTg3IDQuMjE0Njc5OCw3NC40OTcwNyA2LjE2Njg3NzIsODUuMzMzMDI2IDUuMzMzMjEyNCw5NC4zOTIzMjMgNC4wOTUyNzk1LDEwNy44NDExMyAwLjkyNjEwNTY0LDEyMS43MzA2NSAwLjUyNjAyOTA0LDEzNS4xNzI3NCAwLjIxODExMzk3LDE0NS40ODg4MiAyLjgwNzA3OTEsMTU1LjI3MDc5IDIuOTc0NjU2LDE2NS40NTA2NyBjIDAuMTIzNTgyMyw3LjUyMzkgLTMuMTU2NjE4NjksMTQuODYxMzkgLTEuODk1NjQ3OCwyMi4yNDI5NSAwLjc4MzM5NzYsNC41OTEzOSAyLjY1ODA4ODgsOC45NTI0IDYuMjI5NDM5NiwxMS43NDA0MSAzLjUwMjIyNzIsLTUuNTE1MTcgLTAuMzA3OTA1NiwtMTAuNTU0ODQgMC45NjM1Mzg5LC0xNi42ODM4IDMuNzQzMTA5MywtMTguMDQxMDUgNS42NTc2MDQzLC0zNy43Mjg1MiA3LjA5NDUxNjMsLTU2LjIyNzQ4IDAuNTY3NjU0LC03LjMwODE4IDEuNTkxOTI0LC0xOS40MDY3OCA0LjMwNjU3MiwtMjQuNzE1NjQgMS41MjkwODMsNC43MTA2MiAyLjAzODA3NiwxMy45NjY2MSAxLjgzOTA4OCwyMC4zOTA0MiAtMC40NDQwNjEsMTQuMzg3IC01LjU2OTYzNCwyOS40MzY5NiAtNy4yMTM5MTYsNDMuODcxMDYgLTIuNTU1NDU0LDIyLjQ0ODE5IDYuMDgwNzE5LDQzLjY3OTQgOS40MzYzMjYsNjUuNDk3MTIgMS44MTYwNDEsMTEuODA3NDYgLTAuMjYzOTMsMjMuNDAxMjMgMC4zMDM3MTUsMzUuMjE5MTggMC41MDkwMDIsMTAuNjA1MTEgMy44MTY0MjQsMjEuMTUxNjEgNS44OTg0OTUsMzEuNTExNjIgMS45ODU3MDksOS44NzgzMyAzLjA0OTc4MywxOS42NjQ0IDEuMDY0MDc0LDI5LjY2MDA0IC0wLjY1OTgxNSwzLjMyNDE1IC0xLjY1MjY2NSw3LjY4OTM4IDIuMzIwODU0LDkuMzY1MDYgMy44ODEzNTYsMS42MzU5MiA5LjIxODQ4MSwwLjAxNSAxMC4wMjkxMDgsLTQuNDIzODMgMS40MDEzMDgsLTcuNjg3MzMgLTAuNTU1MDgsLTE2LjkzMDg3IC0wLjc4NTQ4OCwtMjQuNzE0NTkgLTAuMjk5NTMzLC0xMC4xMTI4NSAxLjA1Nzc5MSwtMjAuMTg1OTMgMS4yMTkwNzYsLTMwLjI3NTggMC4yMzY2OTEsLTE0LjY3NzEzIDEuMjg2MSwtMjkuODE1MDMgMC41ODIzMDksLTQ0LjQ4Nzk0IC0wLjcyODkzOSwtMTUuMTkyMzcgMC4wMzc2OSwtMjkuOTE5NzcgMC4wMzc2OSwtNDUuMTA3OTIgMCwtNS4wNjkwMyAwLjI0NTA3MywtMTAuNzUzOTEgMC45MDA2ODgsLTE1LjQ0NTgyIDAuMDI0MiwtMC4wMjAyIDAuMDE4OTYsMC4wOTE0IDAuMDE4OTYsMC4wOTE0IDEuMDEzNzk2LDMuMzA3MzcgMS41NTIwMTksOC41NDI2NyAxLjU1MjAxOSwxMi4yNjQ3NyAwLjAwMTksOC44NzUwNSAwLjc3NTAxNSwxNy43MjA2NSAxLjIwMDIyLDI2LjU3MDQ3IDAuODcxMzY4LDE4LjE1MjA3IC0xLjA1Nzc4MiwzNi43OTQzNCAtMS4xOTgxMjksNTQuOTkyNTQgLTAuMDkyMTcsMTIuMTQ2NzkgMS44NTM3NTMsMjQuMjg5MzcgMS44NTM3NTMsMzYuNDU1MDEgMCw5LjA4ODU0IC0zLjAyODgzNiwyMS41MzkwNCAtMC44MDAxNTMsMzAuMjcxNTcgMS4xMTg1NDIsNC4zNzU3NCA3LjgwMjUxNiw1Ljg3NzU3IDExLjEyNDYwMiwyLjg0MDMyIDMuMjYzNDQ1LC0yLjk4MDU5IDEuMDI2MzcxLC04LjMxNTY0IDAuNTM4MzI0LC0xMi4xMDI3MiAtMS4xNDU3NjIsLTguODYwMzIgLTAuMjA5NDYxLC0xNy44OTY1NSAxLjcxMzQwNiwtMjYuNTcwNDcgMi4yNzg5NjksLTEwLjI2NTc3IDUuNDI3MTk2LC0yMC45NjcyNyA1LjkzNDA5OSwtMzEuNTExNjIgMC41NTcxNywtMTEuNjA4NDkgLTEuMzQ2ODUxLC0yMi45NzgxNSAwLjIxOTkzNSwtMzQuNjAxMjcgMy40MDM3ODMsLTI1LjIzODI2IDEyLjAzNTc3NCwtNDcuMDgzMTcgOC4zODY5MTYsLTcyLjkxMjE1IC0xLjc2NTc3MywtMTIuNTAwNzUgLTYuMDgyODE5LC0yNS43NDg2NyAtNi4wOTc0NzQsLTM4LjMwOTc4IC0wLjAwODUsLTYuMTc4NTQgMC4zNzkxMjksLTE0LjYwNzc3IDEuODUzNzQ0LC0xOS4xNTQ1OSAxLjk0MTczNCw0Ljc5MjMzIDMuMDA5OTg5LDE1LjAyMjMxIDMuODE0MzMzLDIxLjYyNjI2IDEuNTI5MDgzLDEyLjU0MzcyIDMuNTE4OTgzLDI1LjExMzYyIDQuNzIxMzA0LDM3LjY5MTkzIDAuNjQ5MzMzLDYuODA5NTkgMC4yMTU3NDUsMTMuODAzNjIgMi4xODQ2OTgsMjAuMzkxMTggMS45NTg0ODksNi41NDU3MyAtMi4xOTUxNzEsMTMuMTY2ODUgMS42NDQyOTIsMTguNTM1NDcgMy42ODIzNjgsLTMuMjQ2NzEgNi4wMzQ2NDMsLTguOTc1NTYgNi40OTEyNjksLTE0LjIxMjE1IDAuNTUwODg4LC02LjMyOTk5IC0yLjIxNDAyNywtMTMuMjA4NjkgLTIuMTYxNjU5LC0xOS43NzEyMSAwLjA4MTY3LC0xMC4xODQxIDIuNzYwNzIzLC0xOS45NzY1MiAyLjQ1NDkwOSwtMzAuMjc3OTMgQyA5MC4zNTAxOTUsMTIxLjU2ODUyIDg3LjE5OTg2OCwxMDcuMzk5NTcgODUuOTQ3MjgsOTMuNzc0NDAzIDg1LjEyNDA4OSw4NC44MzI0MTYgODYuOTA2NjE4LDc0LjM1MzE2OSA4My4wMDQzMTUsNjUuOTY5NjEgNzguMTI1OTE3LDU1LjQ4Mzg2NSA2MC40NzIzNDMsNTUuMTU5NjE2IDU2LjMzMTI0Nyw0Ni44MTQzODggNTEuNzQzOTk5LDM3LjU3MDM1NSA1OC4zNzU2MTUsMzYuNDQxMTM0IDU5LjgzMzQ4NCwyOS42NTkxMjcgTSAxNy44MTkzMTIsODUuNzQxNjkzIGMgMC41MTczNzcsNS44Nzg3OTYgMS44MjY1MjQsMTEuMDM5MTM1IDEuODUzNzUzLDE2LjA2NTQxNyBNIDczLjQ2MTE2Myw4Ni45Nzc1MjUgYyAtMS40Mjg1MzgsNS4xMzQ1NzMgLTEuODI4NjE2LDkuNjk3MzIxIC0xLjg1NTg0NSwxNC4yMTE2NjUiCiAgICAgc3Ryb2tlPSIjNDg0MjQzIgogICAgIHN0cm9rZS13aWR0aD0iMS4wMDA4NyIKICAgICBzdHJva2UtbGluZWNhcD0iYnV0dCIKICAgICBzdHJva2UtbGluZWpvaW49Im1pdGVyIgogICAgIHN0cm9rZS1taXRlcmxpbWl0PSI4IgogICAgIHN0cm9rZS1vcGFjaXR5PSIxIgogICAgIGZpbGw9Im5vbmUiCiAgICAgZmlsbC1ydWxlPSJldmVub2RkIgogICAgIGlkPSJwYXRoMS0xIgogICAgIHN0eWxlPSJkaXNwbGF5OmlubGluZTtmaWxsOiMwMDAwMDA7ZmlsbC1vcGFjaXR5OjAuODc2MzI1MDc7c3Ryb2tlOiMwMDAwMDA7c3Ryb2tlLW9wYWNpdHk6MSIKICAgICBzb2RpcG9kaTpub2RldHlwZXM9ImNjY2NjY2NjY2NjY2NjY2NjY2Njc2NjY3NjY2NjY2NjY3NjY2NjY3NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2MiIC8+Cjwvc3ZnPgo=",
+      left: "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjxzdmcKICAgd2lkdGg9IjYxOC4xMzUyNSIKICAgaGVpZ2h0PSIxNjE5Ljc4MiIKICAgeG1sOnNwYWNlPSJwcmVzZXJ2ZSIKICAgb3ZlcmZsb3c9ImhpZGRlbiIKICAgdmVyc2lvbj0iMS4xIgogICBpZD0ic3ZnNTQiCiAgIHNvZGlwb2RpOmRvY25hbWU9ImxlZnRfZmlsbC5zdmciCiAgIGlua3NjYXBlOnZlcnNpb249IjEuNC4yIChlYmYwZTk0MCwgMjAyNS0wNS0wOCkiCiAgIHhtbG5zOmlua3NjYXBlPSJodHRwOi8vd3d3Lmlua3NjYXBlLm9yZy9uYW1lc3BhY2VzL2lua3NjYXBlIgogICB4bWxuczpzb2RpcG9kaT0iaHR0cDovL3NvZGlwb2RpLnNvdXJjZWZvcmdlLm5ldC9EVEQvc29kaXBvZGktMC5kdGQiCiAgIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICAgeG1sbnM6c3ZnPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHNvZGlwb2RpOm5hbWVkdmlldwogICAgIGlkPSJuYW1lZHZpZXcxIgogICAgIHBhZ2Vjb2xvcj0iIzUwNTA1MCIKICAgICBib3JkZXJjb2xvcj0iI2VlZWVlZSIKICAgICBib3JkZXJvcGFjaXR5PSIxIgogICAgIGlua3NjYXBlOnNob3dwYWdlc2hhZG93PSIwIgogICAgIGlua3NjYXBlOnBhZ2VvcGFjaXR5PSIwIgogICAgIGlua3NjYXBlOnBhZ2VjaGVja2VyYm9hcmQ9IjAiCiAgICAgaW5rc2NhcGU6ZGVza2NvbG9yPSIjNTA1MDUwIgogICAgIGlua3NjYXBlOnpvb209IjAuNTU2NDgxMzQiCiAgICAgaW5rc2NhcGU6Y3g9IjI1Ni4wNzMyNyIKICAgICBpbmtzY2FwZTpjeT0iNDYxLjgzMDQiCiAgICAgaW5rc2NhcGU6d2luZG93LXdpZHRoPSIxMjk2IgogICAgIGlua3NjYXBlOndpbmRvdy1oZWlnaHQ9IjkyOSIKICAgICBpbmtzY2FwZTp3aW5kb3cteD0iNzMiCiAgICAgaW5rc2NhcGU6d2luZG93LXk9IjEwMyIKICAgICBpbmtzY2FwZTp3aW5kb3ctbWF4aW1pemVkPSIwIgogICAgIGlua3NjYXBlOmN1cnJlbnQtbGF5ZXI9Imc2MiIgLz48ZGVmcwogICAgIGlkPSJkZWZzNTQiPjxyZWN0CiAgICAgICB4PSIxMDc2LjU0NTgiCiAgICAgICB5PSItMjg5LjEwNzciCiAgICAgICB3aWR0aD0iOTI4LjE4NzkzIgogICAgICAgaGVpZ2h0PSIxNjcuMzc4MTQiCiAgICAgICBpZD0icmVjdDEiIC8+PHJlY3QKICAgICAgIHg9IjEwNzYuNTQ1OCIKICAgICAgIHk9Ii0yODkuMTA3NyIKICAgICAgIHdpZHRoPSI5MjguMTg3OTMiCiAgICAgICBoZWlnaHQ9IjE2Ny4zNzgxNCIKICAgICAgIGlkPSJyZWN0MS0xIiAvPjxyZWN0CiAgICAgICB4PSIxMDc2LjU0NTgiCiAgICAgICB5PSItMjg5LjEwNzciCiAgICAgICB3aWR0aD0iOTI4LjE4NzkzIgogICAgICAgaGVpZ2h0PSIxNjcuMzc4MTQiCiAgICAgICBpZD0icmVjdDEtMyIgLz48cmVjdAogICAgICAgeD0iMTA3Ni41NDU4IgogICAgICAgeT0iLTI4OS4xMDc3IgogICAgICAgd2lkdGg9IjkyOC4xODc5MyIKICAgICAgIGhlaWdodD0iMTY3LjM3ODE0IgogICAgICAgaWQ9InJlY3QxLTEtNSIgLz48L2RlZnM+PGcKICAgICBpZD0iZzYyIgogICAgIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yNjM3LjQzOTIsLTE4Ni4wNTg5MSkiPjxwYXRoCiAgICAgICBkPSJtIDMxNTIuOTg1MywxODguNDU0MjggYyAxMy4yNSwtMC4xMzcgMjYuNTIsMS45NjMgMzguNDUsNy45MTM5OSA5LjczLDQuODU1MDEgMTguNiwxMS41NzUwMSAyNS45MiwxOS42MDAwMSA1OC4xMSw2My42OTcgLTI3Ljg2LDEwMy45OTUgLTE4LjY0LDE2NS4wNjEgOS42Miw2My43ODcgNTEuNCwxMTYuMTM5IDUxLjg2LDE4Mi45NTIgMC40Niw2Ny45NjUgLTI3LjQxLDEzNS40MTQgLTMyLjE4LDIwMy42MDggLTQuNDYsNjMuNjQzIDM0Ljc5LDExMy4xNDMgMzQuNzksMTc0LjEwMzA0IDAsMzQuMTYgLTI1LjI4LDU5LjI4OTk4IC0yOC43OSw5MS40Njk5OCAtMTEuMjgsMTAzLjU5IC03LjQ3LDIxNy43Njk5IC0wLjA5LDMyMS42Mzk5IDMuMDQsNDIuNzcgMTksODMuOTEgMjAuMjgsMTI2Ljg5IDEuODIsNjEuMjMgLTEyLjgzLDEyMS44NCAtMTQuNjIsMTgyLjk1IC0wLjk4LDMzLjE2IDIwLjY3LDg0LjY3MDEgNC42MSwxMTQuODcwMSAtOS4yMSwxNy4zMiAtMjkuMzgsMTQuOTcgLTQ2LjEsMTQuOTcgLTM5Ljg5LDAgLTc4LjE5LDEwLjY0IC0xMTguMjksOC43NCAtMTAuMjEsLTAuNDggLTQ5LjU0LC05LjM2IC00NC41NiwtMjUuNSAyLjc1LC04LjkyIDIyLjI2LC05Ljg3IDI5Ljc3LC0xMi4zOCAyOC4wNCwtOS40IDU4LjQyLC0xNi43NiA3OS40MiwtMzguOTIwMSA1MC4yNSwtNTMuMDMgMjAuODQsLTE1Ny4wNyAxMS44NSwtMjIxLjEyIC0xMC43MSwtNzYuMyAtMjEuNDksLTE1MS44NyAtMzcuMSwtMjI3LjIyIC0xMi4zMSwtNTkuNDUgLTMwLjI4LC0xMTYuNTE5OSAtMzguMSwtMTc3LjA0OTkgLTExLjE1LC04Ni4zMyAtNi4xNiwtMTc1LjcyOTk4IC0xMC4zMywtMjYyLjYyMDAyIC0xLjk4NSwtNDEuMjkyIC0xLjM0MDMsLTI3LjQxNjU3IC0zLjEzMDksLTY3LjY5MTYgLTEuNzkwNiwtNDAuMjc1MDIgOC40OTMyLC0xMjAuOTI1MTUgMTUuNjQ0LC0xNzUuODI0MjYgMCwwIC02Ni4wMzkzLDI5Ljg5OTQgLTE0Mi43NTQxLDU5LjA2MzcgLTUxLjQ3NzQsMTkuNTc3MzYgLTEwNy42NjgxLDI5Ljc5MzczIC0xNTUuNzM4NCw1Ny43NDY4NSAtMTUuMTM4OCw4LjgwNTIzIC0yOC40MzI4LDIyLjk1NDU1IC00NC44OTQxLDI5LjA4OTM4IC0xNi40NTY5LDYuMTIxNCAtMzQuNTMzOCw0LjI0ODMgLTUxLjE5MDQsOS41NTQzNyAtOS40MzExLDMuMDA1MTggLTI3LjA3MTUsMTguOTQzNzEgLTM2LjU3ODUsOC43NzMwOCAtOS4zNjUsLTEwLjAxNzUzIDguMzA1LC0yNi4zNDk0MSAxNS4zMzUxLC0zMS45NTIyIDI1LjQ4MDMsLTIwLjMyMzUzIDYyLjk1MSwtMzEuOTMwMTMgOTIuMjg0NiwtNDYuMzgwOTkgMTMyLjEzNjMsLTY1LjA5NDkgMzQ5LjMzODcsLTE4Ny4zNDM5NiAzNDkuMzM4NywtMTg3LjM0Mzk2IDcuMDg1LC0xNy43MDkwOCAxNy4xMTk4LC0yNy40NTY3MiAyMS4xMTQsLTQ0LjU0NzM3IDQuNSwtMTQuMjc3IDEuMzgsLTUwLjMxOSAtMTUuNzQsLTU2LjMyMSAtMTUuNTYsLTUuNDUzIC0yOC44OCw0LjEyIC0zOC42NSwtMTQuNjIzIC02LjE4LC0xMS44NTIgLTIxLjA0LC00Ni41NzUgLTIxLjE5LC01OC45NzQgLTAuMTYsLTEzLjI0MiAxMC4xOCwtMjUuODYxIDEzLjg5LC0zOC4yOCAxNS42OSwtNTIuNjY1IDI5Ljc4LC05MS41NzkgOTQuMTEsLTkyLjI0NyIKICAgICAgIHN0cm9rZT0iIzQ4NDI0MyIKICAgICAgIHN0cm9rZS13aWR0aD0iNC43NzgyMiIKICAgICAgIHN0cm9rZS1saW5lY2FwPSJidXR0IgogICAgICAgc3Ryb2tlLWxpbmVqb2luPSJtaXRlciIKICAgICAgIHN0cm9rZS1taXRlcmxpbWl0PSI4IgogICAgICAgc3Ryb2tlLW9wYWNpdHk9IjEiCiAgICAgICBmaWxsPSJub25lIgogICAgICAgZmlsbC1ydWxlPSJldmVub2RkIgogICAgICAgaWQ9InBhdGgzLTYtOCIKICAgICAgIHN0eWxlPSJmaWxsOiMwMDAwMDA7ZmlsbC1vcGFjaXR5OjE7c3Ryb2tlOiMwMDAwMDA7c3Ryb2tlLW9wYWNpdHk6MSIgLz48L2c+PC9zdmc+Cg==",
+      right: "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjxzdmcKICAgd2lkdGg9IjYxOC4xMzUyNSIKICAgaGVpZ2h0PSIxNjE5Ljc4MiIKICAgeG1sOnNwYWNlPSJwcmVzZXJ2ZSIKICAgb3ZlcmZsb3c9ImhpZGRlbiIKICAgdmVyc2lvbj0iMS4xIgogICBpZD0ic3ZnNTQiCiAgIHNvZGlwb2RpOmRvY25hbWU9InJpZ2h0X2ZpbGwuc3ZnIgogICBpbmtzY2FwZTp2ZXJzaW9uPSIxLjQuMiAoZWJmMGU5NDAsIDIwMjUtMDUtMDgpIgogICB4bWxuczppbmtzY2FwZT0iaHR0cDovL3d3dy5pbmtzY2FwZS5vcmcvbmFtZXNwYWNlcy9pbmtzY2FwZSIKICAgeG1sbnM6c29kaXBvZGk9Imh0dHA6Ly9zb2RpcG9kaS5zb3VyY2Vmb3JnZS5uZXQvRFREL3NvZGlwb2RpLTAuZHRkIgogICB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciCiAgIHhtbG5zOnN2Zz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxzb2RpcG9kaTpuYW1lZHZpZXcKICAgICBpZD0ibmFtZWR2aWV3MSIKICAgICBwYWdlY29sb3I9IiM1MDUwNTAiCiAgICAgYm9yZGVyY29sb3I9IiNlZWVlZWUiCiAgICAgYm9yZGVyb3BhY2l0eT0iMSIKICAgICBpbmtzY2FwZTpzaG93cGFnZXNoYWRvdz0iMCIKICAgICBpbmtzY2FwZTpwYWdlb3BhY2l0eT0iMCIKICAgICBpbmtzY2FwZTpwYWdlY2hlY2tlcmJvYXJkPSIwIgogICAgIGlua3NjYXBlOmRlc2tjb2xvcj0iIzUwNTA1MCIKICAgICBpbmtzY2FwZTp6b29tPSIwLjU1NjQ4MTM0IgogICAgIGlua3NjYXBlOmN4PSIyNTYuMDczMjciCiAgICAgaW5rc2NhcGU6Y3k9IjQ2MS44MzA0IgogICAgIGlua3NjYXBlOndpbmRvdy13aWR0aD0iMTI5NiIKICAgICBpbmtzY2FwZTp3aW5kb3ctaGVpZ2h0PSI5MjkiCiAgICAgaW5rc2NhcGU6d2luZG93LXg9IjczIgogICAgIGlua3NjYXBlOndpbmRvdy15PSIxMDMiCiAgICAgaW5rc2NhcGU6d2luZG93LW1heGltaXplZD0iMCIKICAgICBpbmtzY2FwZTpjdXJyZW50LWxheWVyPSJnNjIiIC8+PGRlZnMKICAgICBpZD0iZGVmczU0Ij48cmVjdAogICAgICAgeD0iMTA3Ni41NDU4IgogICAgICAgeT0iLTI4OS4xMDc3IgogICAgICAgd2lkdGg9IjkyOC4xODc5MyIKICAgICAgIGhlaWdodD0iMTY3LjM3ODE0IgogICAgICAgaWQ9InJlY3QxIiAvPjxyZWN0CiAgICAgICB4PSIxMDc2LjU0NTgiCiAgICAgICB5PSItMjg5LjEwNzciCiAgICAgICB3aWR0aD0iOTI4LjE4NzkzIgogICAgICAgaGVpZ2h0PSIxNjcuMzc4MTQiCiAgICAgICBpZD0icmVjdDEtMSIgLz48cmVjdAogICAgICAgeD0iMTA3Ni41NDU4IgogICAgICAgeT0iLTI4OS4xMDc3IgogICAgICAgd2lkdGg9IjkyOC4xODc5MyIKICAgICAgIGhlaWdodD0iMTY3LjM3ODE0IgogICAgICAgaWQ9InJlY3QxLTMiIC8+PHJlY3QKICAgICAgIHg9IjEwNzYuNTQ1OCIKICAgICAgIHk9Ii0yODkuMTA3NyIKICAgICAgIHdpZHRoPSI5MjguMTg3OTMiCiAgICAgICBoZWlnaHQ9IjE2Ny4zNzgxNCIKICAgICAgIGlkPSJyZWN0MS0xLTUiIC8+PC9kZWZzPjxnCiAgICAgaWQ9Imc2MiIKICAgICB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMjYzNy40MzkyLC0xODYuMDU4OTEpIj48cGF0aAogICAgICAgZD0ibSAyNzQwLjAyODMsMTg4LjQ1NDI4IGMgLTEzLjI1LC0wLjEzNyAtMjYuNTIsMS45NjMgLTM4LjQ1LDcuOTEzOTkgLTkuNzMsNC44NTUwMSAtMTguNiwxMS41NzUwMSAtMjUuOTIsMTkuNjAwMDEgLTU4LjExLDYzLjY5NyAyNy44NiwxMDMuOTk1IDE4LjY0LDE2NS4wNjEgLTkuNjIsNjMuNzg3IC01MS40LDExNi4xMzkgLTUxLjg2LDE4Mi45NTIgLTAuNDYsNjcuOTY1IDI3LjQxLDEzNS40MTQgMzIuMTgsMjAzLjYwOCA0LjQ2LDYzLjY0MyAtMzQuNzksMTEzLjE0MyAtMzQuNzksMTc0LjEwMzA0IDAsMzQuMTYgMjUuMjgsNTkuMjg5OTggMjguNzksOTEuNDY5OTggMTEuMjgsMTAzLjU5IDcuNDcsMjE3Ljc2OTkgMC4wOSwzMjEuNjM5OSAtMy4wNCw0Mi43NyAtMTksODMuOTEgLTIwLjI4LDEyNi44OSAtMS44Miw2MS4yMyAxMi44MywxMjEuODQgMTQuNjIsMTgyLjk1IDAuOTgsMzMuMTYgLTIwLjY3LDg0LjY3MDEgLTQuNjEsMTE0Ljg3MDEgOS4yMSwxNy4zMiAyOS4zOCwxNC45NyA0Ni4xLDE0Ljk3IDM5Ljg5LDAgNzguMTksMTAuNjQgMTE4LjI5LDguNzQgMTAuMjEsLTAuNDggNDkuNTQsLTkuMzYgNDQuNTYsLTI1LjUgLTIuNzUsLTguOTIgLTIyLjI2LC05Ljg3IC0yOS43NywtMTIuMzggLTI4LjA0LC05LjQgLTU4LjQyLC0xNi43NiAtNzkuNDIsLTM4LjkyMDEgLTUwLjI1LC01My4wMyAtMjAuODQsLTE1Ny4wNyAtMTEuODUsLTIyMS4xMiAxMC43MSwtNzYuMyAyMS40OSwtMTUxLjg3IDM3LjEsLTIyNy4yMiAxMi4zMSwtNTkuNDUgMzAuMjgsLTExNi41MTk5IDM4LjEsLTE3Ny4wNDk5IDExLjE1LC04Ni4zMyA2LjE2LC0xNzUuNzI5OTggMTAuMzMsLTI2Mi42MjAwMiAxLjk4NSwtNDEuMjkyIDEuMzQwMywtMjcuNDE2NTcgMy4xMzA5LC02Ny42OTE2IDEuNzkwNiwtNDAuMjc1MDIgLTguNDkzMiwtMTIwLjkyNTE1IC0xNS42NDQsLTE3NS44MjQyNiAwLDAgNjYuMDM5MywyOS44OTk0IDE0Mi43NTQxLDU5LjA2MzcgNTEuNDc3NCwxOS41NzczNiAxMDcuNjY4MSwyOS43OTM3MyAxNTUuNzM4NCw1Ny43NDY4NSAxNS4xMzg4LDguODA1MjMgMjguNDMyOCwyMi45NTQ1NSA0NC44OTQxLDI5LjA4OTM4IDE2LjQ1NjksNi4xMjE0IDM0LjUzMzgsNC4yNDgzIDUxLjE5MDQsOS41NTQzNyA5LjQzMTEsMy4wMDUxOCAyNy4wNzE1LDE4Ljk0MzcxIDM2LjU3ODUsOC43NzMwOCA5LjM2NSwtMTAuMDE3NTMgLTguMzA1LC0yNi4zNDk0MSAtMTUuMzM1MSwtMzEuOTUyMiAtMjUuNDgwMywtMjAuMzIzNTMgLTYyLjk1MSwtMzEuOTMwMTMgLTkyLjI4NDYsLTQ2LjM4MDk5IC0xMzIuMTM2MywtNjUuMDk0OSAtMzQ5LjMzODcsLTE4Ny4zNDM5NiAtMzQ5LjMzODcsLTE4Ny4zNDM5NiAtNy4wODUsLTE3LjcwOTA4IC0xNy4xMTk4LC0yNy40NTY3MiAtMjEuMTE0LC00NC41NDczNyAtNC41LC0xNC4yNzcgLTEuMzgsLTUwLjMxOSAxNS43NCwtNTYuMzIxIDE1LjU2LC01LjQ1MyAyOC44OCw0LjEyIDM4LjY1LC0xNC42MjMgNi4xOCwtMTEuODUyIDIxLjA0LC00Ni41NzUgMjEuMTksLTU4Ljk3NCAwLjE2LC0xMy4yNDIgLTEwLjE4LC0yNS44NjEgLTEzLjg5LC0zOC4yOCAtMTUuNjksLTUyLjY2NSAtMjkuNzgsLTkxLjU3OSAtOTQuMTEsLTkyLjI0NyIKICAgICAgIHN0cm9rZT0iIzQ4NDI0MyIKICAgICAgIHN0cm9rZS13aWR0aD0iNC43NzgyMiIKICAgICAgIHN0cm9rZS1saW5lY2FwPSJidXR0IgogICAgICAgc3Ryb2tlLWxpbmVqb2luPSJtaXRlciIKICAgICAgIHN0cm9rZS1taXRlcmxpbWl0PSI4IgogICAgICAgc3Ryb2tlLW9wYWNpdHk9IjEiCiAgICAgICBmaWxsPSJub25lIgogICAgICAgZmlsbC1ydWxlPSJldmVub2RkIgogICAgICAgaWQ9InBhdGgzLTYtOCIKICAgICAgIHN0eWxlPSJmaWxsOiMwMDAwMDA7ZmlsbC1vcGFjaXR5OjE7c3Ryb2tlOiMwMDAwMDA7c3Ryb2tlLW9wYWNpdHk6MSIgLz48L2c+PC9zdmc+Cg==",
+    };
+
     const figureConfigs = [
-      { id: "front", canvasId: "figure_front", wrapperId: "figureWrapper_front", imageSrc: "front.svg" },
-      { id: "back",  canvasId: "figure_back",  wrapperId: "figureWrapper_back",  imageSrc: "back.svg"  },
-      { id: "left",  canvasId: "figure_left",  wrapperId: "figureWrapper_left",  imageSrc: "left.svg"  },
-      { id: "right", canvasId: "figure_right", wrapperId: "figureWrapper_right", imageSrc: "right.svg" },
+      { id: "front", canvasId: "figure_front", wrapperId: "figureWrapper_front", imageSrc: "front.svg", maskSrc: BODY_MASK_DATA_URIS.front },
+      { id: "back",  canvasId: "figure_back",  wrapperId: "figureWrapper_back",  imageSrc: "back.svg",  maskSrc: BODY_MASK_DATA_URIS.back  },
+      { id: "left",  canvasId: "figure_left",  wrapperId: "figureWrapper_left",  imageSrc: "left.svg",  maskSrc: BODY_MASK_DATA_URIS.left  },
+      { id: "right", canvasId: "figure_right", wrapperId: "figureWrapper_right", imageSrc: "right.svg", maskSrc: BODY_MASK_DATA_URIS.right },
     ];
 
     const canvasManager = new CanvasManager(figureConfigs, directionColors, appState);
@@ -1384,8 +1536,23 @@
     ];
 
     function addArea(figureId, direction, path) {
-      const area = { figure: figureId, direction, path, intensity: null, duration: null, expectation: null, confidence: null, timestamp: new Date().toISOString() };
+      const result = canvasManager.computeClippedAreaMask(figureId, direction, path);
+      if (!result) {
+        setStatus("⚠️ Nothing to record there — that's outside the body outline or already fully marked. Try again.");
+        canvasManager.redrawAllFigures();
+        return;
+      }
+
+      const area = {
+        figure: figureId, direction,
+        maskDataUrl: result.dataUrl,
+        bbox: result.bbox,
+        centroid: result.centroid,
+        intensity: null, duration: null, expectation: null, confidence: null,
+        timestamp: new Date().toISOString(),
+      };
       appState.addArea(area);
+      canvasManager.cacheAreaMask(area.number, result.canvas, result.bbox, direction);
       updateAreasList();
       canvasManager.redrawAllFigures();
       setStatus(`Recorded area #${area.number} on ${figureId}. Total areas: ${appState.getAreasCount()}`);
@@ -1470,6 +1637,7 @@
     function clearAreas() {
       if (confirm("Are you sure you want to delete ALL contact areas for this trial?")) {
         appState.clearAllAreas();
+        canvasManager.clearAreaMaskCache();
         updateAreasList();
         canvasManager.redrawAllFigures();
         setStatus("Cleared all areas for this trial.");
@@ -1501,6 +1669,16 @@
     }
 
     // ============ MARKING MODE ============
+    // Forces both the internal marking mode and the visible radio button back
+    // to "I was touched" whenever a trial is (re)loaded. Without syncing the
+    // radio too, appState.resetForNewTrial() alone left the UI showing "I
+    // touched" (blue) while new areas were actually recorded as "I was
+    // touched" (red) - the switch and the state it drives could drift apart.
+    function resetMarkingModeToDefault() {
+      appState.setMarkingMode("mark_touched_by");
+      markingModeRadios.forEach(radio => { radio.checked = radio.value === "mark_touched_by"; });
+    }
+
     markingModeRadios.forEach(radio => {
       radio.addEventListener("change", (e) => {
         appState.setMarkingMode(e.target.value);
@@ -1629,11 +1807,15 @@
         return;
       }
 
+      canvasManager.clearAreaMaskCache();
+      resetMarkingModeToDefault();
+
       if (result.exists) {
         appState.isExistingSession = true;
         appState.currentTrial = result.trial;
         appState.currentTrial.areas.forEach(a => { appState.nextAreaNumber = Math.max(appState.nextAreaNumber, (a.number || 0) + 1); });
 
+        await canvasManager.loadAreaMaskCache(appState.currentTrial.areas);
         updateEditStatus();
         startEditStatusTimer();
         refreshUiForCurrentTrial();
@@ -1842,6 +2024,7 @@
         await dataService.saveTrialData(id, name, appState.currentTrial);
 
         appState.clearAllAreas();
+        canvasManager.clearAreaMaskCache();
         updateAreasList();
         canvasManager.redrawAllFigures();
 
@@ -1885,7 +2068,7 @@
     renderTrialQuestions();
     updateRequirementBanners();
     (async () => {
-      await canvasManager.preloadImages();
+      await Promise.all([canvasManager.preloadImages(), canvasManager.preloadBodyMasks()]);
       figureConfigs.forEach(figureConfig => canvasManager.setupFigure(figureConfig));
       setActiveFigure("back");
       setStatus("Ready. Drag on a body figure to mark a contact area (or tap for a small one).");

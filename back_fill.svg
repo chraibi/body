@@ -7,7 +7,7 @@
    viewBox="0 0 91.279396 338.44786"
    version="1.1"
    id="svg1"
-   sodipodi:docname="back.svg"
+   sodipodi:docname="back_fill.svg"
    inkscape:version="1.4.2 (ebf0e940, 2025-05-08)"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
@@ -70,14 +70,6 @@
      fill="none"
      fill-rule="evenodd"
      id="path1-1"
-     style="display:inline;fill:none;fill-opacity:0.0424029;stroke:#000000;stroke-opacity:1"
+     style="display:inline;fill:#000000;fill-opacity:0.87632507;stroke:#000000;stroke-opacity:1"
      sodipodi:nodetypes="ccccccccccccccccccccscccsccccccccscccccscccccccccccccccccccccccc" />
-  <path
-     d="m 24.354408,174.33644 c 6.48262,3.59475 15.72884,2.76391 21.49813,-1.17393"
-     style="fill:none;stroke:#000000;stroke-width:1.20181;stroke-dasharray:none;stroke-opacity:1"
-     id="path1" />
-  <path
-     d="m 66.970651,174.42597 c -6.48262,3.59475 -15.72884,2.76391 -21.49813,-1.17393"
-     style="fill:none;stroke:#000000;stroke-width:1.20181;stroke-dasharray:none;stroke-opacity:1"
-     id="path1-6" />
 </svg>

@@ -6,7 +6,7 @@
    overflow="hidden"
    version="1.1"
    id="svg54"
-   sodipodi:docname="right.svg"
+   sodipodi:docname="right_fill.svg"
    inkscape:version="1.4.2 (ebf0e940, 2025-05-08)"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
@@ -22,7 +22,7 @@
      inkscape:deskcolor="#505050"
      inkscape:zoom="0.55648134"
      inkscape:cx="256.07327"
-     inkscape:cy="131.1814"
+     inkscape:cy="461.8304"
      inkscape:window-width="1296"
      inkscape:window-height="929"
      inkscape:window-x="73"
@@ -62,7 +62,4 @@
        fill="none"
        fill-rule="evenodd"
        id="path3-6-8"
-       style="fill:none;fill-opacity:1;stroke:#000000;stroke-opacity:1" /><path
-       d="m 2725.116,284.60898 c -32.04,-1.258 -15.42,36.672 8.87,41.311"
-       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:4.77822;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:8;stroke-opacity:1"
-       id="path1" /></g></svg>
+       style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-opacity:1" /></g></svg>
