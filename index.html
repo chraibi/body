@@ -198,6 +198,39 @@
       flex-shrink: 0;
     }
 
+    .mode-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.5rem 1rem;
+      flex-wrap: wrap;
+    }
+
+    .mode-row > label:first-child {
+      flex: 1 1 16rem;
+    }
+
+    .filter-options label.no-contact-option {
+      flex-wrap: nowrap;
+      align-items: center;
+      padding: 0.25rem 0.6rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .filter-options label.is-disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .no-contact-option input[type="checkbox"] {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0;
+      cursor: inherit;
+    }
+
     .mode-hint {
       font-size: 0.75rem;
       color: #999;
@@ -630,11 +663,13 @@
       <div class="id-status" id="idStatus"></div>
     </div>
 
+    <!-- Participant Name field disabled — uncomment to re-enable
     <div class="control-group">
       <label>Participant Name:</label>
       <input type="text" id="participantName" placeholder="e.g. John" autocomplete="off" />
       <div class="id-status" id="nameStatus"></div>
     </div>
+    -->
 
     <div class="control-group">
       <label>Trial number:</label>
@@ -658,21 +693,33 @@
     </div>
   </div>
 
-  <p class="hint">If you felt bodily contact with other participants during this trial, mark the areas below. Otherwise, leave the figures blank and answer the two questions further down the page.</p>
+  <p class="hint">For each direction, either mark the areas where you felt bodily contact with other participants, or tick the box next to it ("I was not touched" / "I did not touch"). This is required before you can send the form.</p>
 
   <!-- Marking Mode -->
   <div class="card">
     <div class="filter-options">
-      <label>
-        <input type="radio" name="markingMode" value="mark_touched_by" checked />
-        Mark "I was touched" <span class="filter-preview" style="background: #e74c3c;"></span>
-        <span class="mode-hint">Drag to draw the area where you felt contact (or tap for a small area)</span>
-      </label>
-      <label>
-        <input type="radio" name="markingMode" value="mark_touched" />
-        Mark "I touched" <span class="filter-preview" style="background: #3498db;"></span>
-        <span class="mode-hint">Drag to draw the area where you made contact</span>
-      </label>
+      <div class="mode-row">
+        <label>
+          <input type="radio" name="markingMode" value="mark_touched_by" checked />
+          Mark "I was touched" <span class="filter-preview" style="background: #e74c3c;"></span>
+          <span class="mode-hint">Drag to draw the area where you felt contact (or tap for a small area)</span>
+        </label>
+        <label class="no-contact-option">
+          <input type="checkbox" id="noContactTouchedBy" />
+          I was not touched
+        </label>
+      </div>
+      <div class="mode-row">
+        <label>
+          <input type="radio" name="markingMode" value="mark_touched" />
+          Mark "I touched" <span class="filter-preview" style="background: #3498db;"></span>
+          <span class="mode-hint">Drag to draw the area where you made contact</span>
+        </label>
+        <label class="no-contact-option">
+          <input type="checkbox" id="noContactTouched" />
+          I did not touch
+        </label>
+      </div>
       <label>
         <input type="radio" name="markingMode" value="view_all" />
         View All Areas
@@ -893,6 +940,8 @@
         comfortWithDistance: null,
         awarenessOfContacts: null,
         acceptabilityOfInteractions: null,
+        noContactTouchedBy: false,
+        noContactTouched: false,
         notes: "",
         areas: [],
         firstSavedAt: null,
@@ -1277,8 +1326,12 @@
 
         canvas.addEventListener("pointerdown", (event) => {
           if (this.activeDraw) return;
-          if (!this.appState.idIsValid || !this.appState.nameIsValid || !this.appState.trialIsValid) {
-            setStatus("❌ Participant ID, Name and Trial number are required to record contact areas.");
+          // if (!this.appState.idIsValid || !this.appState.nameIsValid || !this.appState.trialIsValid) {
+          //   setStatus("❌ Participant ID, Name and Trial number are required to record contact areas.");
+          //   return;
+          // }
+          if (!this.appState.idIsValid || !this.appState.trialIsValid) {
+            setStatus("❌ Participant ID and Trial number are required to record contact areas.");
             return;
           }
           if (this.appState.markingMode === "view_all") {
@@ -1287,6 +1340,10 @@
           }
           if (!this.appState.isEditable()) {
             setStatus("❌ Edit time limit expired. Cannot record new areas.");
+            return;
+          }
+          if (NO_CONTACT_FIELDS[this.appState.currentDirection] && this.appState.currentTrial[NO_CONTACT_FIELDS[this.appState.currentDirection]]) {
+            setStatus(`⚠️ You ticked "${NO_CONTACT_LABELS[this.appState.currentDirection]}". Untick it to mark areas in this mode.`);
             return;
           }
 
@@ -1445,6 +1502,9 @@
       touched_by: "#e74c3c"
     };
 
+    const NO_CONTACT_FIELDS = { touched_by: "noContactTouchedBy", touched: "noContactTouched" };
+    const NO_CONTACT_LABELS = { touched_by: "I was not touched", touched: "I did not touch" };
+
     // Inline data URIs for the filled body-silhouette masks (used only to build
     // the offscreen "inside the body" pixel masks for clipping drawn areas).
     // Embedded directly rather than fetched as separate files: an externally
@@ -1472,8 +1532,9 @@
     const syncIndicator = document.getElementById("syncIndicator");
     const participantInput = document.getElementById("participantId");
     const idStatusEl = document.getElementById("idStatus");
-    const participantNameInput = document.getElementById("participantName");
-    const nameStatusEl = document.getElementById("nameStatus");
+    // Participant Name field disabled — uncomment to re-enable
+    // const participantNameInput = document.getElementById("participantName");
+    // const nameStatusEl = document.getElementById("nameStatus");
     const trialInput = document.getElementById("trialNumber");
     const trialStatusEl = document.getElementById("trialStatus");
     const requirementBannerTop = document.getElementById("requirementBannerTop");
@@ -1482,6 +1543,10 @@
     const figureThumbsRail = document.getElementById("figureThumbsRail");
     const areasListEl = document.getElementById("areasList");
     const markingModeRadios = document.querySelectorAll('input[name="markingMode"]');
+    const noContactCheckboxes = {
+      touched_by: document.getElementById("noContactTouchedBy"),
+      touched: document.getElementById("noContactTouched"),
+    };
 
     const notesTextarea = document.getElementById("sessionNotes");
     const charCountEl = document.getElementById("charCount");
@@ -1567,6 +1632,7 @@
     }
 
     function updateAreasList() {
+      updateNoContactCheckboxes();
       const areas = appState.currentTrial.areas;
       if (areas.length === 0) {
         areasListEl.innerHTML = '<div class="empty-list">No contact areas recorded yet</div>';
@@ -1687,6 +1753,64 @@
       });
     });
 
+    // ============ NO-CONTACT DECLARATIONS ============
+    // Each direction must be declared: either at least one area is marked, or
+    // the matching "no contact" box is ticked. A box can't be ticked while
+    // areas of that direction exist, so the two answers can't contradict.
+    function areasInDirection(direction) {
+      return appState.currentTrial.areas.filter(a => a.direction === direction).length;
+    }
+
+    function updateNoContactCheckboxes() {
+      Object.entries(noContactCheckboxes).forEach(([direction, checkbox]) => {
+        const field = NO_CONTACT_FIELDS[direction];
+        const hasAreas = areasInDirection(direction) > 0;
+        if (hasAreas) appState.currentTrial[field] = false;
+        checkbox.checked = !!appState.currentTrial[field];
+        checkbox.disabled = hasAreas || !appState.isEditable();
+        checkbox.parentElement.classList.toggle("is-disabled", checkbox.disabled);
+        checkbox.parentElement.title = hasAreas ? "Delete the areas marked in this mode first" : "";
+      });
+      updateMarkingModeAvailability();
+    }
+
+    // A direction declared as "no contact" can't be marked: grey out its radio
+    // and, if it was the active mode, move to the other mark mode (or to
+    // "View All" when both directions are declared as "no contact").
+    function updateMarkingModeAvailability() {
+      const isDeclared = direction => !!appState.currentTrial[NO_CONTACT_FIELDS[direction]];
+      markingModeRadios.forEach(radio => {
+        const direction = radio.value.replace(/^mark_/, "");
+        const disabled = radio.value !== "view_all" && isDeclared(direction);
+        radio.disabled = disabled;
+        radio.parentElement.classList.toggle("is-disabled", disabled);
+      });
+
+      const activeRadio = [...markingModeRadios].find(radio => radio.value === appState.markingMode);
+      if (!activeRadio || !activeRadio.disabled) return;
+      const fallback = [...markingModeRadios].find(radio => !radio.disabled && radio.value !== "view_all")
+        || [...markingModeRadios].find(radio => radio.value === "view_all");
+      markingModeRadios.forEach(radio => { radio.checked = radio === fallback; });
+      appState.setMarkingMode(fallback.value);
+      canvasManager.redrawAllFigures();
+    }
+
+    function getMissingContactDeclarations() {
+      return Object.keys(NO_CONTACT_FIELDS)
+        .filter(direction => !areasInDirection(direction) && !appState.currentTrial[NO_CONTACT_FIELDS[direction]])
+        .map(direction => direction === "touched_by"
+          ? 'Mark where you were touched, or tick "I was not touched"'
+          : 'Mark where you touched, or tick "I did not touch"');
+    }
+
+    Object.entries(noContactCheckboxes).forEach(([direction, checkbox]) => {
+      checkbox.addEventListener("change", () => {
+        appState.currentTrial[NO_CONTACT_FIELDS[direction]] = checkbox.checked;
+        updateNoContactCheckboxes();
+        if (checkbox.checked) setStatus(`Declared: ${NO_CONTACT_LABELS[direction]}.`);
+      });
+    });
+
     // ============ EDIT WINDOW ============
     function updateEditStatus() {
       if (!appState.isExistingSession) {
@@ -1752,25 +1876,26 @@
       updateCombinedKeyStatus();
     }
 
-    async function updateNameStatus() {
-      const name = participantNameInput.value.trim();
-      if (!name) {
-        appState.nameIsValid = false;
-        nameStatusEl.textContent = "";
-        nameStatusEl.className = "id-status";
-        return;
-      }
-      if (!dataService.isValidName(name)) {
-        appState.nameIsValid = false;
-        nameStatusEl.textContent = "❌ Name must not be empty";
-        nameStatusEl.className = "id-status id-invalid";
-        return;
-      }
-      appState.nameIsValid = true;
-      nameStatusEl.textContent = "✓ Name is valid";
-      nameStatusEl.className = "id-status id-valid";
-      updateCombinedKeyStatus();
-    }
+    // Participant Name field disabled — uncomment to re-enable
+    // async function updateNameStatus() {
+    //   const name = participantNameInput.value.trim();
+    //   if (!name) {
+    //     appState.nameIsValid = false;
+    //     nameStatusEl.textContent = "";
+    //     nameStatusEl.className = "id-status";
+    //     return;
+    //   }
+    //   if (!dataService.isValidName(name)) {
+    //     appState.nameIsValid = false;
+    //     nameStatusEl.textContent = "❌ Name must not be empty";
+    //     nameStatusEl.className = "id-status id-invalid";
+    //     return;
+    //   }
+    //   appState.nameIsValid = true;
+    //   nameStatusEl.textContent = "✓ Name is valid";
+    //   nameStatusEl.className = "id-status id-valid";
+    //   updateCombinedKeyStatus();
+    // }
 
     async function updateTrialStatus() {
       const trial = trialInput.value.trim();
@@ -1793,10 +1918,12 @@
     }
 
     async function updateCombinedKeyStatus() {
-      if (!appState.idIsValid || !appState.nameIsValid || !appState.trialIsValid) return;
+      // if (!appState.idIsValid || !appState.nameIsValid || !appState.trialIsValid) return;
+      if (!appState.idIsValid || !appState.trialIsValid) return;
 
       const id = participantInput.value.trim();
-      const name = participantNameInput.value.trim();
+      // const name = participantNameInput.value.trim(); // Participant Name field disabled
+      const name = "";
       const trialNumber = trialInput.value.trim();
 
       let result;
@@ -1829,10 +1956,11 @@
     }
 
     function updateRequirementBanners() {
-      const ready = appState.idIsValid && appState.nameIsValid && appState.trialIsValid;
+      // const ready = appState.idIsValid && appState.nameIsValid && appState.trialIsValid;
+      const ready = appState.idIsValid && appState.trialIsValid;
       const missingParts = [];
       if (!appState.idIsValid) missingParts.push("Participant ID");
-      if (!appState.nameIsValid) missingParts.push("Participant Name");
+      // if (!appState.nameIsValid) missingParts.push("Participant Name"); // Participant Name field disabled
       if (!appState.trialIsValid) missingParts.push("Trial number");
 
       const text = ready
@@ -1847,7 +1975,7 @@
     }
 
     participantInput.addEventListener("input", () => { updateIdStatus(); updateRequirementBanners(); });
-    participantNameInput.addEventListener("input", () => { updateNameStatus(); updateRequirementBanners(); });
+    // participantNameInput.addEventListener("input", () => { updateNameStatus(); updateRequirementBanners(); }); // Participant Name field disabled
     trialInput.addEventListener("input", () => { updateTrialStatus(); updateRequirementBanners(); });
 
     // ============ ACTIVE FIGURE (main view + thumbnail rail) ============
@@ -1979,19 +2107,27 @@
     window.saveAllAndReload = async function (isRetry = false) {
       const btn = document.getElementById("saveAndSend");
 
-      if (!appState.idIsValid || !appState.nameIsValid || !appState.trialIsValid) {
-        alert("Participant ID, Name and Trial number must all be valid before saving.");
+      // if (!appState.idIsValid || !appState.nameIsValid || !appState.trialIsValid) {
+      //   alert("Participant ID, Name and Trial number must all be valid before saving.");
+      //   return;
+      // }
+      if (!appState.idIsValid || !appState.trialIsValid) {
+        alert("Participant ID and Trial number must all be valid before saving.");
         return;
       }
 
       const missingQuestions = TRIAL_QUESTIONS.filter(q => !appState.currentTrial[q.field]).map(q => q.label);
+      const missingDeclarations = getMissingContactDeclarations();
       const incompleteAreas = appState.getIncompleteAreas().map(area => {
         const missingFields = RATING_GROUPS.filter(g => !area[g.field]).map(g => g.label);
         return `Area #${area.number}: ${missingFields.join(", ")}`;
       });
 
-      if (missingQuestions.length || incompleteAreas.length) {
+      if (missingDeclarations.length || missingQuestions.length || incompleteAreas.length) {
         let message = "Please complete the following before saving:";
+        if (missingDeclarations.length) {
+          message += "\n\nContact declaration:\n" + missingDeclarations.map(d => `• ${d}`).join("\n");
+        }
         if (missingQuestions.length) {
           message += "\n\nQuestions not yet answered:\n" + missingQuestions.map(q => `• ${q}`).join("\n");
         }
@@ -2014,7 +2150,8 @@
         setStatus(`📤 ${isRetry ? "Retrying" : "Saving"} your data... (${appState.getAreasCount()} area(s) + questionnaire)`);
 
         const id = participantInput.value.trim();
-        const name = participantNameInput.value.trim();
+        // const name = participantNameInput.value.trim(); // Participant Name field disabled
+        const name = "";
         const nowIso = new Date().toISOString();
 
         appState.currentTrial.notes = notesTextarea.value;
@@ -2029,12 +2166,12 @@
         canvasManager.redrawAllFigures();
 
         participantInput.value = "";
-        participantNameInput.value = "";
+        // participantNameInput.value = ""; // Participant Name field disabled
         trialInput.value = "";
         idStatusEl.textContent = "";
         idStatusEl.className = "id-status";
-        nameStatusEl.textContent = "";
-        nameStatusEl.className = "id-status";
+        // nameStatusEl.textContent = ""; // Participant Name field disabled
+        // nameStatusEl.className = "id-status";
         trialStatusEl.textContent = "";
         trialStatusEl.className = "id-status";
         appState.idIsValid = false;
