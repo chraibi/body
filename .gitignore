@@ -1,1 +1,8 @@
 paper_questionnaire
+
+.firebase/
+serviceAccountKey.json
+*-firebase-adminsdk-*.json
+backups/
+notepad.md
+dist/

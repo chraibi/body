@@ -1,0 +1,6 @@
+{
+  "hosting": {
+    "public": "dist",
+    "predeploy": ["sh \"$PROJECT_DIR/build_site.sh\""]
+  }
+}
