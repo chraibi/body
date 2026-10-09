@@ -1105,13 +1105,51 @@
       return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     }
 
-    function makeCirclePath(cxNorm, cyNorm, rNormX, rNormY, sides = 16) {
-      const pts = [];
-      for (let i = 0; i < sides; i++) {
-        const angle = (i / sides) * 2 * Math.PI;
-        pts.push({ x: cxNorm + rNormX * Math.cos(angle), y: cyNorm + rNormY * Math.sin(angle) });
+    // Chamfer distance (below) overestimates the straight-line distance by up
+    // to ~8% (along 22.5° directions): allow that much so a tap in an open
+    // part of the body still gets a full disc.
+    const CHAMFER_SLACK = 1.09;
+
+    // Alpha (0/255) for the pixels a tap marks, within a bw x bh window: those
+    // within `radius` of the tapped point (cx, cy) that are also reachable
+    // from it within `radius` without leaving `free` pixels (inside the body,
+    // outside existing areas). A plain circle would spill across a narrow gap
+    // onto a neighbouring body part - from the arm onto the torso, or from one
+    // inner leg onto the other - while the distance measured along the body to
+    // reach it is much longer. Uses an 8-neighbour chamfer distance, with
+    // forward/backward passes repeated until stable (the region can wind).
+    function computeTapMask(free, bw, bh, cx, cy, radius) {
+      // Float64, matching the arithmetic below: with Float32 a stored value can
+      // round up, look improvable on the next pass, and never settle.
+      const dist = new Float64Array(bw * bh).fill(Infinity);
+      dist[Math.floor(cy) * bw + Math.floor(cx)] = 0;
+      const passes = [
+        { from: 0, to: bw * bh, step: 1, neighbours: [[-1, 0, 1], [0, -1, 1], [-1, -1, Math.SQRT2], [1, -1, Math.SQRT2]] },
+        { from: bw * bh - 1, to: -1, step: -1, neighbours: [[1, 0, 1], [0, 1, 1], [1, 1, Math.SQRT2], [-1, 1, Math.SQRT2]] },
+      ];
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const { from, to, step, neighbours } of passes) {
+          for (let i = from; i !== to; i += step) {
+            if (!free[i]) continue;
+            const x = i % bw, y = (i - x) / bw;
+            for (const [dx, dy, cost] of neighbours) {
+              const nx = x + dx, ny = y + dy;
+              if (nx < 0 || ny < 0 || nx >= bw || ny >= bh) continue;
+              const d = dist[ny * bw + nx] + cost;
+              if (d < dist[i]) { dist[i] = d; changed = true; }
+            }
+          }
+        }
       }
-      return pts;
+
+      const alpha = new Uint8ClampedArray(bw * bh);
+      for (let i = 0; i < alpha.length; i++) {
+        const x = i % bw, y = (i - x) / bw;
+        if (dist[i] <= radius * CHAMFER_SLACK && Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= radius) alpha[i] = 255;
+      }
+      return alpha;
     }
 
     // Scans a mask canvas's alpha channel to find its drawn extent: the tight
@@ -1143,9 +1181,29 @@
       };
     }
 
+    // Snaps a mask canvas's alpha channel to fully opaque / fully transparent.
+    // Subtracting an existing area (destination-out) only fully erases pixels
+    // where both masks are fully opaque: with a semi-transparent silhouette
+    // (the back figure's fill has opacity ~0.88, i.e. alpha 223) a faint
+    // residue (223 * (1 - 223/255) ≈ 28) is left behind, which still counted
+    // as a drawn area - so a new area fully inside an existing one got
+    // recorded. Thresholding at half coverage drops that residue.
+    function binarizeMaskCanvas(canvas) {
+      const ctx = canvas.getContext("2d");
+      const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = image.data;
+      for (let i = 3; i < data.length; i += 4) {
+        data[i] = data[i] >= 128 ? 255 : 0;
+      }
+      ctx.putImageData(image, 0, 0);
+    }
+
     // ============ CANVAS MANAGER CLASS ============
     const TAP_THRESHOLD_PX = 12;
-    const TAP_RADIUS_PX = 16;
+    // Tap circle radius in px on the main figure at default zoom. Applied as a
+    // fraction of the figure's height (see computeClippedAreaMask), so a tap
+    // marks the same body-relative size whatever the zoom level, like drawn areas.
+    const TAP_RADIUS_PX = 11.2;
     const MIN_POINT_SPACING_PX = 4;
     // Working resolution for body masks and area masks (independent of display
     // size/DPR, so stored areas look the same regardless of zoom or screen).
@@ -1226,40 +1284,78 @@
       }
 
       // Computes the actual shape to save/display for a freshly drawn stroke:
-      // the drawn path intersected with the body outline, minus any existing
-      // areas already recorded for the same figure + direction (so areas never
-      // overlap each other). Returns null when nothing is left after clipping.
-      computeClippedAreaMask(figureId, direction, path) {
+      // the drawn path - or, for a tap (tapPoint given, path null), a disc
+      // around the tapped point measured along the body - intersected with the
+      // body outline, minus any existing areas already recorded for the same
+      // figure + direction (so areas never overlap each other). Returns null
+      // when nothing is left after clipping, or when a tap lands off the body
+      // or on an existing area.
+      computeClippedAreaMask(figureId, direction, path, tapPoint = null) {
         const bodyMask = this.bodyMasks[figureId];
         if (!bodyMask) return null;
         const { width: w, height: h, canvas: bodyCanvas } = bodyMask;
+
+        // Union of the existing areas for the same figure + direction.
+        const occupied = document.createElement("canvas");
+        occupied.width = w;
+        occupied.height = h;
+        const occupiedCtx = occupied.getContext("2d");
+        this.appState.currentTrial.areas
+          .filter(a => a.figure === figureId && a.direction === direction)
+          .forEach(a => {
+            const cached = this.areaMaskCache.get(a.number);
+            if (!cached) return;
+            occupiedCtx.drawImage(cached.raw, cached.bbox.x * w, cached.bbox.y * h, cached.bbox.w * w, cached.bbox.h * h);
+          });
 
         const working = document.createElement("canvas");
         working.width = w;
         working.height = h;
         const ctx = working.getContext("2d");
 
-        ctx.beginPath();
-        path.forEach((pt, i) => {
-          const x = pt.x * w, y = pt.y * h;
-          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        });
-        ctx.closePath();
-        ctx.fillStyle = "#000";
-        ctx.fill();
+        if (tapPoint) {
+          const cx = tapPoint.x * w, cy = tapPoint.y * h;
+          if (cx < 0 || cy < 0 || cx >= w || cy >= h) return null;
+          const radius = TAP_RADIUS_PX / BASE_MAIN_FIGURE_HEIGHT * h;
+          const x0 = Math.max(0, Math.floor(cx - radius)), y0 = Math.max(0, Math.floor(cy - radius));
+          const x1 = Math.min(w, Math.ceil(cx + radius) + 1), y1 = Math.min(h, Math.ceil(cy + radius) + 1);
+          const bw = x1 - x0, bh = y1 - y0;
 
-        ctx.globalCompositeOperation = "destination-in";
-        ctx.drawImage(bodyCanvas, 0, 0);
+          const body = bodyCanvas.getContext("2d").getImageData(x0, y0, bw, bh).data;
+          const taken = occupiedCtx.getImageData(x0, y0, bw, bh).data;
+          const free = new Uint8Array(bw * bh);
+          for (let i = 0; i < free.length; i++) {
+            free[i] = body[i * 4 + 3] >= 128 && taken[i * 4 + 3] < 128 ? 1 : 0;
+          }
+
+          // A tap's disc only stands in for the touched point, unlike a drawn
+          // shape (which takes deliberate effort, so its outline is trusted):
+          // when that point is off the body (between the legs, between arm and
+          // torso) or already lies in an existing area, reject the tap outright
+          // rather than recording whatever part of the disc reaches past it.
+          if (!free[Math.floor(cy - y0) * bw + Math.floor(cx - x0)]) return null;
+
+          const image = ctx.createImageData(bw, bh);
+          computeTapMask(free, bw, bh, cx - x0, cy - y0, radius).forEach((a, i) => { image.data[i * 4 + 3] = a; });
+          ctx.putImageData(image, x0, y0);
+        } else {
+          ctx.beginPath();
+          path.forEach((pt, i) => {
+            const x = pt.x * w, y = pt.y * h;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          });
+          ctx.closePath();
+          ctx.fillStyle = "#000";
+          ctx.fill();
+
+          ctx.globalCompositeOperation = "destination-in";
+          ctx.drawImage(bodyCanvas, 0, 0);
+        }
 
         ctx.globalCompositeOperation = "destination-out";
-        this.appState.currentTrial.areas
-          .filter(a => a.figure === figureId && a.direction === direction)
-          .forEach(a => {
-            const cached = this.areaMaskCache.get(a.number);
-            if (!cached) return;
-            ctx.drawImage(cached.raw, cached.bbox.x * w, cached.bbox.y * h, cached.bbox.w * w, cached.bbox.h * h);
-          });
+        ctx.drawImage(occupied, 0, 0);
         ctx.globalCompositeOperation = "source-over";
+        binarizeMaskCanvas(working);
 
         const analysis = analyzeMaskCanvas(working);
         if (!analysis) return null;
@@ -1409,15 +1505,12 @@
           const spreadPxY = (Math.max(...ys) - Math.min(...ys)) * rect.height;
           const spreadPx = Math.hypot(spreadPxX, spreadPxY);
 
-          let finalPath;
+          // A tap marks a disc around the touched point (built in computeClippedAreaMask).
           if (spreadPx < TAP_THRESHOLD_PX || draw.path.length < 3) {
-            const start = draw.path[0];
-            finalPath = makeCirclePath(start.x, start.y, TAP_RADIUS_PX / rect.width, TAP_RADIUS_PX / rect.height);
+            addArea(draw.figureId, draw.direction, null, draw.path[0]);
           } else {
-            finalPath = draw.path;
+            addArea(draw.figureId, draw.direction, draw.path);
           }
-
-          addArea(draw.figureId, draw.direction, finalPath);
         };
 
         canvas.addEventListener("pointerup", finishDraw);
@@ -1621,10 +1714,10 @@
       { field: "confidence", container: ratingConfidenceEl, options: CONFIDENCE_OPTIONS, label: "Level of confidence" },
     ];
 
-    function addArea(figureId, direction, path) {
-      const result = canvasManager.computeClippedAreaMask(figureId, direction, path);
+    function addArea(figureId, direction, path, tapPoint = null) {
+      const result = canvasManager.computeClippedAreaMask(figureId, direction, path, tapPoint);
       if (!result) {
-        setStatus("⚠️ Nothing to record there — that's outside the body outline or already fully marked. Try again.");
+        setStatus("⚠️ Nothing to record there — that's outside the body outline or already marked. Try again.");
         canvasManager.redrawAllFigures();
         return;
       }
