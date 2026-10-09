@@ -1,0 +1,17 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "data": {
+      "$participant": {
+        "trials": {
+          "$trial": {
+            ".read": true,
+            ".write": "newData.exists()",
+            ".validate": "$trial.matches(/^[0-9]+$/) && newData.hasChildren(['trialNumber'])"
+          }
+        }
+      }
+    }
+  }
+}

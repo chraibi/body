@@ -838,6 +838,18 @@
     </div>
   </div>
 
+  <!-- No-contact confirmation modal (hidden by default) -->
+  <div class="modal-overlay" id="noContactModalOverlay" hidden>
+    <div class="modal-card">
+      <h3>No contact recorded</h3>
+      <div class="modal-subtitle">Do you want to submit the form?</div>
+      <div class="modal-actions">
+        <button type="button" class="secondary" id="noContactModalCancelBtn">Cancel, go back to the form</button>
+        <button type="button" id="noContactModalConfirmBtn">Yes, proceed</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-database-compat.js"></script>
@@ -1331,7 +1343,14 @@
           //   return;
           // }
           if (!this.appState.idIsValid || !this.appState.trialIsValid) {
-            setStatus("❌ Participant ID and Trial number are required to record contact areas.");
+            const missingParts = [];
+            if (!this.appState.idIsValid) missingParts.push("Participant ID");
+            if (!this.appState.trialIsValid) missingParts.push("Trial number");
+            const message = `Please fill in the ${missingParts.join(" and ")} at the top of the page before drawing contact areas.`;
+            setStatus(`❌ ${message}`);
+            alert(message);
+            // Bring the participant to the first field they still need to fill in.
+            (this.appState.idIsValid ? trialInput : participantInput).focus();
             return;
           }
           if (this.appState.markingMode === "view_all") {
@@ -1563,6 +1582,9 @@
     const ratingConfidenceEl = document.getElementById("ratingConfidenceOptions");
     const ratingModalDoneBtn = document.getElementById("ratingModalDoneBtn");
     const ratingModalDeleteBtn = document.getElementById("ratingModalDeleteBtn");
+    const noContactModalOverlay = document.getElementById("noContactModalOverlay");
+    const noContactModalConfirmBtn = document.getElementById("noContactModalConfirmBtn");
+    const noContactModalCancelBtn = document.getElementById("noContactModalCancelBtn");
 
     const EDIT_TIME_LIMIT = 60 * 60 * 1000;
     let openAreaIndex = null;
@@ -1977,6 +1999,21 @@
     // participantNameInput.addEventListener("input", () => { updateNameStatus(); updateRequirementBanners(); }); // Participant Name field disabled
     trialInput.addEventListener("input", () => { updateTrialStatus(); updateRequirementBanners(); });
 
+    // iOS Safari doesn't move focus when a slider (or canvas) is tapped, so a text
+    // field stays focused and the keyboard pops back up after every slider move.
+    // Drop focus from the text field as soon as the participant touches anything else.
+    const TEXT_FIELD_SELECTOR = "input[type=text], textarea";
+    document.addEventListener("pointerdown", (e) => {
+      const active = document.activeElement;
+      if (active && active.matches(TEXT_FIELD_SELECTOR) && !e.target.closest(TEXT_FIELD_SELECTOR)) {
+        active.blur();
+      }
+    }, true);
+    // Let the keyboard's Return/Done key close it from the ID and trial fields.
+    [participantInput, trialInput].forEach(input => {
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
+    });
+
     // ============ ACTIVE FIGURE (main view + thumbnail rail) ============
     // Exactly one figure is shown large at a time; the other three sit as small
     // click-to-switch thumbnails. The underlying canvases keep their own aspect ratio
@@ -2102,6 +2139,26 @@
       applyMainFigureZoom();
     });
 
+    // ============ NO-CONTACT CONFIRMATION ============
+    // Asked before saving a trial with no contact areas at all (both "I was not
+    // touched" and "I did not touch" ticked). A custom dialog rather than
+    // confirm(), which can't relabel its OK/Cancel buttons.
+    let resolveNoContactModal = null;
+
+    function confirmNoContactSubmission() {
+      noContactModalOverlay.hidden = false;
+      return new Promise(resolve => { resolveNoContactModal = resolve; });
+    }
+
+    function closeNoContactModal(answer) {
+      noContactModalOverlay.hidden = true;
+      if (resolveNoContactModal) resolveNoContactModal(answer);
+      resolveNoContactModal = null;
+    }
+
+    noContactModalConfirmBtn.addEventListener("click", () => closeNoContactModal(true));
+    noContactModalCancelBtn.addEventListener("click", () => closeNoContactModal(false));
+
     // ============ SAVE ============
     window.saveAllAndReload = async function (isRetry = false) {
       const btn = document.getElementById("saveAndSend");
@@ -2134,6 +2191,12 @@
           message += "\n\nContact areas missing ratings:\n" + incompleteAreas.map(a => `• ${a}`).join("\n");
         }
         alert(message);
+        return;
+      }
+
+      // Validation above guarantees each direction has areas or its "no contact"
+      // box ticked, so zero areas here means both boxes are ticked.
+      if (!isRetry && appState.getAreasCount() === 0 && !(await confirmNoContactSubmission())) {
         return;
       }
 
@@ -2197,6 +2260,7 @@
           btn.textContent = "⚠️ Retry";
           btn.onclick = () => window.saveAllAndReload(true);
         }
+        alert(`Your answers could not be saved (${error.message}).\n\nPlease click "Retry" at the bottom of the page, or ask the experimenter for help.`);
       }
     };
 
