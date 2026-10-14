@@ -970,6 +970,10 @@
         this.nameIsValid = false;
         this.trialIsValid = false;
 
+        // Day the current trial is stored under, fixed when it is loaded so a
+        // form sent just after midnight still goes to the record it reopened.
+        this.sessionDate = null;
+
         this.isExistingSession = false;
         this.canEdit = true;
         this.editStatusTimer = null;
@@ -1061,13 +1065,22 @@
         return name && name.trim().length > 0;
       }
 
-      getParticipantKey(id, name) {
-        return `${id}_${name.toLowerCase()}`;
+      // Local date (YYYY-MM-DD). It is part of the participant key because the
+      // same IDs and trial numbers are reused on every experiment day: answers
+      // can only be reopened on the day they were given, and another day's
+      // answers are never shown or overwritten.
+      getSessionDate(now = new Date()) {
+        const pad = n => String(n).padStart(2, "0");
+        return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
       }
 
-      async loadExistingTrialData(id, name, trialNumber) {
+      getParticipantKey(id, name, date) {
+        return [id, name.toLowerCase(), date].filter(Boolean).join("_");
+      }
+
+      async loadExistingTrialData(id, name, date, trialNumber) {
         try {
-          const key = this.getParticipantKey(id, name);
+          const key = this.getParticipantKey(id, name, date);
           const snapshot = await this.db.ref(`data/${key}/trials/${trialNumber}`).once("value");
 
           if (snapshot.exists()) {
@@ -1077,15 +1090,15 @@
           }
           return { exists: false };
         } catch (error) {
-          const dataLoadError = new DataLoadError(`Failed to load trial data for ${id}_${name} trial ${trialNumber}: ${error.message}`);
+          const dataLoadError = new DataLoadError(`Failed to load trial data for ${this.getParticipantKey(id, name, date)} trial ${trialNumber}: ${error.message}`);
           console.error(dataLoadError.name + ":", dataLoadError.message);
           throw dataLoadError;
         }
       }
 
-      async saveTrialData(id, name, trial) {
+      async saveTrialData(id, name, date, trial) {
         try {
-          const key = this.getParticipantKey(id, name);
+          const key = this.getParticipantKey(id, name, date);
           await this.db.ref(`data/${key}/trials/${trial.trialNumber}`).set(trial);
           console.log(`Successfully saved trial ${trial.trialNumber} for participant ${key}`);
           return true;
@@ -2039,10 +2052,11 @@
       // const name = participantNameInput.value.trim(); // Participant Name field disabled
       const name = "";
       const trialNumber = trialInput.value.trim();
+      const date = dataService.getSessionDate();
 
       let result;
       try {
-        result = await dataService.loadExistingTrialData(id, name, trialNumber);
+        result = await dataService.loadExistingTrialData(id, name, date, trialNumber);
       } catch (error) {
         setStatus(`❌ Failed to check existing data: ${error.message}`);
         return;
@@ -2050,6 +2064,7 @@
 
       canvasManager.clearAreaMaskCache();
       resetMarkingModeToDefault();
+      appState.sessionDate = date;
 
       if (result.exists) {
         appState.isExistingSession = true;
@@ -2313,7 +2328,9 @@
         if (!appState.currentTrial.firstSavedAt) appState.currentTrial.firstSavedAt = nowIso;
         appState.currentTrial.lastEdited = nowIso;
 
-        await dataService.saveTrialData(id, name, appState.currentTrial);
+        const date = appState.sessionDate || dataService.getSessionDate();
+
+        await dataService.saveTrialData(id, name, date, appState.currentTrial);
 
         appState.clearAllAreas();
         canvasManager.clearAreaMaskCache();
