@@ -905,11 +905,12 @@
     // Renders a slider for a set of ordered options: the first and last option labels
     // stay always visible as end anchors, while the currently-selected label appears
     // below the slider only once the participant has actually moved it (so an
-    // untouched slider doesn't silently read as an answered question).
-    function renderSliderField(container, options, selectedValue, onSelect) {
+    // untouched slider doesn't silently read as an answered question). Until then
+    // the thumb rests at defaultIndex (the middle option unless given).
+    function renderSliderField(container, options, selectedValue, onSelect, defaultIndex = Math.round((options.length - 1) / 2)) {
       const selectedIndex = options.findIndex(opt => opt.value === selectedValue);
       const answered = selectedIndex >= 0;
-      const initialIndex = answered ? selectedIndex : Math.round((options.length - 1) / 2);
+      const initialIndex = answered ? selectedIndex : defaultIndex;
 
       const ticks = options.map((_, i) => `<span class="slider-tick${i === initialIndex ? " is-active" : ""}"></span>`).join("");
 
@@ -1209,6 +1210,64 @@
         data[i] = data[i] >= 128 ? 255 : 0;
       }
       ctx.putImageData(image, 0, 0);
+    }
+
+    // Where segments p1-p2 and p3-p4 properly cross (touching or shared
+    // endpoints don't count), returns the crossing point; otherwise null.
+    function segmentCrossing(p1, p2, p3, p4) {
+      const d1x = p2.x - p1.x, d1y = p2.y - p1.y;
+      const d2x = p4.x - p3.x, d2y = p4.y - p3.y;
+      const denom = d1x * d2y - d1y * d2x;
+      if (denom === 0) return null;
+      const ex = p3.x - p1.x, ey = p3.y - p1.y;
+      const t = (ex * d2y - ey * d2x) / denom;
+      const u = (ex * d1y - ey * d1x) / denom;
+      if (t <= 0 || t >= 1 || u <= 0 || u >= 1) return null;
+      return { x: p1.x + t * d1x, y: p1.y + t * d1y };
+    }
+
+    // Shoelace area of a closed polygon (absolute value).
+    function polygonArea(points) {
+      let sum = 0;
+      points.forEach((p, i) => {
+        const q = points[(i + 1) % points.length];
+        sum += p.x * q.y - q.x * p.y;
+      });
+      return Math.abs(sum) / 2;
+    }
+
+    // A tail lobe is only dropped when its area is below this fraction of the
+    // loop's: the leftover of an overshoot is small, while two lobes of similar
+    // size (a deliberate figure-8) are both kept.
+    const TAIL_LOBE_MAX_AREA_RATIO = 0.5;
+
+    // When a drawn loop's start and end overshoot each other, closing the path
+    // (end straight back to start) adds a small twisted lobe next to the loop.
+    // Finds where the stroke crosses itself, taking the crossing whose sides
+    // are furthest apart along the stroke (the start/end tails, not a curl
+    // midway), and cuts the stroke down to the loop between them. Repeated in
+    // case the tails cross more than once. A crossing whose cut-off part isn't
+    // small next to the loop is left alone, so a curl midway is never kept
+    // instead of the loop around it.
+    function trimLoopTails(path) {
+      for (;;) {
+        const n = path.length;
+        let best = null;
+        for (let i = 0; i < n - 3; i++) {
+          if (best && best.j - best.i >= n - 2 - i) break;
+          for (let j = n - 2; j >= i + 2 && (!best || j - i > best.j - best.i); j--) {
+            const cross = segmentCrossing(path[i], path[i + 1], path[j], path[j + 1]);
+            if (cross) { best = { i, j, cross }; break; }
+          }
+        }
+        if (!best) return path;
+
+        const { i, j, cross } = best;
+        const loop = [cross, ...path.slice(i + 1, j + 1)];
+        const tails = [cross, ...path.slice(j + 1), ...path.slice(0, i + 1)];
+        if (polygonArea(tails) >= TAIL_LOBE_MAX_AREA_RATIO * polygonArea(loop)) return path;
+        path = [...loop, cross];
+      }
     }
 
     // ============ CANVAS MANAGER CLASS ============
@@ -1522,7 +1581,7 @@
           if (spreadPx < TAP_THRESHOLD_PX || draw.path.length < 3) {
             addArea(draw.figureId, draw.direction, null, draw.path[0]);
           } else {
-            addArea(draw.figureId, draw.direction, draw.path);
+            addArea(draw.figureId, draw.direction, trimLoopTails(draw.path));
           }
         };
 
@@ -1564,12 +1623,16 @@
 
         ctx.drawImage(tinted, dx, dy, dw, dh);
 
+        // The number grows with the main figure's zoom (its height against the
+        // default-zoom height), but never drops below its default size, so it
+        // stays readable when zoomed out and on the small thumbnails.
+        const labelScale = Math.max(1, canvasH / (window.devicePixelRatio || 1) / BASE_MAIN_FIGURE_HEIGHT);
         const cx = area.centroid.x * canvasW, cy = area.centroid.y * canvasH;
         ctx.save();
-        ctx.font = "bold 13px system-ui, sans-serif";
+        ctx.font = `bold ${Math.round(26 * labelScale)}px system-ui, sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 6 * labelScale;
         ctx.strokeStyle = "rgba(255,255,255,0.9)";
         ctx.strokeText(String(area.number), cx, cy);
         ctx.fillStyle = "#000";
@@ -1722,7 +1785,7 @@
     // ============ AREAS LIST + RATING PANEL ============
     const RATING_GROUPS = [
       { field: "intensity", container: ratingIntensityEl, options: INTENSITY_OPTIONS, label: "Intensity" },
-      { field: "duration", container: ratingDurationEl, options: DURATION_OPTIONS, label: "Duration" },
+      { field: "duration", container: ratingDurationEl, options: DURATION_OPTIONS, label: "Duration", defaultIndex: 0 },
       { field: "expectation", container: ratingExpectationEl, options: EXPECTATION_OPTIONS, label: "Level of expectation" },
       { field: "confidence", container: ratingConfidenceEl, options: CONFIDENCE_OPTIONS, label: "Level of confidence" },
     ];
@@ -1794,7 +1857,7 @@
 
       RATING_GROUPS.forEach(g => renderSliderField(g.container, g.options, area[g.field], (value) => {
         appState.currentTrial.areas[index][g.field] = value;
-      }));
+      }, g.defaultIndex));
       const disabled = !appState.isEditable();
       RATING_GROUPS.forEach(g => g.container.querySelectorAll("input").forEach(input => { input.disabled = disabled; }));
       ratingModalDeleteBtn.disabled = disabled;

@@ -4,6 +4,12 @@
   },
   "hosting": {
     "public": "dist",
-    "predeploy": ["sh \"$PROJECT_DIR/build_site.sh\""]
+    "predeploy": ["sh \"$PROJECT_DIR/build_site.sh\""],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      }
+    ]
   }
 }
