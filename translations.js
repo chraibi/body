@@ -3,6 +3,8 @@
 // To change a wording, edit it here: index.html only refers to the keys (in
 // data-i18n attributes and t("...") calls). Keep {placeholders} as they are;
 // they are filled in by the page (numbers, field names, error messages).
+// Texts shown through a data-i18n-html attribute are HTML: use <strong> for
+// bold and <br> for a line break there.
 // A text missing in one language falls back to English.
 //
 // The German texts are a first draft and should be reviewed before use.
@@ -23,8 +25,8 @@ const TRANSLATIONS = {
 
   // ---- Participant / trial identification ----
   "ident.participantId": {
-    en: "Participant ID (must be a number):",
-    de: "Teilnehmer-ID (muss eine Zahl sein):",
+    en: "Participant ID:",
+    de: "Teilnehmer-ID:",
   },
   "ident.participantIdPlaceholder": {
     en: "e.g. 001",
@@ -104,7 +106,7 @@ const TRANSLATIONS = {
   },
   "question.comfort": {
     en: "During this trial, you felt comfortable with the distance you had with your neighbours.",
-    de: "Während dieses Durchgangs fühlten Sie sich mit dem Abstand zu den Personen neben Ihnen wohl.",
+    de: "Fühlten Sie sich mit dem Abstand zu den Personen neben Ihnen wohl?",
   },
   "question.distance.short": {
     en: "Estimated distance from neighbouring participants",
@@ -117,24 +119,24 @@ const TRANSLATIONS = {
 
   // ---- Marking ----
   "hint.declare": {
-    en: "For each direction, either mark the areas where you felt bodily contact with other participants, or tick the box next to it (\"I was not touched\" / \"I did not touch\"). This is required before you can send the form.",
-    de: "Markieren Sie für jede Richtung entweder die Bereiche, an denen Sie Körperkontakt mit anderen Teilnehmenden gespürt haben, oder setzen Sie das Häkchen daneben („Ich wurde nicht berührt“ / „Ich habe niemanden berührt“). Dies ist erforderlich, bevor Sie das Formular absenden können.",
+    en: "Declare the contact you perceived during the experimental run. All figures represent <strong>your own body</strong>.",
+    de: "Geben Sie die Kontakte an, die Sie während des Durchgangs wahrgenommen haben. Alle Figuren stellen <strong>Ihren eigenen Körper</strong> dar.",
   },
   "mode.markTouchedBy": {
-    en: "Mark \"I was touched\"",
-    de: "„Ich wurde berührt“ markieren",
+    en: "Locations where other participants made contact on my body",
+    de: "Stellen meines Körpers, an denen mich andere Teilnehmende berührt haben",
   },
   "mode.markTouchedBy.hint": {
-    en: "Drag to draw the area where you felt contact (or tap for a small area)",
-    de: "Ziehen Sie, um den Bereich einzuzeichnen, an dem Sie Kontakt gespürt haben (oder tippen Sie für einen kleinen Bereich)",
+    en: "Draw the area where you felt other participants contacted your body.<br>(You can also tap to create a small area)",
+    de: "Zeichnen Sie den Bereich ein, an dem Sie gespürt haben, dass andere Teilnehmende Ihren Körper berührt haben.<br>(Sie können auch tippen, um einen kleinen Bereich zu erstellen)",
   },
   "mode.markTouched": {
-    en: "Mark \"I touched\"",
-    de: "„Ich habe jemanden berührt“ markieren",
+    en: "Locations on my body that contacted other participants",
+    de: "Stellen meines Körpers, mit denen ich andere Teilnehmende berührt habe",
   },
   "mode.markTouched.hint": {
-    en: "Drag to draw the area where you made contact",
-    de: "Ziehen Sie, um den Bereich einzuzeichnen, mit dem Sie jemanden berührt haben",
+    en: "Draw the <strong>parts of your own body</strong> which made contact with the other participants.<br>(You can also tap to create a small area)",
+    de: "Zeichnen Sie die <strong>Teile Ihres eigenen Körpers</strong> ein, mit denen Sie die anderen Teilnehmenden berührt haben.<br>(Sie können auch tippen, um einen kleinen Bereich zu erstellen)",
   },
   "mode.viewAll": {
     en: "View All Areas",
@@ -145,12 +147,12 @@ const TRANSLATIONS = {
     de: "Nur Ansicht – kein Zeichnen",
   },
   "noContact.touchedBy": {
-    en: "I was not touched",
-    de: "Ich wurde nicht berührt",
+    en: "No participant made contact on my body",
+    de: "Keine teilnehmende Person hat mich berührt",
   },
   "noContact.touched": {
-    en: "I did not touch",
-    de: "Ich habe niemanden berührt",
+    en: "I did not make contact with other participants",
+    de: "Ich habe keine anderen Teilnehmenden berührt",
   },
   "noContact.disabledTitle": {
     en: "Delete the areas marked in this mode first",
@@ -161,8 +163,8 @@ const TRANSLATIONS = {
     de: "Ich wurde berührt",
   },
   "direction.touched": {
-    en: "I touched",
-    de: "Ich habe jemanden berührt",
+    en: "I touched someone with it",
+    de: "Damit habe ich jemanden berührt",
   },
 
   // ---- Body figures ----
@@ -369,6 +371,10 @@ const TRANSLATIONS = {
     en: "Done",
     de: "Fertig",
   },
+  "rating.incompleteAlert": {
+    en: "Please answer all the sliders for this contact area before clicking \"Done\".\n\nNot yet answered: {fields}",
+    de: "Bitte beantworten Sie alle Schieberegler zu diesem Kontaktbereich, bevor Sie auf „Fertig“ klicken.\n\nNoch nicht beantwortet: {fields}",
+  },
 
   // ---- Answer scales (sliders) ----
   "slider.prompt": {
@@ -381,19 +387,19 @@ const TRANSLATIONS = {
   },
   "distance.less_20cm": {
     en: "Less than 20cm",
-    de: "Weniger als 20 cm",
+    de: "Weniger als 20\u00a0cm",
   },
   "distance.less_50cm": {
     en: "Less than 50cm",
-    de: "Weniger als 50 cm",
+    de: "Weniger als 50\u00a0cm",
   },
   "distance.less_1m": {
     en: "Less than 1m",
-    de: "Weniger als 1 m",
+    de: "Weniger als 1\u00a0m",
   },
   "distance.more_1m": {
     en: "More than 1m",
-    de: "Mehr als 1 m",
+    de: "Mehr als 1\u00a0m",
   },
   "agreement.strongly_disagree": {
     en: "Strongly disagree",
@@ -437,23 +443,23 @@ const TRANSLATIONS = {
   },
   "duration.less_1s": {
     en: "Less than 1s",
-    de: "Weniger als 1 s",
+    de: "Weniger als 1\u00a0s",
   },
   "duration.less_3s": {
     en: "Less than 3s",
-    de: "Weniger als 3 s",
+    de: "Weniger als 3\u00a0s",
   },
   "duration.less_5s": {
     en: "Less than 5s",
-    de: "Weniger als 5 s",
+    de: "Weniger als 5\u00a0s",
   },
   "duration.less_10s": {
     en: "Less than 10s",
-    de: "Weniger als 10 s",
+    de: "Weniger als 10\u00a0s",
   },
   "duration.10s_or_more": {
     en: "10s or more",
-    de: "10 s oder länger",
+    de: "10\u00a0s oder länger",
   },
   "expectation.very_unexpected": {
     en: "Very unexpected",
@@ -560,12 +566,12 @@ const TRANSLATIONS = {
     de: "Bereich #{n}: {fields}",
   },
   "save.missingTouchedBy": {
-    en: "Mark where you were touched, or tick \"I was not touched\"",
-    de: "Markieren Sie, wo Sie berührt wurden, oder setzen Sie das Häkchen bei „Ich wurde nicht berührt“",
+    en: "Mark the locations where other participants made contact on your body, or tick \"No participant made contact on my body\"",
+    de: "Markieren Sie die Stellen, an denen andere Teilnehmende Sie berührt haben, oder setzen Sie das Häkchen bei „Keine teilnehmende Person hat mich berührt“",
   },
   "save.missingTouched": {
-    en: "Mark where you touched, or tick \"I did not touch\"",
-    de: "Markieren Sie, womit Sie jemanden berührt haben, oder setzen Sie das Häkchen bei „Ich habe niemanden berührt“",
+    en: "Mark the locations on your body that contacted other participants, or tick \"I did not make contact with other participants\"",
+    de: "Markieren Sie die Stellen Ihres Körpers, mit denen Sie andere Teilnehmende berührt haben, oder setzen Sie das Häkchen bei „Ich habe keine anderen Teilnehmenden berührt“",
   },
   "status.saving": {
     en: "📤 Saving your data... ({count} area(s) + questionnaire)",

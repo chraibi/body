@@ -85,6 +85,7 @@
     }
 
     p.hint {
+      text-align: center;
       font-size: 0.93rem;
       color: #444;
       margin-top: 0.5rem;
@@ -261,7 +262,6 @@
       padding: 0.25rem 0.6rem;
       border: 1px solid #ccc;
       border-radius: 4px;
-      white-space: nowrap;
     }
 
     .filter-options label.is-disabled {
@@ -274,6 +274,12 @@
       height: 1.1rem;
       margin: 0;
       cursor: inherit;
+    }
+
+    /* Leaves room on its line for the radio button and the colour dot, so a long
+       label wraps beside the radio rather than dropping onto a line of its own. */
+    .mode-label {
+      max-width: calc(100% - 4.5rem);
     }
 
     .mode-hint {
@@ -643,10 +649,29 @@
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     }
 
+    /* The track and every option's label, laid out on a grid of half-stop columns
+       (two per option, so a stop falls on every other column line). The labels
+       alternate below and above the track, so each one can be two stops wide:
+       five labels side by side leave too little room on a phone for words like
+       "unerwartet". minmax(0, ...) so a long word can't widen its column and pull
+       the labels off their stops. */
+    .slider-scale {
+      display: grid;
+      grid-template-columns: repeat(var(--slider-columns), minmax(0, 1fr));
+      font-size: 0.8rem;
+      line-height: 1.25;
+      color: #666;
+    }
+
+    /* Inset by half a stop (less half a thumb) on each side, so that every stop
+       sits on the column line its label is centred on. */
     .slider-track-wrap {
+      grid-row: 2;
+      grid-column: 1 / -1;
       position: relative;
       display: flex;
       align-items: center;
+      margin-inline: calc(100% / var(--slider-columns) - var(--slider-thumb) / 2);
     }
 
     .slider-track-wrap:has(.option-slider:disabled) {
@@ -686,20 +711,28 @@
       visibility: hidden;
     }
 
-    .slider-endpoints {
-      display: flex;
-      justify-content: space-between;
-      gap: 0.5rem;
-      font-size: 0.78rem;
-      color: #666;
+    /* Placed (row, columns, alignment) by renderSliderField(). The padding keeps
+       neighbouring labels apart; hyphenation is only a fallback for the narrowest
+       screens. */
+    .slider-label {
+      grid-row: 3;
+      align-self: start;
+      padding: 0.15rem 2px 0;
+      -webkit-hyphens: auto;
+      hyphens: auto;
+      overflow-wrap: break-word;
     }
 
-    .slider-endpoints span {
-      max-width: 46%;
+    .slider-label.is-above {
+      grid-row: 1;
+      align-self: end;
+      padding: 0 2px 0.15rem;
     }
 
-    .slider-endpoints span:last-child {
-      text-align: right;
+    /* Colour only, no bold: a bolder word could wrap differently and make the
+       field jump in height while the thumb is being dragged. */
+    .slider-label.is-active {
+      color: #2c3e50;
     }
 
     .slider-current-value {
@@ -796,7 +829,7 @@
 
   <div class="controls">
     <div class="control-group">
-      <label data-i18n="ident.participantId">Participant ID (must be a number):</label>
+      <label data-i18n="ident.participantId">Participant ID:</label>
       <input type="text" id="participantId" placeholder="e.g. 001" data-i18n-placeholder="ident.participantIdPlaceholder" autocomplete="off" />
       <div class="id-status" id="idStatus"></div>
     </div>
@@ -831,7 +864,7 @@
     </div>
   </div>
 
-  <p class="hint" data-i18n="hint.declare">For each direction, either mark the areas where you felt bodily contact with other participants, or tick the box next to it ("I was not touched" / "I did not touch"). This is required before you can send the form.</p>
+  <p class="hint" data-i18n-html="hint.declare">Declare the contact you perceived during the experimental run. All figures represent <strong>your own body</strong>.</p>
 
   <!-- Marking Mode -->
   <div class="card">
@@ -839,28 +872,28 @@
       <div class="mode-row">
         <label>
           <input type="radio" name="markingMode" value="mark_touched_by" checked />
-          <span data-i18n="mode.markTouchedBy">Mark "I was touched"</span> <span class="filter-preview" style="background: #e74c3c;"></span>
-          <span class="mode-hint" data-i18n="mode.markTouchedBy.hint">Drag to draw the area where you felt contact (or tap for a small area)</span>
+          <span class="mode-label" data-i18n="mode.markTouchedBy">Locations where other participants made contact on my body</span> <span class="filter-preview" style="background: #e74c3c;"></span>
+          <span class="mode-hint" data-i18n-html="mode.markTouchedBy.hint">Draw the area where you felt other participants contacted your body.<br>(You can also tap to create a small area)</span>
         </label>
         <label class="no-contact-option">
           <input type="checkbox" id="noContactTouchedBy" />
-          <span data-i18n="noContact.touchedBy">I was not touched</span>
+          <span data-i18n="noContact.touchedBy">No participant made contact on my body</span>
         </label>
       </div>
       <div class="mode-row">
         <label>
           <input type="radio" name="markingMode" value="mark_touched" />
-          <span data-i18n="mode.markTouched">Mark "I touched"</span> <span class="filter-preview" style="background: #3498db;"></span>
-          <span class="mode-hint" data-i18n="mode.markTouched.hint">Drag to draw the area where you made contact</span>
+          <span class="mode-label" data-i18n="mode.markTouched">Locations on my body that contacted other participants</span> <span class="filter-preview" style="background: #3498db;"></span>
+          <span class="mode-hint" data-i18n-html="mode.markTouched.hint">Draw the <strong>parts of your own body</strong> which made contact with the other participants.<br>(You can also tap to create a small area)</span>
         </label>
         <label class="no-contact-option">
           <input type="checkbox" id="noContactTouched" />
-          <span data-i18n="noContact.touched">I did not touch</span>
+          <span data-i18n="noContact.touched">I did not make contact with other participants</span>
         </label>
       </div>
       <label>
         <input type="radio" name="markingMode" value="view_all" />
-        <span data-i18n="mode.viewAll">View All Areas</span>
+        <span class="mode-label" data-i18n="mode.viewAll">View All Areas</span>
         <span class="mode-hint" data-i18n="mode.viewAll.hint">Viewing only - no drawing</span>
       </label>
     </div>
@@ -943,6 +976,7 @@
       placeholder="Any additional comments about your declarations..."
       data-i18n-placeholder="comments.placeholder"
       maxlength="500"
+      autocomplete="off"
     ></textarea>
     <div class="char-counter"><span id="charCount">0</span>/500</div>
   </div>
@@ -1047,6 +1081,8 @@
       document.documentElement.lang = currentLanguage;
       document.title = t("page.title");
       document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+      // For the few texts with bold words or line breaks, written as HTML in translations.js.
+      document.querySelectorAll("[data-i18n-html]").forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
       ["placeholder", "title", "aria-label"].forEach(attr => {
         document.querySelectorAll(`[data-i18n-${attr}]`).forEach(el => {
           el.setAttribute(attr, t(el.getAttribute(`data-i18n-${attr}`)));
@@ -1126,27 +1162,38 @@
       return opt ? t(opt.labelKey) : value;
     }
 
-    // Renders a slider for a set of ordered options: the first and last option labels
-    // stay always visible as end anchors, while the currently-selected label appears
-    // below the slider only once the participant has touched it (so an untouched
-    // slider doesn't silently read as an answered question). Until then the thumb
+    // Renders a slider for a set of ordered options: every option's label stays
+    // visible next to its stop, while the currently-selected label is repeated above
+    // the slider only once the participant has touched it (so an untouched slider
+    // doesn't silently read as an answered question). It sits above the slider so
+    // the finger dragging the thumb on a phone doesn't cover it. Until then the thumb
     // rests, grey and with no blue fill, at defaultIndex (the middle, neutral option
     // unless given); once answered, the fill runs from that resting point to the thumb.
     function renderSliderField(container, options, selectedValue, onSelect, defaultIndex = Math.round((options.length - 1) / 2)) {
       const selectedIndex = options.findIndex(opt => opt.value === selectedValue);
       let answered = selectedIndex >= 0;
 
+      // Stop i sits on column line 2i + 2 of the .slider-scale grid. Labels of even
+      // stops go below the track and odd ones above, each spanning a whole stop on
+      // either side of its own; one cut short by an end of the scale is aligned to it.
+      const columns = 2 * options.length;
+      const labelHtml = (opt, i) => {
+        const from = Math.max(1, 2 * i);
+        const to = Math.min(columns + 1, 2 * i + 4);
+        const align = from === 1 ? "left" : to === columns + 1 ? "right" : "center";
+        return `<span class="slider-label ${i % 2 ? "is-above" : ""}" style="grid-column: ${from} / ${to}; text-align: ${align}">${t(opt.labelKey)}</span>`;
+      };
+
       container.innerHTML = `
         <div class="slider-field">
-          <div class="slider-track-wrap">
-            <input type="range" class="option-slider" min="0" max="${options.length - 1}" step="1" value="${answered ? selectedIndex : defaultIndex}">
-            <div class="slider-ticks" aria-hidden="true">${options.map(() => `<span class="slider-tick"></span>`).join("")}</div>
-          </div>
-          <div class="slider-endpoints">
-            <span>${t(options[0].labelKey)}</span>
-            <span>${t(options[options.length - 1].labelKey)}</span>
-          </div>
           <div class="slider-current-value"></div>
+          <div class="slider-scale" style="--slider-columns: ${columns}">
+            <div class="slider-track-wrap">
+              <input type="range" class="option-slider" min="0" max="${options.length - 1}" step="1" value="${answered ? selectedIndex : defaultIndex}">
+              <div class="slider-ticks" aria-hidden="true">${options.map(() => `<span class="slider-tick"></span>`).join("")}</div>
+            </div>
+            ${options.map(labelHtml).join("")}
+          </div>
         </div>
       `;
 
@@ -1154,6 +1201,7 @@
       const trackWrap = container.querySelector(".slider-track-wrap");
       const currentValueEl = container.querySelector(".slider-current-value");
       const tickEls = container.querySelectorAll(".slider-tick");
+      const labelEls = container.querySelectorAll(".slider-label");
       const questionBlock = container.closest(".question-block");
       const position = index => index / (options.length - 1);
 
@@ -1169,6 +1217,7 @@
           tick.classList.toggle("is-active", i === index);
           tick.classList.toggle("in-fill", answered && i >= fillFrom && i <= fillTo);
         });
+        labelEls.forEach((label, i) => label.classList.toggle("is-active", answered && i === index));
         currentValueEl.textContent = answered ? t(options[index].labelKey) : t("slider.prompt");
         currentValueEl.classList.toggle("is-answered", answered);
         if (questionBlock) questionBlock.classList.toggle("is-answered", answered);
@@ -1182,8 +1231,11 @@
 
       slider.addEventListener("input", select);
       // Tapping the thumb where it rests changes no value (so fires no "input"),
-      // yet it is how the participant picks the resting (neutral) answer.
-      slider.addEventListener("click", select);
+      // yet it is how the participant picks the resting answer: the neutral middle,
+      // or the lowest option on scales that start there. "pointerup" rather than
+      // "click", which phone browsers don't fire on a slider. A press that turns
+      // into a page scroll ends in "pointercancel" instead, so it answers nothing.
+      slider.addEventListener("pointerup", () => { if (!answered) select(); });
       // Presses on a disabled slider land here (see .option-slider:disabled).
       trackWrap.addEventListener("pointerdown", (event) => { if (slider.disabled) explainSliderLock(event); });
       paint();
@@ -2123,7 +2175,18 @@
       updateAreasList();
     }
 
-    ratingModalDoneBtn.addEventListener("click", closeRatingPanel);
+    // "Done" only closes the panel once every slider has been answered. When the
+    // sliders are locked (edit window closed) the ratings can't be completed
+    // anymore, so the panel closes regardless.
+    ratingModalDoneBtn.addEventListener("click", () => {
+      const area = appState.currentTrial.areas[openAreaIndex];
+      const missingFields = area && !slidersLocked() ? RATING_GROUPS.filter(g => !area[g.field]).map(g => t(g.labelKey)) : [];
+      if (missingFields.length) {
+        alert(t("rating.incompleteAlert", { fields: missingFields.join(", ") }));
+        return;
+      }
+      closeRatingPanel();
+    });
     ratingModalDeleteBtn.addEventListener("click", () => {
       if (openAreaIndex === null) return;
       deleteArea(openAreaIndex);
@@ -2586,8 +2649,8 @@
     });
 
     // ============ NO-CONTACT CONFIRMATION ============
-    // Asked before saving a trial with no contact areas at all (both "I was not
-    // touched" and "I did not touch" ticked). A custom dialog rather than
+    // Asked before saving a trial with no contact areas at all (both "no contact"
+    // boxes ticked). A custom dialog rather than
     // confirm(), which can't relabel its OK/Cancel buttons.
     let resolveNoContactModal = null;
 
@@ -2679,6 +2742,8 @@
         participantInput.value = "";
         // participantNameInput.value = ""; // Participant Name field disabled
         trialInput.value = "";
+        notesTextarea.value = "";
+        charCountEl.textContent = "0";
         setLiveText(idStatusEl, null);
         idStatusEl.className = "id-status";
         // nameStatusEl.textContent = ""; // Participant Name field disabled
