@@ -552,19 +552,95 @@
     }
 
     .slider-field {
+      --slider-track: 18px;
+      --slider-thumb: 16px;
+      --slider-tick: 6px;
+      --slider-hit-height: 32px; /* pressable height, kept roomy whatever the thumb size */
       display: flex;
       flex-direction: column;
       gap: 0.6rem;
     }
 
+    /* Drawn by hand rather than with accent-color: the native fill always runs
+       from the left end, while ours runs from the resting (neutral) point to the
+       thumb - and only once the participant has answered. --fill-from/--fill-to
+       (0..1 along the scale) are set by renderSliderField(). */
     .option-slider {
+      --fill-from: 0.5;
+      --fill-to: 0.5;
+      --fill-color: transparent;
+      --thumb-bg: white;
+      --thumb-border: #a9b4bf;
+      /* The fill reaches half a tick past each end so the resting point's tick
+         sits wholly inside it. */
+      --track-bg: linear-gradient(to right,
+        #dde3e9 calc(var(--slider-thumb) / 2 + var(--fill-from) * (100% - var(--slider-thumb)) - var(--slider-tick) / 2),
+        var(--fill-color) 0,
+        var(--fill-color) calc(var(--slider-thumb) / 2 + var(--fill-to) * (100% - var(--slider-thumb)) + var(--slider-tick) / 2),
+        #dde3e9 0);
+      -webkit-appearance: none;
+      appearance: none;
       width: 100%;
-      accent-color: #3498db;
+      height: var(--slider-hit-height);
+      margin: 0;
+      background: transparent;
+      cursor: pointer;
     }
 
+    .option-slider.is-answered {
+      --thumb-bg: #3498db;
+      --thumb-border: white;
+    }
+
+    /* Only once the answer differs from the resting point: the track is taller
+       than the thumb, so even a fill hidden under it would peek out above and below. */
+    .option-slider.has-fill {
+      --fill-color: #3498db;
+    }
+
+    /* Let a press on a disabled slider reach .slider-track-wrap, which explains
+       why it can't be moved (browsers don't reliably fire events on disabled inputs). */
     .option-slider:disabled {
-      cursor: not-allowed;
-      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    /* Track and thumb rules stay separate per engine: a selector list mixing
+       -webkit- and -moz- pseudo-elements is dropped entirely by both. */
+    .option-slider::-webkit-slider-runnable-track {
+      height: var(--slider-track);
+      border-radius: calc(var(--slider-track) / 2);
+      background: var(--track-bg);
+    }
+
+    .option-slider::-moz-range-track {
+      height: var(--slider-track);
+      border-radius: calc(var(--slider-track) / 2);
+      background: var(--track-bg);
+    }
+
+    /* border-box in both engines (Firefox would add the border outside), so the
+       thumb is exactly --slider-thumb wide, as the fill and tick positions assume. */
+    .option-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      box-sizing: border-box;
+      width: var(--slider-thumb);
+      height: var(--slider-thumb);
+      margin-top: calc((var(--slider-track) - var(--slider-thumb)) / 2);
+      border-radius: 50%;
+      background: var(--thumb-bg);
+      border: 3px solid var(--thumb-border);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    .option-slider::-moz-range-thumb {
+      box-sizing: border-box;
+      width: var(--slider-thumb);
+      height: var(--slider-thumb);
+      border-radius: 50%;
+      background: var(--thumb-bg);
+      border: 3px solid var(--thumb-border);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     }
 
     .slider-track-wrap {
@@ -573,12 +649,18 @@
       align-items: center;
     }
 
+    .slider-track-wrap:has(.option-slider:disabled) {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
     /* Custom tick marks (rather than relying on <datalist>, whose tick rendering
-       Safari doesn't support at all) showing every stop the slider can land on. */
+       Safari doesn't support at all) showing every stop the slider can land on.
+       Inset so the end ticks sit under the thumb's centre at either end. */
     .slider-ticks {
       position: absolute;
-      left: 9px;
-      right: 9px;
+      left: calc(var(--slider-thumb) / 2 - var(--slider-tick) / 2);
+      right: calc(var(--slider-thumb) / 2 - var(--slider-tick) / 2);
       top: 50%;
       transform: translateY(-50%);
       display: flex;
@@ -587,11 +669,14 @@
     }
 
     .slider-tick {
-      width: 8px;
-      height: 8px;
+      width: var(--slider-tick);
+      height: var(--slider-tick);
       border-radius: 50%;
-      background: #3498db;
-      border: 1px solid white;
+      background: #a9b4bf;
+    }
+
+    .slider-tick.in-fill {
+      background: white;
     }
 
     /* Hidden rather than layered under the thumb via z-index: the native thumb's
@@ -1043,45 +1128,65 @@
 
     // Renders a slider for a set of ordered options: the first and last option labels
     // stay always visible as end anchors, while the currently-selected label appears
-    // below the slider only once the participant has actually moved it (so an
-    // untouched slider doesn't silently read as an answered question). Until then
-    // the thumb rests at defaultIndex (the middle option unless given).
+    // below the slider only once the participant has touched it (so an untouched
+    // slider doesn't silently read as an answered question). Until then the thumb
+    // rests, grey and with no blue fill, at defaultIndex (the middle, neutral option
+    // unless given); once answered, the fill runs from that resting point to the thumb.
     function renderSliderField(container, options, selectedValue, onSelect, defaultIndex = Math.round((options.length - 1) / 2)) {
       const selectedIndex = options.findIndex(opt => opt.value === selectedValue);
-      const answered = selectedIndex >= 0;
-      const initialIndex = answered ? selectedIndex : defaultIndex;
-
-      const ticks = options.map((_, i) => `<span class="slider-tick${i === initialIndex ? " is-active" : ""}"></span>`).join("");
+      let answered = selectedIndex >= 0;
 
       container.innerHTML = `
         <div class="slider-field">
           <div class="slider-track-wrap">
-            <input type="range" class="option-slider" min="0" max="${options.length - 1}" step="1" value="${initialIndex}">
-            <div class="slider-ticks" aria-hidden="true">${ticks}</div>
+            <input type="range" class="option-slider" min="0" max="${options.length - 1}" step="1" value="${answered ? selectedIndex : defaultIndex}">
+            <div class="slider-ticks" aria-hidden="true">${options.map(() => `<span class="slider-tick"></span>`).join("")}</div>
           </div>
           <div class="slider-endpoints">
             <span>${t(options[0].labelKey)}</span>
             <span>${t(options[options.length - 1].labelKey)}</span>
           </div>
-          <div class="slider-current-value${answered ? " is-answered" : ""}">${answered ? t(options[initialIndex].labelKey) : t("slider.prompt")}</div>
+          <div class="slider-current-value"></div>
         </div>
       `;
 
       const slider = container.querySelector(".option-slider");
+      const trackWrap = container.querySelector(".slider-track-wrap");
       const currentValueEl = container.querySelector(".slider-current-value");
       const tickEls = container.querySelectorAll(".slider-tick");
       const questionBlock = container.closest(".question-block");
-      if (questionBlock) questionBlock.classList.toggle("is-answered", answered);
+      const position = index => index / (options.length - 1);
 
-      slider.addEventListener("input", () => {
+      function paint() {
         const index = Number(slider.value);
-        tickEls.forEach((tick, i) => tick.classList.toggle("is-active", i === index));
-        const opt = options[index];
-        currentValueEl.textContent = t(opt.labelKey);
-        currentValueEl.classList.add("is-answered");
-        if (questionBlock) questionBlock.classList.add("is-answered");
-        onSelect(opt.value);
-      });
+        const fillFrom = answered ? Math.min(index, defaultIndex) : defaultIndex;
+        const fillTo = answered ? Math.max(index, defaultIndex) : defaultIndex;
+        slider.classList.toggle("is-answered", answered);
+        slider.classList.toggle("has-fill", fillFrom !== fillTo);
+        slider.style.setProperty("--fill-from", position(fillFrom));
+        slider.style.setProperty("--fill-to", position(fillTo));
+        tickEls.forEach((tick, i) => {
+          tick.classList.toggle("is-active", i === index);
+          tick.classList.toggle("in-fill", answered && i >= fillFrom && i <= fillTo);
+        });
+        currentValueEl.textContent = answered ? t(options[index].labelKey) : t("slider.prompt");
+        currentValueEl.classList.toggle("is-answered", answered);
+        if (questionBlock) questionBlock.classList.toggle("is-answered", answered);
+      }
+
+      function select() {
+        answered = true;
+        paint();
+        onSelect(options[Number(slider.value)].value);
+      }
+
+      slider.addEventListener("input", select);
+      // Tapping the thumb where it rests changes no value (so fires no "input"),
+      // yet it is how the participant picks the resting (neutral) answer.
+      slider.addEventListener("click", select);
+      // Presses on a disabled slider land here (see .option-slider:disabled).
+      trackWrap.addEventListener("pointerdown", (event) => { if (slider.disabled) explainSliderLock(event); });
+      paint();
     }
 
     // ============ SESSION STATE CLASS ============
@@ -1650,17 +1755,7 @@
           //   setStatus("❌ Participant ID, Name and Trial number are required to record contact areas.");
           //   return;
           // }
-          if (!this.appState.idIsValid || !this.appState.trialIsValid) {
-            const missingKeys = [];
-            if (!this.appState.idIsValid) missingKeys.push("field.participantId");
-            if (!this.appState.trialIsValid) missingKeys.push("field.trialNumber");
-            const message = () => t("status.fillInFirst", { fields: missingKeys.map(k => t(k)).join(t("list.and")) });
-            setStatus(() => `❌ ${message()}`);
-            alert(message());
-            // Bring the participant to the first field they still need to fill in.
-            (this.appState.idIsValid ? trialInput : participantInput).focus();
-            return;
-          }
+          if (!requireIdentification("status.fillInFirst", event)) return;
           if (this.appState.markingMode === "view_all") {
             setStatus("status.viewingMode");
             return;
@@ -1902,7 +1997,7 @@
 
     // ============ TRIAL-LEVEL QUESTIONS ============
     const TRIAL_QUESTIONS = [
-      { field: "distanceEstimate", container: distanceOptionsEl, options: DISTANCE_OPTIONS, labelKey: "question.distance.short" },
+      { field: "distanceEstimate", container: distanceOptionsEl, options: DISTANCE_OPTIONS, labelKey: "question.distance.short", defaultIndex: 0 },
       { field: "comfortWithDistance", container: comfortOptionsEl, options: AGREEMENT_OPTIONS, labelKey: "question.comfort.short" },
       { field: "awarenessOfContacts", container: awarenessOptionsEl, options: AGREEMENT_OPTIONS, labelKey: "question.awareness.short" },
       { field: "acceptabilityOfInteractions", container: acceptabilityOptionsEl, options: AGREEMENT_OPTIONS, labelKey: "question.acceptability.short" },
@@ -1912,16 +2007,28 @@
       TRIAL_QUESTIONS.forEach(q => {
         renderSliderField(q.container, q.options, appState.currentTrial[q.field], (value) => {
           appState.currentTrial[q.field] = value;
-        });
+        }, q.defaultIndex);
       });
       updateTrialQuestionsEditability();
     }
 
     function updateTrialQuestionsEditability() {
-      const disabled = !appState.isEditable();
+      const disabled = slidersLocked();
       TRIAL_QUESTIONS.forEach(q => {
         q.container.querySelectorAll("input").forEach(input => { input.disabled = disabled; });
       });
+    }
+
+    // Like the body figures, no answer can be given before the participant ID and
+    // trial number are valid, nor once the trial's edit window has closed.
+    function slidersLocked() {
+      return !appState.idIsValid || !appState.trialIsValid || !appState.isEditable();
+    }
+
+    // Called when a locked slider is pressed: tells the participant why it won't move.
+    function explainSliderLock(pointerdownEvent) {
+      if (!requireIdentification("status.fillInFirstQuestions", pointerdownEvent)) return;
+      if (!appState.isEditable()) setStatus("status.trial.expired");
     }
 
     // ============ AREAS LIST + RATING PANEL ============
@@ -2003,9 +2110,9 @@
       RATING_GROUPS.forEach(g => renderSliderField(g.container, g.options, area[g.field], (value) => {
         appState.currentTrial.areas[index][g.field] = value;
       }, g.defaultIndex));
-      const disabled = !appState.isEditable();
-      RATING_GROUPS.forEach(g => g.container.querySelectorAll("input").forEach(input => { input.disabled = disabled; }));
-      ratingModalDeleteBtn.disabled = disabled;
+      const locked = slidersLocked();
+      RATING_GROUPS.forEach(g => g.container.querySelectorAll("input").forEach(input => { input.disabled = locked; }));
+      ratingModalDeleteBtn.disabled = !appState.isEditable();
 
       ratingModalOverlay.hidden = false;
     }
@@ -2190,6 +2297,23 @@
     }
 
     // ============ PARTICIPANT / TRIAL IDENTIFICATION ============
+    // True when the participant ID and trial number are both valid. Otherwise says
+    // which of them to fill in first (messageKey: before doing what) and brings the
+    // participant to the first one still missing. pointerdownEvent is the press that
+    // asked: it is cancelled, or the mousedown that follows it takes the focus back.
+    function requireIdentification(messageKey, pointerdownEvent) {
+      if (appState.idIsValid && appState.trialIsValid) return true;
+      const missingKeys = [];
+      if (!appState.idIsValid) missingKeys.push("field.participantId");
+      if (!appState.trialIsValid) missingKeys.push("field.trialNumber");
+      const message = () => t(messageKey, { fields: missingKeys.map(k => t(k)).join(t("list.and")) });
+      setStatus(() => `❌ ${message()}`);
+      alert(message());
+      pointerdownEvent.preventDefault();
+      (appState.idIsValid ? trialInput : participantInput).focus();
+      return false;
+    }
+
     function refreshUiForCurrentTrial() {
       renderTrialQuestions();
       updateNotesDisplay();
@@ -2317,9 +2441,9 @@
       });
     }
 
-    participantInput.addEventListener("input", () => { updateIdStatus(); updateRequirementBanners(); });
+    participantInput.addEventListener("input", () => { updateIdStatus(); updateRequirementBanners(); updateTrialQuestionsEditability(); });
     // participantNameInput.addEventListener("input", () => { updateNameStatus(); updateRequirementBanners(); }); // Participant Name field disabled
-    trialInput.addEventListener("input", () => { updateTrialStatus(); updateRequirementBanners(); });
+    trialInput.addEventListener("input", () => { updateTrialStatus(); updateRequirementBanners(); updateTrialQuestionsEditability(); });
 
     // iOS Safari doesn't move focus when a slider (or canvas) is tapped, so a text
     // field stays focused and the keyboard pops back up after every slider move.

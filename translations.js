@@ -205,6 +205,10 @@ const TRANSLATIONS = {
     en: "Please fill in the {fields} at the top of the page before drawing contact areas.",
     de: "Bitte geben Sie oben auf der Seite {fields} ein, bevor Sie Kontaktbereiche einzeichnen.",
   },
+  "status.fillInFirstQuestions": {
+    en: "Please fill in the {fields} at the top of the page before answering the questions.",
+    de: "Bitte geben Sie oben auf der Seite {fields} ein, bevor Sie die Fragen beantworten.",
+  },
   "status.viewingMode": {
     en: "⚠️ Viewing mode. Switch to 'Mark' mode to draw contact areas.",
     de: "⚠️ Ansichtsmodus. Wählen Sie einen Markierungsmodus, um Kontaktbereiche einzuzeichnen.",
