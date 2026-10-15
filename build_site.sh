@@ -4,7 +4,7 @@
 set -eu
 cd "$(dirname "$0")"
 
-FILES="index.html front.svg back.svg left.svg right.svg"
+FILES="index.html translations.js front.svg back.svg left.svg right.svg"
 
 rm -rf dist
 mkdir dist

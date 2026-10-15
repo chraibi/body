@@ -21,6 +21,51 @@
       margin-bottom: 0.5rem;
     }
 
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .page-header h1 {
+      margin: 0;
+    }
+
+    /* Language switch: two joined buttons, the active one filled. */
+    .lang-switch {
+      display: flex;
+    }
+
+    .lang-switch button {
+      background: white;
+      color: #007bff;
+      border: 1px solid #007bff;
+      border-radius: 0;
+      padding: 0.35rem 0.75rem;
+      min-height: unset;
+    }
+
+    .lang-switch button:first-child {
+      border-radius: 0.3rem 0 0 0.3rem;
+    }
+
+    .lang-switch button:last-child {
+      border-radius: 0 0.3rem 0.3rem 0;
+      border-left: none;
+    }
+
+    .lang-switch button:hover {
+      background: #e7f1ff;
+    }
+
+    .lang-switch button[aria-pressed="true"] {
+      background: #007bff;
+      color: white;
+    }
+
     h3 {
       margin-top: 0;
       margin-bottom: 1rem;
@@ -654,12 +699,20 @@
   </style>
 </head>
 <body>
-  <h1>Inter-individual Contacts Study</h1>
+  <!-- Texts of elements carrying data-i18n* attributes come from translations.js
+       in the selected language; the English written here is only a fallback. -->
+  <div class="page-header">
+    <h1 data-i18n="page.heading">Inter-individual Contacts Study</h1>
+    <div class="lang-switch" role="group" aria-label="Language" data-i18n-aria-label="language.switch">
+      <button type="button" data-lang="de" lang="de" aria-pressed="false">Deutsch</button>
+      <button type="button" data-lang="en" lang="en" aria-pressed="false">English</button>
+    </div>
+  </div>
 
   <div class="controls">
     <div class="control-group">
-      <label>Participant ID (must be a number):</label>
-      <input type="text" id="participantId" placeholder="e.g. 001" autocomplete="off" />
+      <label data-i18n="ident.participantId">Participant ID (must be a number):</label>
+      <input type="text" id="participantId" placeholder="e.g. 001" data-i18n-placeholder="ident.participantIdPlaceholder" autocomplete="off" />
       <div class="id-status" id="idStatus"></div>
     </div>
 
@@ -672,8 +725,8 @@
     -->
 
     <div class="control-group">
-      <label>Trial number:</label>
-      <input type="text" id="trialNumber" placeholder="e.g. 2" autocomplete="off" />
+      <label data-i18n="ident.trialNumber">Trial number:</label>
+      <input type="text" id="trialNumber" placeholder="e.g. 2" data-i18n-placeholder="ident.trialNumberPlaceholder" autocomplete="off" />
       <div class="id-status" id="trialStatus"></div>
     </div>
   </div>
@@ -682,18 +735,18 @@
 
   <!-- Trial questions asked before marking -->
   <div class="card" id="preMarkingQuestions">
-    <h3>About this trial</h3>
+    <h3 data-i18n="section.preMarking">About this trial</h3>
     <div class="question-block">
-      <label class="question-text">On average during this trial, how far did you think you were from neighbouring participants?</label>
+      <label class="question-text" data-i18n="question.distance">On average during this trial, how far did you think you were from neighbouring participants?</label>
       <div class="choice-options" id="distanceOptions"></div>
     </div>
     <div class="question-block">
-      <label class="question-text">During this trial, you felt comfortable with the distance you had with your neighbours.</label>
+      <label class="question-text" data-i18n="question.comfort">During this trial, you felt comfortable with the distance you had with your neighbours.</label>
       <div class="choice-options" id="comfortOptions"></div>
     </div>
   </div>
 
-  <p class="hint">For each direction, either mark the areas where you felt bodily contact with other participants, or tick the box next to it ("I was not touched" / "I did not touch"). This is required before you can send the form.</p>
+  <p class="hint" data-i18n="hint.declare">For each direction, either mark the areas where you felt bodily contact with other participants, or tick the box next to it ("I was not touched" / "I did not touch"). This is required before you can send the form.</p>
 
   <!-- Marking Mode -->
   <div class="card">
@@ -701,29 +754,29 @@
       <div class="mode-row">
         <label>
           <input type="radio" name="markingMode" value="mark_touched_by" checked />
-          Mark "I was touched" <span class="filter-preview" style="background: #e74c3c;"></span>
-          <span class="mode-hint">Drag to draw the area where you felt contact (or tap for a small area)</span>
+          <span data-i18n="mode.markTouchedBy">Mark "I was touched"</span> <span class="filter-preview" style="background: #e74c3c;"></span>
+          <span class="mode-hint" data-i18n="mode.markTouchedBy.hint">Drag to draw the area where you felt contact (or tap for a small area)</span>
         </label>
         <label class="no-contact-option">
           <input type="checkbox" id="noContactTouchedBy" />
-          I was not touched
+          <span data-i18n="noContact.touchedBy">I was not touched</span>
         </label>
       </div>
       <div class="mode-row">
         <label>
           <input type="radio" name="markingMode" value="mark_touched" />
-          Mark "I touched" <span class="filter-preview" style="background: #3498db;"></span>
-          <span class="mode-hint">Drag to draw the area where you made contact</span>
+          <span data-i18n="mode.markTouched">Mark "I touched"</span> <span class="filter-preview" style="background: #3498db;"></span>
+          <span class="mode-hint" data-i18n="mode.markTouched.hint">Drag to draw the area where you made contact</span>
         </label>
         <label class="no-contact-option">
           <input type="checkbox" id="noContactTouched" />
-          I did not touch
+          <span data-i18n="noContact.touched">I did not touch</span>
         </label>
       </div>
       <label>
         <input type="radio" name="markingMode" value="view_all" />
-        View All Areas
-        <span class="mode-hint">Viewing only - no drawing</span>
+        <span data-i18n="mode.viewAll">View All Areas</span>
+        <span class="mode-hint" data-i18n="mode.viewAll.hint">Viewing only - no drawing</span>
       </label>
     </div>
   </div>
@@ -733,7 +786,7 @@
   <div class="figures">
     <div class="figure-main-slot" id="figureMainSlot">
       <div class="zoom-control">
-        <button type="button" class="zoom-btn zoom-btn-out" id="figureZoomOutBtn" aria-label="Decrease outline size" title="Decrease outline size">
+        <button type="button" class="zoom-btn zoom-btn-out" id="figureZoomOutBtn" aria-label="Decrease outline size" title="Decrease outline size" data-i18n-aria-label="zoom.out" data-i18n-title="zoom.out">
           <span class="zoom-sign">&minus;</span>
         </button>
         <div class="zoom-icon-box" aria-hidden="true">
@@ -742,7 +795,7 @@
             <line x1="15" y1="15" x2="20.5" y2="20.5"></line>
           </svg>
         </div>
-        <button type="button" class="zoom-btn zoom-btn-in" id="figureZoomInBtn" aria-label="Increase outline size" title="Increase outline size">
+        <button type="button" class="zoom-btn zoom-btn-in" id="figureZoomInBtn" aria-label="Increase outline size" title="Increase outline size" data-i18n-aria-label="zoom.in" data-i18n-title="zoom.in">
           <span class="zoom-sign">+</span>
         </button>
       </div>
@@ -751,58 +804,59 @@
   </div>
 
   <div id="figureWrapper_front" class="figure-wrapper" style="display: none;">
-    <div class="figure-label">Front</div>
+    <div class="figure-label" data-i18n="figure.front">Front</div>
     <canvas id="figure_front" width="200" height="600"></canvas>
   </div>
   <div id="figureWrapper_back" class="figure-wrapper" style="display: none;">
-    <div class="figure-label">Back</div>
+    <div class="figure-label" data-i18n="figure.back">Back</div>
     <canvas id="figure_back" width="200" height="600"></canvas>
   </div>
   <div id="figureWrapper_left" class="figure-wrapper" style="display: none;">
-    <div class="figure-label">Left</div>
+    <div class="figure-label" data-i18n="figure.left">Left</div>
     <canvas id="figure_left" width="100" height="600"></canvas>
   </div>
   <div id="figureWrapper_right" class="figure-wrapper" style="display: none;">
-    <div class="figure-label">Right</div>
+    <div class="figure-label" data-i18n="figure.right">Right</div>
     <canvas id="figure_right" width="100" height="600"></canvas>
   </div>
 
   <div class="status" id="status">
-    <span id="statusMessage">Ready</span>
+    <span id="statusMessage" data-i18n="status.readyShort">Ready</span>
     <span class="sync-indicator" id="syncIndicator"></span>
   </div>
 
   <!-- Areas List -->
   <div class="card">
     <div class="card-header-row">
-      <h3>Recorded Contact Areas</h3>
-      <button id="clearAreas" class="secondary">Clear all areas</button>
+      <h3 data-i18n="areas.heading">Recorded Contact Areas</h3>
+      <button id="clearAreas" class="secondary" data-i18n="areas.clearAll">Clear all areas</button>
     </div>
     <div class="areas-list" id="areasList">
-      <div class="empty-list">No contact areas recorded yet</div>
+      <div class="empty-list" data-i18n="areas.empty">No contact areas recorded yet</div>
     </div>
   </div>
 
   <!-- Trial questions asked after marking -->
   <div class="card">
-    <h3>About your awareness during this trial</h3>
+    <h3 data-i18n="section.postMarking">About your awareness during this trial</h3>
     <div class="question-block">
-      <label class="question-text">During this trial, you were always aware of bodily contacts with other participants.</label>
+      <label class="question-text" data-i18n="question.awareness">During this trial, you were always aware of bodily contacts with other participants.</label>
       <div class="choice-options" id="awarenessOptions"></div>
     </div>
     <div class="question-block">
-      <label class="question-text">During this trial, you felt that bodily interactions were acceptable.</label>
+      <label class="question-text" data-i18n="question.acceptability">During this trial, you felt that bodily interactions were acceptable.</label>
       <div class="choice-options" id="acceptabilityOptions"></div>
     </div>
   </div>
 
   <!-- Additional Comments -->
   <div class="card">
-    <h3>Additional Comments</h3>
-    <label for="sessionNotes">Comments (500 character limit):</label>
+    <h3 data-i18n="comments.heading">Additional Comments</h3>
+    <label for="sessionNotes" data-i18n="comments.label">Comments (500 character limit):</label>
     <textarea
       id="sessionNotes"
       placeholder="Any additional comments about your declarations..."
+      data-i18n-placeholder="comments.placeholder"
       maxlength="500"
     ></textarea>
     <div class="char-counter"><span id="charCount">0</span>/500</div>
@@ -812,28 +866,28 @@
   <div class="modal-overlay" id="ratingModalOverlay" hidden>
     <div class="modal-card">
       <h3 id="ratingModalTitle">Area</h3>
-      <div class="modal-subtitle">Rate this contact area. You can change these later from the areas list.</div>
+      <div class="modal-subtitle" data-i18n="rating.subtitle">Rate this contact area. You can change these later from the areas list.</div>
 
       <div class="question-block">
-        <label class="question-text">Intensity of the contact you felt at this location</label>
+        <label class="question-text" data-i18n="rating.intensity">Intensity of the contact you felt at this location</label>
         <div class="choice-options" id="ratingIntensityOptions"></div>
       </div>
       <div class="question-block">
-        <label class="question-text">Duration of contact you felt at this location.</label>
+        <label class="question-text" data-i18n="rating.duration">Duration of contact you felt at this location.</label>
         <div class="choice-options" id="ratingDurationOptions"></div>
       </div>
       <div class="question-block">
-        <label class="question-text">Level of expectation you had about having contact at this location</label>
+        <label class="question-text" data-i18n="rating.expectation">Level of expectation you had about having contact at this location</label>
         <div class="choice-options" id="ratingExpectationOptions"></div>
       </div>
       <div class="question-block">
-        <label class="question-text">Level of confidence in this declaration</label>
+        <label class="question-text" data-i18n="rating.confidence">Level of confidence in this declaration</label>
         <div class="choice-options" id="ratingConfidenceOptions"></div>
       </div>
 
       <div class="modal-actions">
-        <button type="button" class="danger" id="ratingModalDeleteBtn">Delete this area</button>
-        <button type="button" id="ratingModalDoneBtn">Done</button>
+        <button type="button" class="danger" id="ratingModalDeleteBtn" data-i18n="rating.delete">Delete this area</button>
+        <button type="button" id="ratingModalDoneBtn" data-i18n="rating.done">Done</button>
       </div>
     </div>
   </div>
@@ -841,14 +895,96 @@
   <!-- No-contact confirmation modal (hidden by default) -->
   <div class="modal-overlay" id="noContactModalOverlay" hidden>
     <div class="modal-card">
-      <h3>No contact recorded</h3>
-      <div class="modal-subtitle">Do you want to submit the form?</div>
+      <h3 data-i18n="noContactModal.title">No contact recorded</h3>
+      <div class="modal-subtitle" data-i18n="noContactModal.subtitle">Do you want to submit the form?</div>
       <div class="modal-actions">
-        <button type="button" class="secondary" id="noContactModalCancelBtn">Cancel, go back to the form</button>
-        <button type="button" id="noContactModalConfirmBtn">Yes, proceed</button>
+        <button type="button" class="secondary" id="noContactModalCancelBtn" data-i18n="noContactModal.cancel">Cancel, go back to the form</button>
+        <button type="button" id="noContactModalConfirmBtn" data-i18n="noContactModal.confirm">Yes, proceed</button>
       </div>
     </div>
   </div>
+
+  <div style="text-align: center; margin: 2rem 0;">
+    <button id="saveAndSend" type="button" class="secondary" onclick="saveAllAndReload()" data-i18n="save.button">Save and Send</button>
+  </div>
+
+  <!-- Translations, applied before the Firebase SDK downloads so the page
+       never shows up in the wrong language first. -->
+  <script src="translations.js"></script>
+  <script>
+    // ============ LANGUAGE ============
+    const LANGUAGES = ["de", "en"];
+    const DEFAULT_LANGUAGE = "de";
+    const LANGUAGE_STORAGE_KEY = "language";
+
+    // The participant's choice is remembered on this device, so it survives the
+    // reload that follows each saved trial.
+    function loadSavedLanguage() {
+      try {
+        const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+        return LANGUAGES.includes(saved) ? saved : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    let currentLanguage = loadSavedLanguage() || DEFAULT_LANGUAGE;
+
+    // Text for `key` in the current language (English if missing), with each
+    // {name} replaced by params[name].
+    function t(key, params = {}) {
+      const entry = TRANSLATIONS[key];
+      if (!entry) {
+        console.warn(`Missing translation key: ${key}`);
+        return key;
+      }
+      const text = entry[currentLanguage] ?? entry.en;
+      return text.replace(/\{(\w+)\}/g, (match, name) => (name in params ? params[name] : match));
+    }
+
+    // Texts set from the script (status lines, buttons) are stored as the
+    // function that builds them, so a language switch can rebuild them.
+    // Pass a key (+ params), a function returning the text, or null to clear.
+    const liveTexts = new Map();
+
+    function setLiveText(el, keyOrBuild, params) {
+      if (!keyOrBuild) {
+        liveTexts.delete(el);
+        el.textContent = "";
+        return;
+      }
+      const build = typeof keyOrBuild === "function" ? keyOrBuild : () => t(keyOrBuild, params);
+      liveTexts.set(el, build);
+      el.textContent = build();
+    }
+
+    function applyTranslations() {
+      document.documentElement.lang = currentLanguage;
+      document.title = t("page.title");
+      document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+      ["placeholder", "title", "aria-label"].forEach(attr => {
+        document.querySelectorAll(`[data-i18n-${attr}]`).forEach(el => {
+          el.setAttribute(attr, t(el.getAttribute(`data-i18n-${attr}`)));
+        });
+      });
+      document.querySelectorAll(".lang-switch [data-lang]").forEach(btn => {
+        btn.setAttribute("aria-pressed", String(btn.dataset.lang === currentLanguage));
+      });
+      liveTexts.forEach((build, el) => { el.textContent = build(); });
+    }
+
+    function setLanguage(language) {
+      currentLanguage = language;
+      try {
+        localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+      } catch (e) {
+        // Storage unavailable (e.g. private browsing): the choice lasts until reload.
+      }
+      applyTranslations();
+    }
+
+    applyTranslations();
+  </script>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-app-compat.js"></script>
@@ -856,51 +992,54 @@
 
   <script>
     // ============ OPTION VOCABULARIES (from Questionnaire.pdf) ============
+    // `value` is what gets saved; the displayed text comes from translations.js.
     const DISTANCE_OPTIONS = [
-      { value: "direct_contact", label: "Direct contacts" },
-      { value: "less_20cm", label: "Less than 20cm" },
-      { value: "less_50cm", label: "Less than 50cm" },
-      { value: "less_1m", label: "Less than 1m" },
-      { value: "more_1m", label: "More than 1m" },
+      { value: "direct_contact", labelKey: "distance.direct_contact" },
+      { value: "less_20cm", labelKey: "distance.less_20cm" },
+      { value: "less_50cm", labelKey: "distance.less_50cm" },
+      { value: "less_1m", labelKey: "distance.less_1m" },
+      { value: "more_1m", labelKey: "distance.more_1m" },
     ];
     const AGREEMENT_OPTIONS = [
-      { value: "strongly_disagree", label: "Strongly disagree" },
-      { value: "disagree", label: "Disagree" },
-      { value: "neutral", label: "Neutral" },
-      { value: "agree", label: "Agree" },
-      { value: "strongly_agree", label: "Strongly agree" },
+      { value: "strongly_disagree", labelKey: "agreement.strongly_disagree" },
+      { value: "disagree", labelKey: "agreement.disagree" },
+      { value: "neutral", labelKey: "agreement.neutral" },
+      { value: "agree", labelKey: "agreement.agree" },
+      { value: "strongly_agree", labelKey: "agreement.strongly_agree" },
     ];
     const INTENSITY_OPTIONS = [
-      { value: "very_weak", label: "Very weak" },
-      { value: "weak", label: "Weak" },
-      { value: "moderate", label: "Moderate" },
-      { value: "strong", label: "Strong" },
-      { value: "very_strong", label: "Very strong" },
+      { value: "very_weak", labelKey: "intensity.very_weak" },
+      { value: "weak", labelKey: "intensity.weak" },
+      { value: "moderate", labelKey: "intensity.moderate" },
+      { value: "strong", labelKey: "intensity.strong" },
+      { value: "very_strong", labelKey: "intensity.very_strong" },
     ];
     const DURATION_OPTIONS = [
-      { value: "less_1s", label: "Less than 1s" },
-      { value: "less_3s", label: "Less than 3s" },
-      { value: "less_5s", label: "Less than 5s" },
-      { value: "less_10s", label: "Less than 10s" },
-      { value: "10s_or_more", label: "10s or more" },
+      { value: "less_1s", labelKey: "duration.less_1s" },
+      { value: "less_3s", labelKey: "duration.less_3s" },
+      { value: "less_5s", labelKey: "duration.less_5s" },
+      { value: "less_10s", labelKey: "duration.less_10s" },
+      { value: "10s_or_more", labelKey: "duration.10s_or_more" },
     ];
     const EXPECTATION_OPTIONS = [
-      { value: "very_unexpected", label: "Very unexpected" },
-      { value: "not_expected", label: "Not expected" },
-      { value: "neutral", label: "Neutral" },
-      { value: "strongly_expected", label: "Strongly expected" },
-      { value: "certain", label: "Certain" },
+      { value: "very_unexpected", labelKey: "expectation.very_unexpected" },
+      { value: "not_expected", labelKey: "expectation.not_expected" },
+      { value: "neutral", labelKey: "expectation.neutral" },
+      { value: "strongly_expected", labelKey: "expectation.strongly_expected" },
+      { value: "certain", labelKey: "expectation.certain" },
     ];
     const CONFIDENCE_OPTIONS = [
-      { value: "very_low", label: "Very low" },
-      { value: "low", label: "Low" },
-      { value: "moderate", label: "Moderate" },
-      { value: "high", label: "High" },
-      { value: "very_high", label: "Very high" },
+      { value: "very_low", labelKey: "confidence.very_low" },
+      { value: "low", labelKey: "confidence.low" },
+      { value: "moderate", labelKey: "confidence.moderate" },
+      { value: "high", labelKey: "confidence.high" },
+      { value: "very_high", labelKey: "confidence.very_high" },
     ];
-    const OPTION_LABELS = {};
-    [DISTANCE_OPTIONS, AGREEMENT_OPTIONS, INTENSITY_OPTIONS, DURATION_OPTIONS, EXPECTATION_OPTIONS, CONFIDENCE_OPTIONS]
-      .forEach(list => list.forEach(opt => { OPTION_LABELS[opt.value] = opt.label; }));
+    // Displayed text of the option of `options` stored as `value`.
+    function optionLabel(options, value) {
+      const opt = options.find(o => o.value === value);
+      return opt ? t(opt.labelKey) : value;
+    }
 
     // Renders a slider for a set of ordered options: the first and last option labels
     // stay always visible as end anchors, while the currently-selected label appears
@@ -921,10 +1060,10 @@
             <div class="slider-ticks" aria-hidden="true">${ticks}</div>
           </div>
           <div class="slider-endpoints">
-            <span>${options[0].label}</span>
-            <span>${options[options.length - 1].label}</span>
+            <span>${t(options[0].labelKey)}</span>
+            <span>${t(options[options.length - 1].labelKey)}</span>
           </div>
-          <div class="slider-current-value${answered ? " is-answered" : ""}">${answered ? options[initialIndex].label : "Please select an answer"}</div>
+          <div class="slider-current-value${answered ? " is-answered" : ""}">${answered ? t(options[initialIndex].labelKey) : t("slider.prompt")}</div>
         </div>
       `;
 
@@ -938,7 +1077,7 @@
         const index = Number(slider.value);
         tickEls.forEach((tick, i) => tick.classList.toggle("is-active", i === index));
         const opt = options[index];
-        currentValueEl.textContent = opt.label;
+        currentValueEl.textContent = t(opt.labelKey);
         currentValueEl.classList.add("is-answered");
         if (questionBlock) questionBlock.classList.add("is-answered");
         onSelect(opt.value);
@@ -957,6 +1096,7 @@
         noContactTouched: false,
         notes: "",
         areas: [],
+        language: null, // "de" or "en": page language when the trial was last sent
         firstSavedAt: null,
         lastEdited: null,
       };
@@ -1511,26 +1651,27 @@
           //   return;
           // }
           if (!this.appState.idIsValid || !this.appState.trialIsValid) {
-            const missingParts = [];
-            if (!this.appState.idIsValid) missingParts.push("Participant ID");
-            if (!this.appState.trialIsValid) missingParts.push("Trial number");
-            const message = `Please fill in the ${missingParts.join(" and ")} at the top of the page before drawing contact areas.`;
-            setStatus(`❌ ${message}`);
-            alert(message);
+            const missingKeys = [];
+            if (!this.appState.idIsValid) missingKeys.push("field.participantId");
+            if (!this.appState.trialIsValid) missingKeys.push("field.trialNumber");
+            const message = () => t("status.fillInFirst", { fields: missingKeys.map(k => t(k)).join(t("list.and")) });
+            setStatus(() => `❌ ${message()}`);
+            alert(message());
             // Bring the participant to the first field they still need to fill in.
             (this.appState.idIsValid ? trialInput : participantInput).focus();
             return;
           }
           if (this.appState.markingMode === "view_all") {
-            setStatus("⚠️ Viewing mode. Switch to 'Mark' mode to draw contact areas.");
+            setStatus("status.viewingMode");
             return;
           }
           if (!this.appState.isEditable()) {
-            setStatus("❌ Edit time limit expired. Cannot record new areas.");
+            setStatus("status.expiredRecord");
             return;
           }
           if (NO_CONTACT_FIELDS[this.appState.currentDirection] && this.appState.currentTrial[NO_CONTACT_FIELDS[this.appState.currentDirection]]) {
-            setStatus(`⚠️ You ticked "${NO_CONTACT_LABELS[this.appState.currentDirection]}". Untick it to mark areas in this mode.`);
+            const direction = this.appState.currentDirection;
+            setStatus(() => t("status.noContactTicked", { label: t(NO_CONTACT_LABEL_KEYS[direction]) }));
             return;
           }
 
@@ -1690,7 +1831,7 @@
     };
 
     const NO_CONTACT_FIELDS = { touched_by: "noContactTouchedBy", touched: "noContactTouched" };
-    const NO_CONTACT_LABELS = { touched_by: "I was not touched", touched: "I did not touch" };
+    const NO_CONTACT_LABEL_KEYS = { touched_by: "noContact.touchedBy", touched: "noContact.touched" };
 
     // Inline data URIs for the filled body-silhouette masks (used only to build
     // the offscreen "inside the body" pixel masks for clipping drawn areas).
@@ -1760,10 +1901,10 @@
 
     // ============ TRIAL-LEVEL QUESTIONS ============
     const TRIAL_QUESTIONS = [
-      { field: "distanceEstimate", container: distanceOptionsEl, options: DISTANCE_OPTIONS, label: "Estimated distance from neighbouring participants" },
-      { field: "comfortWithDistance", container: comfortOptionsEl, options: AGREEMENT_OPTIONS, label: "Comfort with that distance" },
-      { field: "awarenessOfContacts", container: awarenessOptionsEl, options: AGREEMENT_OPTIONS, label: "Awareness of bodily contacts" },
-      { field: "acceptabilityOfInteractions", container: acceptabilityOptionsEl, options: AGREEMENT_OPTIONS, label: "Acceptability of bodily interactions" },
+      { field: "distanceEstimate", container: distanceOptionsEl, options: DISTANCE_OPTIONS, labelKey: "question.distance.short" },
+      { field: "comfortWithDistance", container: comfortOptionsEl, options: AGREEMENT_OPTIONS, labelKey: "question.comfort.short" },
+      { field: "awarenessOfContacts", container: awarenessOptionsEl, options: AGREEMENT_OPTIONS, labelKey: "question.awareness.short" },
+      { field: "acceptabilityOfInteractions", container: acceptabilityOptionsEl, options: AGREEMENT_OPTIONS, labelKey: "question.acceptability.short" },
     ];
 
     function renderTrialQuestions() {
@@ -1784,16 +1925,16 @@
 
     // ============ AREAS LIST + RATING PANEL ============
     const RATING_GROUPS = [
-      { field: "intensity", container: ratingIntensityEl, options: INTENSITY_OPTIONS, label: "Intensity" },
-      { field: "duration", container: ratingDurationEl, options: DURATION_OPTIONS, label: "Duration", defaultIndex: 0 },
-      { field: "expectation", container: ratingExpectationEl, options: EXPECTATION_OPTIONS, label: "Level of expectation" },
-      { field: "confidence", container: ratingConfidenceEl, options: CONFIDENCE_OPTIONS, label: "Level of confidence" },
+      { field: "intensity", container: ratingIntensityEl, options: INTENSITY_OPTIONS, labelKey: "rating.intensity.short" },
+      { field: "duration", container: ratingDurationEl, options: DURATION_OPTIONS, labelKey: "rating.duration.short", defaultIndex: 0 },
+      { field: "expectation", container: ratingExpectationEl, options: EXPECTATION_OPTIONS, labelKey: "rating.expectation.short" },
+      { field: "confidence", container: ratingConfidenceEl, options: CONFIDENCE_OPTIONS, labelKey: "rating.confidence.short" },
     ];
 
     function addArea(figureId, direction, path, tapPoint = null) {
       const result = canvasManager.computeClippedAreaMask(figureId, direction, path, tapPoint);
       if (!result) {
-        setStatus("⚠️ Nothing to record there — that's outside the body outline or already marked. Try again.");
+        setStatus("status.nothingToRecord");
         canvasManager.redrawAllFigures();
         return;
       }
@@ -1810,14 +1951,14 @@
       canvasManager.cacheAreaMask(area.number, result.canvas, result.bbox, direction);
       updateAreasList();
       canvasManager.redrawAllFigures();
-      setStatus(`Recorded area #${area.number} on ${figureId}. Total areas: ${appState.getAreasCount()}`);
+      const total = appState.getAreasCount();
+      setStatus(() => t("status.areaRecorded", { n: area.number, figure: t(`figure.${figureId}`), total }));
       openRatingPanel(0);
     }
 
     function areaSummary(area) {
-      const fields = ["intensity", "duration", "expectation", "confidence"];
-      if (fields.some(f => !area[f])) return { text: "Ratings incomplete", incomplete: true };
-      const text = fields.map(f => OPTION_LABELS[area[f]]).join(" · ");
+      if (RATING_GROUPS.some(g => !area[g.field])) return { text: t("areas.incomplete"), incomplete: true };
+      const text = RATING_GROUPS.map(g => optionLabel(g.options, area[g.field])).join(" · ");
       return { text, incomplete: false };
     }
 
@@ -1825,23 +1966,23 @@
       updateNoContactCheckboxes();
       const areas = appState.currentTrial.areas;
       if (areas.length === 0) {
-        areasListEl.innerHTML = '<div class="empty-list">No contact areas recorded yet</div>';
+        areasListEl.innerHTML = `<div class="empty-list">${t("areas.empty")}</div>`;
         return;
       }
 
       areasListEl.innerHTML = areas.map((area, index) => {
-        const directionLabel = area.direction === "touched_by" ? "I was touched" : "I touched";
+        const directionLabel = t(`direction.${area.direction}`);
         const summary = areaSummary(area);
         return `
         <div class="area-item">
           <div class="area-color" style="background: ${directionColors[area.direction]}"></div>
           <div class="area-info">
-            <strong>#${area.number}</strong> ${area.figure} — <strong>${directionLabel}</strong>
+            <strong>#${area.number}</strong> ${t(`figure.${area.figure}`)} — <strong>${directionLabel}</strong>
             <span class="area-ratings-summary ${summary.incomplete ? "incomplete" : ""}">${summary.text}</span>
           </div>
           <div class="area-actions">
-            <button type="button" onclick="openRatingPanel(${index})">Edit ratings</button>
-            <button type="button" class="danger" onclick="deleteArea(${index})">Delete</button>
+            <button type="button" onclick="openRatingPanel(${index})">${t("areas.edit")}</button>
+            <button type="button" class="danger" onclick="deleteArea(${index})">${t("areas.delete")}</button>
           </div>
         </div>`;
       }).join("");
@@ -1852,8 +1993,11 @@
       if (!area) return;
       openAreaIndex = index;
 
-      const directionLabel = area.direction === "touched_by" ? "I was touched" : "I touched";
-      ratingModalTitle.textContent = `Area #${area.number} — ${area.figure} (${directionLabel})`;
+      ratingModalTitle.textContent = t("rating.title", {
+        n: area.number,
+        figure: t(`figure.${area.figure}`),
+        direction: t(`direction.${area.direction}`),
+      });
 
       RATING_GROUPS.forEach(g => renderSliderField(g.container, g.options, area[g.field], (value) => {
         appState.currentTrial.areas[index][g.field] = value;
@@ -1881,22 +2025,22 @@
 
     function deleteArea(index) {
       if (!appState.isEditable()) {
-        setStatus("❌ Edit time limit expired. Cannot delete areas.");
+        setStatus("status.expiredDelete");
         return;
       }
       appState.removeArea(index);
       updateAreasList();
       canvasManager.redrawAllFigures();
-      setStatus(`Deleted area. Total areas: ${appState.getAreasCount()}`);
+      setStatus("status.areaDeleted", { total: appState.getAreasCount() });
     }
 
     function clearAreas() {
-      if (confirm("Are you sure you want to delete ALL contact areas for this trial?")) {
+      if (confirm(t("areas.confirmClear"))) {
         appState.clearAllAreas();
         canvasManager.clearAreaMaskCache();
         updateAreasList();
         canvasManager.redrawAllFigures();
-        setStatus("Cleared all areas for this trial.");
+        setStatus("status.areasCleared");
       }
     }
 
@@ -1915,8 +2059,9 @@
     }
 
     // ============ STATUS HELPERS ============
-    function setStatus(message) {
-      statusMessageEl.textContent = message;
+    // Takes a translation key (+ params) or a function building the text.
+    function setStatus(keyOrBuild, params) {
+      setLiveText(statusMessageEl, keyOrBuild, params);
     }
 
     function setSyncStatus(status) {
@@ -1925,6 +2070,12 @@
     }
 
     // ============ MARKING MODE ============
+    const MARKING_MODE_LABEL_KEYS = {
+      mark_touched_by: "mode.markTouchedBy",
+      mark_touched: "mode.markTouched",
+      view_all: "mode.viewAll",
+    };
+
     // Forces both the internal marking mode and the visible radio button back
     // to "I was touched" whenever a trial is (re)loaded. Without syncing the
     // radio too, appState.resetForNewTrial() alone left the UI showing "I
@@ -1939,7 +2090,8 @@
       radio.addEventListener("change", (e) => {
         appState.setMarkingMode(e.target.value);
         canvasManager.redrawAllFigures();
-        setStatus(`Mode: ${e.target.parentElement.textContent.split('\n')[0].trim()}`);
+        const modeKey = MARKING_MODE_LABEL_KEYS[e.target.value];
+        setStatus(() => t("status.mode", { mode: t(modeKey) }));
       });
     });
 
@@ -1959,7 +2111,7 @@
         checkbox.checked = !!appState.currentTrial[field];
         checkbox.disabled = hasAreas || !appState.isEditable();
         checkbox.parentElement.classList.toggle("is-disabled", checkbox.disabled);
-        checkbox.parentElement.title = hasAreas ? "Delete the areas marked in this mode first" : "";
+        checkbox.parentElement.title = hasAreas ? t("noContact.disabledTitle") : "";
       });
       updateMarkingModeAvailability();
     }
@@ -1988,23 +2140,21 @@
     function getMissingContactDeclarations() {
       return Object.keys(NO_CONTACT_FIELDS)
         .filter(direction => !areasInDirection(direction) && !appState.currentTrial[NO_CONTACT_FIELDS[direction]])
-        .map(direction => direction === "touched_by"
-          ? 'Mark where you were touched, or tick "I was not touched"'
-          : 'Mark where you touched, or tick "I did not touch"');
+        .map(direction => t(direction === "touched_by" ? "save.missingTouchedBy" : "save.missingTouched"));
     }
 
     Object.entries(noContactCheckboxes).forEach(([direction, checkbox]) => {
       checkbox.addEventListener("change", () => {
         appState.currentTrial[NO_CONTACT_FIELDS[direction]] = checkbox.checked;
         updateNoContactCheckboxes();
-        if (checkbox.checked) setStatus(`Declared: ${NO_CONTACT_LABELS[direction]}.`);
+        if (checkbox.checked) setStatus(() => t("status.declared", { label: t(NO_CONTACT_LABEL_KEYS[direction]) }));
       });
     });
 
     // ============ EDIT WINDOW ============
     function updateEditStatus() {
       if (!appState.isExistingSession) {
-        trialStatusEl.textContent = "✓ New trial";
+        setLiveText(trialStatusEl, "status.trial.new");
         trialStatusEl.className = "id-status id-valid";
         return;
       }
@@ -2014,12 +2164,12 @@
 
       if (remaining <= 0) {
         appState.canEdit = false;
-        trialStatusEl.textContent = "❌ Edit time limit expired (1 hour)";
+        setLiveText(trialStatusEl, "status.trial.expired");
         trialStatusEl.className = "id-status id-invalid";
       } else {
         appState.canEdit = true;
         const minutesRemaining = Math.ceil(remaining / 60000);
-        trialStatusEl.textContent = `✓ Editing enabled (${minutesRemaining} min remaining)`;
+        setLiveText(trialStatusEl, "status.trial.editing", { minutes: minutesRemaining });
         trialStatusEl.className = "id-status id-valid";
       }
 
@@ -2050,18 +2200,18 @@
       const id = participantInput.value.trim();
       if (!id) {
         appState.idIsValid = false;
-        idStatusEl.textContent = "";
+        setLiveText(idStatusEl, null);
         idStatusEl.className = "id-status";
         return;
       }
       if (!dataService.isValidNumericId(id)) {
         appState.idIsValid = false;
-        idStatusEl.textContent = "❌ ID must be a number (digits only)";
+        setLiveText(idStatusEl, "status.id.invalid");
         idStatusEl.className = "id-status id-invalid";
         return;
       }
       appState.idIsValid = true;
-      idStatusEl.textContent = "✓ ID is valid";
+      setLiveText(idStatusEl, "status.id.valid");
       idStatusEl.className = "id-status id-valid";
       updateCombinedKeyStatus();
     }
@@ -2091,18 +2241,18 @@
       const trial = trialInput.value.trim();
       if (!trial) {
         appState.trialIsValid = false;
-        trialStatusEl.textContent = "";
+        setLiveText(trialStatusEl, null);
         trialStatusEl.className = "id-status";
         return;
       }
       if (!dataService.isValidNumericId(trial)) {
         appState.trialIsValid = false;
-        trialStatusEl.textContent = "❌ Trial number must be numeric";
+        setLiveText(trialStatusEl, "status.trial.invalid");
         trialStatusEl.className = "id-status id-invalid";
         return;
       }
       appState.trialIsValid = true;
-      trialStatusEl.textContent = "✓ Trial number is valid";
+      setLiveText(trialStatusEl, "status.trial.valid");
       trialStatusEl.className = "id-status id-valid";
       updateCombinedKeyStatus();
     }
@@ -2121,7 +2271,7 @@
       try {
         result = await dataService.loadExistingTrialData(id, name, date, trialNumber);
       } catch (error) {
-        setStatus(`❌ Failed to check existing data: ${error.message}`);
+        setStatus("status.loadFailed", { error: error.message });
         return;
       }
 
@@ -2138,10 +2288,10 @@
         updateEditStatus();
         startEditStatusTimer();
         refreshUiForCurrentTrial();
-        trialStatusEl.textContent = appState.canEdit ? trialStatusEl.textContent : "❌ Edit time limit expired (1 hour)";
+        if (!appState.canEdit) setLiveText(trialStatusEl, "status.trial.expired");
       } else {
         appState.resetForNewTrial(trialNumber);
-        trialStatusEl.textContent = "✓ New trial";
+        setLiveText(trialStatusEl, "status.trial.new");
         trialStatusEl.className = "id-status id-valid";
         refreshUiForCurrentTrial();
       }
@@ -2151,13 +2301,13 @@
       // const ready = appState.idIsValid && appState.nameIsValid && appState.trialIsValid;
       const ready = appState.idIsValid && appState.trialIsValid;
       const missingParts = [];
-      if (!appState.idIsValid) missingParts.push("Participant ID");
+      if (!appState.idIsValid) missingParts.push(t("field.participantId"));
       // if (!appState.nameIsValid) missingParts.push("Participant Name"); // Participant Name field disabled
-      if (!appState.trialIsValid) missingParts.push("Trial number");
+      if (!appState.trialIsValid) missingParts.push(t("field.trialNumber"));
 
       const text = ready
-        ? "✓ Ready to record contact areas."
-        : `⚠️ ${missingParts.join(", ")} ${missingParts.length > 1 ? "are" : "is"} required before you can record contact areas.`;
+        ? t("banner.ready")
+        : t(missingParts.length > 1 ? "banner.missingMany" : "banner.missingOne", { fields: missingParts.join(t("list.and")) });
       const cls = ready ? "ok" : "missing";
 
       [requirementBannerTop, requirementBannerFigures].forEach(el => {
@@ -2339,27 +2489,27 @@
       //   return;
       // }
       if (!appState.idIsValid || !appState.trialIsValid) {
-        alert("Participant ID and Trial number must all be valid before saving.");
+        alert(t("save.invalidIds"));
         return;
       }
 
-      const missingQuestions = TRIAL_QUESTIONS.filter(q => !appState.currentTrial[q.field]).map(q => q.label);
+      const missingQuestions = TRIAL_QUESTIONS.filter(q => !appState.currentTrial[q.field]).map(q => t(q.labelKey));
       const missingDeclarations = getMissingContactDeclarations();
       const incompleteAreas = appState.getIncompleteAreas().map(area => {
-        const missingFields = RATING_GROUPS.filter(g => !area[g.field]).map(g => g.label);
-        return `Area #${area.number}: ${missingFields.join(", ")}`;
+        const missingFields = RATING_GROUPS.filter(g => !area[g.field]).map(g => t(g.labelKey));
+        return t("save.incompleteArea", { n: area.number, fields: missingFields.join(", ") });
       });
 
       if (missingDeclarations.length || missingQuestions.length || incompleteAreas.length) {
-        let message = "Please complete the following before saving:";
+        let message = t("save.incompleteIntro");
         if (missingDeclarations.length) {
-          message += "\n\nContact declaration:\n" + missingDeclarations.map(d => `• ${d}`).join("\n");
+          message += `\n\n${t("save.incompleteDeclarations")}\n` + missingDeclarations.map(d => `• ${d}`).join("\n");
         }
         if (missingQuestions.length) {
-          message += "\n\nQuestions not yet answered:\n" + missingQuestions.map(q => `• ${q}`).join("\n");
+          message += `\n\n${t("save.incompleteQuestions")}\n` + missingQuestions.map(q => `• ${q}`).join("\n");
         }
         if (incompleteAreas.length) {
-          message += "\n\nContact areas missing ratings:\n" + incompleteAreas.map(a => `• ${a}`).join("\n");
+          message += `\n\n${t("save.incompleteAreas")}\n` + incompleteAreas.map(a => `• ${a}`).join("\n");
         }
         alert(message);
         return;
@@ -2376,11 +2526,11 @@
         if (btn) {
           btn.disabled = true;
           prevText = btn.textContent;
-          btn.textContent = isRetry ? "Retrying..." : "Saving...";
+          setLiveText(btn, isRetry ? "save.retrying" : "save.saving");
         }
 
         setSyncStatus("syncing");
-        setStatus(`📤 ${isRetry ? "Retrying" : "Saving"} your data... (${appState.getAreasCount()} area(s) + questionnaire)`);
+        setStatus(isRetry ? "status.retrying" : "status.saving", { count: appState.getAreasCount() });
 
         const id = participantInput.value.trim();
         // const name = participantNameInput.value.trim(); // Participant Name field disabled
@@ -2388,6 +2538,7 @@
         const nowIso = new Date().toISOString();
 
         appState.currentTrial.notes = notesTextarea.value;
+        appState.currentTrial.language = currentLanguage;
         if (!appState.currentTrial.firstSavedAt) appState.currentTrial.firstSavedAt = nowIso;
         appState.currentTrial.lastEdited = nowIso;
 
@@ -2403,11 +2554,11 @@
         participantInput.value = "";
         // participantNameInput.value = ""; // Participant Name field disabled
         trialInput.value = "";
-        idStatusEl.textContent = "";
+        setLiveText(idStatusEl, null);
         idStatusEl.className = "id-status";
         // nameStatusEl.textContent = ""; // Participant Name field disabled
         // nameStatusEl.className = "id-status";
-        trialStatusEl.textContent = "";
+        setLiveText(trialStatusEl, null);
         trialStatusEl.className = "id-status";
         appState.idIsValid = false;
         appState.nameIsValid = false;
@@ -2415,11 +2566,11 @@
         updateRequirementBanners();
 
         setSyncStatus("synced");
-        setStatus("✅ All data saved successfully! Thank you for your participation.");
-        if (btn) btn.textContent = "✅ Saved!";
+        setStatus("status.saved");
+        if (btn) setLiveText(btn, "save.saved");
 
         setTimeout(() => {
-          alert("All data are saved. Thank you for your participation.");
+          alert(t("save.savedAlert"));
           setSyncStatus(null);
           location.reload();
         }, 1000);
@@ -2427,15 +2578,30 @@
         const dataSaveError = new DataSaveError(`Failed to save data: ${error.message}`);
         console.error(dataSaveError.name + ":", dataSaveError.message);
         setSyncStatus("error");
-        setStatus(`❌ Save failed: ${dataSaveError.message}. Click "Retry" to try again.`);
+        setStatus("status.saveFailed", { error: dataSaveError.message });
         if (btn) {
           btn.disabled = false;
-          btn.textContent = "⚠️ Retry";
+          setLiveText(btn, "save.retry");
           btn.onclick = () => window.saveAllAndReload(true);
         }
-        alert(`Your answers could not be saved (${error.message}).\n\nPlease click "Retry" at the bottom of the page, or ask the experimenter for help.`);
+        alert(t("save.failedAlert", { error: error.message }));
       }
     };
+
+    // ============ LANGUAGE SWITCH ============
+    // Fixed texts and live texts are redone by setLanguage(); the parts built
+    // from the current answers are re-rendered here (answers are kept).
+    document.querySelectorAll(".lang-switch [data-lang]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (btn.dataset.lang === currentLanguage) return;
+        setLanguage(btn.dataset.lang);
+        renderTrialQuestions();
+        updateAreasList();
+        updateRequirementBanners();
+        if (openAreaIndex !== null) openRatingPanel(openAreaIndex);
+        handleViewportChange(); // figure labels changed length
+      });
+    });
 
     // ============ INIT ============
     renderTrialQuestions();
@@ -2444,12 +2610,9 @@
       await Promise.all([canvasManager.preloadImages(), canvasManager.preloadBodyMasks()]);
       figureConfigs.forEach(figureConfig => canvasManager.setupFigure(figureConfig));
       setActiveFigure("back");
-      setStatus("Ready. Drag on a body figure to mark a contact area (or tap for a small one).");
+      setStatus("status.ready");
     })();
   </script>
 
-  <div style="text-align: center; margin: 2rem 0;">
-    <button id="saveAndSend" type="button" class="secondary" onclick="saveAllAndReload()">Save and Send</button>
-  </div>
 </body>
 </html>

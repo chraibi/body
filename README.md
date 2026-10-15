@@ -290,6 +290,10 @@ Each provides:
 
 Trials are stored per day under `data/{id}_{YYYY-MM-DD}/trials/{trialNumber}` (local date of the device), so experiment days that reuse the same IDs and trial numbers never read or overwrite each other.
 
+### Languages
+
+The page is shown in German by default; participants can switch to English with the buttons at the top, and the choice is remembered on their device. All displayed texts live in `translations.js` (one entry per text, with its `en` and `de` versions side by side). Answers are saved as language-neutral codes (e.g. `strongly_agree`), and each trial also records the page language it was sent in (`language: "de"` or `"en"`).
+
 ---
 
 ## Data Model
