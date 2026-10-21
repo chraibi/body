@@ -445,6 +445,10 @@ const directionColors = {
 2. Add UI elements in HTML
 3. Add event listeners in global code
 4. Update validation in `saveAllAndReload()`
+5. Add the field, with its allowed values, to `database.rules.json` and deploy it (`firebase deploy --only database`)
+
+### Database Rules
+`database.rules.json` only accepts trials shaped exactly as the page saves them: the key formats above, the known fields with their allowed values (e.g. `strongly_agree`), notes up to 2000 characters, at most 100 areas, and area masks that are PNG data URIs under 300,000 characters. Any other field is refused, so a new field or answer option saved by the page needs a matching change in the rules, or saving fails.
 
 ### Modifying Edit Time Limit
 Change constant at top of code:

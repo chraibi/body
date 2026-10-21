@@ -8,7 +8,48 @@
           "$trial": {
             ".read": true,
             ".write": "newData.exists()",
-            ".validate": "$trial.matches(/^[0-9]+$/) && newData.hasChildren(['trialNumber'])"
+            ".validate": "$participant.length <= 40 && $participant.matches(/^[0-9]+_[^_]+_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/) && $trial.length <= 6 && $trial.matches(/^[0-9]+$/) && newData.hasChildren(['trialNumber', 'distanceEstimate', 'comfortWithDistance', 'awarenessOfContacts', 'acceptabilityOfInteractions', 'noContactTouchedBy', 'noContactTouched', 'language', 'firstSavedAt', 'lastEdited'])",
+            "trialNumber": { ".validate": "newData.isString() && newData.val() === $trial" },
+            "distanceEstimate": { ".validate": "newData.isString() && newData.val().matches(/^(direct_contact|less_20cm|less_50cm|less_1m|more_1m)$/)" },
+            "comfortWithDistance": { ".validate": "newData.isString() && newData.val().matches(/^(strongly_disagree|disagree|neutral|agree|strongly_agree)$/)" },
+            "awarenessOfContacts": { ".validate": "newData.isString() && newData.val().matches(/^(strongly_disagree|disagree|neutral|agree|strongly_agree)$/)" },
+            "acceptabilityOfInteractions": { ".validate": "newData.isString() && newData.val().matches(/^(strongly_disagree|disagree|neutral|agree|strongly_agree)$/)" },
+            "noContactTouchedBy": { ".validate": "newData.isBoolean()" },
+            "noContactTouched": { ".validate": "newData.isBoolean()" },
+            "notes": { ".validate": "newData.isString() && newData.val().length <= 2000" },
+            "language": { ".validate": "newData.val() === 'de' || newData.val() === 'en'" },
+            "firstSavedAt": { ".validate": "newData.isString() && newData.val().matches(/^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]\\.[0-9][0-9][0-9]Z$/)" },
+            "lastEdited": { ".validate": "newData.isString() && newData.val().matches(/^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]\\.[0-9][0-9][0-9]Z$/)" },
+            "areas": {
+              "$area": {
+                ".validate": "$area.matches(/^[0-9][0-9]?$/) && newData.hasChildren(['number', 'figure', 'direction', 'maskDataUrl', 'bbox', 'centroid', 'intensity', 'duration', 'expectation', 'confidence', 'timestamp'])",
+                "number": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 10000" },
+                "figure": { ".validate": "newData.isString() && newData.val().matches(/^(front|back|left|right)$/)" },
+                "direction": { ".validate": "newData.isString() && newData.val().matches(/^(touched|touched_by)$/)" },
+                "maskDataUrl": { ".validate": "newData.isString() && newData.val().beginsWith('data:image/png;base64,') && newData.val().length <= 300000" },
+                "bbox": {
+                  ".validate": "newData.hasChildren(['x', 'y', 'w', 'h'])",
+                  "x": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
+                  "y": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
+                  "w": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
+                  "h": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
+                  "$other": { ".validate": false }
+                },
+                "centroid": {
+                  ".validate": "newData.hasChildren(['x', 'y'])",
+                  "x": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
+                  "y": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
+                  "$other": { ".validate": false }
+                },
+                "intensity": { ".validate": "newData.isString() && newData.val().matches(/^(very_weak|weak|moderate|strong|very_strong)$/)" },
+                "duration": { ".validate": "newData.isString() && newData.val().matches(/^(less_1s|less_3s|less_5s|less_10s|10s_or_more)$/)" },
+                "expectation": { ".validate": "newData.isString() && newData.val().matches(/^(very_unexpected|not_expected|neutral|strongly_expected|certain)$/)" },
+                "confidence": { ".validate": "newData.isString() && newData.val().matches(/^(very_low|low|moderate|high|very_high)$/)" },
+                "timestamp": { ".validate": "newData.isString() && newData.val().matches(/^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]\\.[0-9][0-9][0-9]Z$/)" },
+                "$other": { ".validate": false }
+              }
+            },
+            "$other": { ".validate": false }
           }
         }
       }

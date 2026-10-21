@@ -1162,6 +1162,14 @@
       return opt ? t(opt.labelKey) : value;
     }
 
+    // Trials come back from the database, which anyone with the page's address
+    // can write to: their values go through this before being put in HTML, so
+    // they always show as plain text.
+    function escapeHtml(value) {
+      const entities = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+      return String(value).replace(/[&<>"']/g, c => entities[c]);
+    }
+
     // Renders a slider for a set of ordered options: every option's label stays
     // visible next to its stop, while the currently-selected label is repeated above
     // the slider only once the participant has touched it (so an untouched slider
@@ -1645,7 +1653,9 @@
       // computing new areas, before the figures are first rendered.
       async loadAreaMaskCache(areas) {
         await Promise.all(areas.map(area => new Promise((resolve) => {
-          if (this.areaMaskCache.has(area.number) || !area.maskDataUrl) return resolve();
+          // Only the PNG data URIs this page creates: any other address would make
+          // the participant's phone fetch an image from another server.
+          if (this.areaMaskCache.has(area.number) || typeof area.maskDataUrl !== "string" || !area.maskDataUrl.startsWith("data:image/png;base64,")) return resolve();
           const img = new Image();
           img.onload = () => {
             this.cacheAreaMask(area.number, img, area.bbox, area.direction);
@@ -2146,10 +2156,10 @@
         const summary = areaSummary(area);
         return `
         <div class="area-item">
-          <div class="area-color" style="background: ${directionColors[area.direction]}"></div>
+          <div class="area-color" style="background: ${escapeHtml(directionColors[area.direction])}"></div>
           <div class="area-info">
-            <strong>#${area.number}</strong> ${t(`figure.${area.figure}`)} — <strong>${directionLabel}</strong>
-            <span class="area-ratings-summary ${summary.incomplete ? "incomplete" : ""}">${summary.text}</span>
+            <strong>#${escapeHtml(area.number)}</strong> ${escapeHtml(t(`figure.${area.figure}`))} — <strong>${escapeHtml(directionLabel)}</strong>
+            <span class="area-ratings-summary ${summary.incomplete ? "incomplete" : ""}">${escapeHtml(summary.text)}</span>
           </div>
           <div class="area-actions">
             <button type="button" onclick="openRatingPanel(${index})">${t("areas.edit")}</button>
