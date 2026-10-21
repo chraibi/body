@@ -100,6 +100,10 @@ const TRANSLATIONS = {
     en: "✓ Editing enabled ({minutes} min remaining)",
     de: "✓ Bearbeitung möglich (noch {minutes} Min.)",
   },
+  "status.trial.alreadySent": {
+    en: "❌ Answers for this trial were already sent today. Please check the fields above: your answers on this page are kept.",
+    de: "❌ Für diesen Durchgang wurden heute bereits Antworten gesendet. Bitte prüfen Sie die Felder oben: Ihre Antworten auf dieser Seite bleiben erhalten.",
+  },
 
   // ---- Requirement banners ----
   "banner.ready": {
@@ -564,6 +568,10 @@ const TRANSLATIONS = {
   "save.invalidIds": {
     en: "Participant ID, trial number and last letter of family name must all be valid before saving.",
     de: "Teilnehmer-ID, Durchgangsnummer und letzter Buchstabe des Nachnamens müssen gültig sein, bevor Sie speichern können.",
+  },
+  "save.alreadySent": {
+    en: "Answers for this participant ID, trial number and letter were already sent today. Please check these fields: sending now would replace those answers.",
+    de: "Für diese Teilnehmer-ID, Durchgangsnummer und diesen Buchstaben wurden heute bereits Antworten gesendet. Bitte prüfen Sie diese Felder: Ein Senden würde diese Antworten ersetzen.",
   },
   "save.incompleteIntro": {
     en: "Please complete the following before saving:",

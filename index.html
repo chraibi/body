@@ -1276,6 +1276,11 @@
         this.canEdit = true;
         this.editStatusTimer = null;
 
+        // True while the identification fields point at a trial already sent
+        // today but the page holds unsent answers: sending is blocked, as it
+        // would replace the answers already sent.
+        this.sentTrialConflict = false;
+
         this.markingMode = "mark_touched_by";
         this.currentDirection = "touched_by";
         this.displayFilter = "touched_by";
@@ -2392,6 +2397,17 @@
       return false;
     }
 
+    // True when the page holds answers for a trial that hasn't been sent yet.
+    function hasUnsentAnswers() {
+      const trial = appState.currentTrial;
+      return !appState.isExistingSession && (
+        TRIAL_QUESTIONS.some(q => trial[q.field] != null) ||
+        trial.areas.length > 0 ||
+        Object.values(NO_CONTACT_FIELDS).some(field => trial[field]) ||
+        trial.notes.trim() !== ""
+      );
+    }
+
     function refreshUiForCurrentTrial() {
       renderTrialQuestions();
       updateNotesDisplay();
@@ -2475,11 +2491,24 @@
         return;
       }
 
-      canvasManager.clearAreaMaskCache();
-      resetMarkingModeToDefault();
-      appState.sessionDate = date;
+      // Every keystroke starts a lookup: ignore this one if the fields changed
+      // while it ran, so a late answer for an earlier value can't win.
+      if (id !== participantInput.value.trim() || letter !== letterInput.value.trim() || trialNumber !== trialInput.value.trim()) return;
 
-      if (result.exists) {
+      appState.sessionDate = date;
+      appState.sentTrialConflict = false;
+
+      // Unsent answers follow the identification fields, so correcting a
+      // mistake in them midway keeps the answers already given.
+      const keepUnsentAnswers = hasUnsentAnswers();
+
+      if (result.exists && keepUnsentAnswers) {
+        appState.sentTrialConflict = true;
+        setLiveText(trialStatusEl, "status.trial.alreadySent");
+        trialStatusEl.className = "id-status id-invalid";
+      } else if (result.exists) {
+        canvasManager.clearAreaMaskCache();
+        resetMarkingModeToDefault();
         appState.isExistingSession = true;
         appState.currentTrial = result.trial;
         appState.currentTrial.areas.forEach(a => { appState.nextAreaNumber = Math.max(appState.nextAreaNumber, (a.number || 0) + 1); });
@@ -2489,7 +2518,13 @@
         startEditStatusTimer();
         refreshUiForCurrentTrial();
         if (!appState.canEdit) setLiveText(trialStatusEl, "status.trial.expired");
+      } else if (keepUnsentAnswers) {
+        appState.currentTrial.trialNumber = trialNumber;
+        setLiveText(trialStatusEl, "status.trial.new");
+        trialStatusEl.className = "id-status id-valid";
       } else {
+        canvasManager.clearAreaMaskCache();
+        resetMarkingModeToDefault();
         appState.resetForNewTrial(trialNumber);
         setLiveText(trialStatusEl, "status.trial.new");
         trialStatusEl.className = "id-status id-valid";
@@ -2688,6 +2723,11 @@
 
       if (missingIdentificationFields().length) {
         alert(t("save.invalidIds"));
+        return;
+      }
+
+      if (appState.sentTrialConflict) {
+        alert(t("save.alreadySent"));
         return;
       }
 
