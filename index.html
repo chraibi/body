@@ -834,18 +834,18 @@
       <div class="id-status" id="idStatus"></div>
     </div>
 
-    <!-- Participant Name field disabled — uncomment to re-enable
-    <div class="control-group">
-      <label>Participant Name:</label>
-      <input type="text" id="participantName" placeholder="e.g. John" autocomplete="off" />
-      <div class="id-status" id="nameStatus"></div>
-    </div>
-    -->
-
     <div class="control-group">
       <label data-i18n="ident.trialNumber">Trial number:</label>
       <input type="text" id="trialNumber" placeholder="e.g. 2" data-i18n-placeholder="ident.trialNumberPlaceholder" autocomplete="off" />
       <div class="id-status" id="trialStatus"></div>
+    </div>
+
+    <!-- Part of the storage key with the ID, so a mistyped ID does not open or
+         overwrite another participant's answers. -->
+    <div class="control-group">
+      <label data-i18n="ident.familyNameLetter">Last letter of family name (for security):</label>
+      <input type="text" id="familyNameLetter" placeholder="e.g. R" data-i18n-placeholder="ident.familyNameLetterPlaceholder" maxlength="1" autocapitalize="characters" autocomplete="off" />
+      <div class="id-status" id="letterStatus"></div>
     </div>
   </div>
 
@@ -1265,7 +1265,7 @@
         this.nextAreaNumber = 1;
 
         this.idIsValid = false;
-        this.nameIsValid = false;
+        this.letterIsValid = false;
         this.trialIsValid = false;
 
         // Day the current trial is stored under, fixed when it is loaded so a
@@ -1359,8 +1359,9 @@
         return id && /^\d+$/.test(id);
       }
 
-      isValidName(name) {
-        return name && name.trim().length > 0;
+      // Any single letter, umlauts and ß included.
+      isValidLetter(letter) {
+        return letter && /^\p{L}$/u.test(letter);
       }
 
       // Local date (YYYY-MM-DD). It is part of the participant key because the
@@ -1372,13 +1373,15 @@
         return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
       }
 
-      getParticipantKey(id, name, date) {
-        return [id, name.toLowerCase(), date].filter(Boolean).join("_");
+      // e.g. "12_r_2026-10-21". The family-name letter is lower-cased so "R" and
+      // "r" reopen the same record.
+      getParticipantKey(id, letter, date) {
+        return [id, letter.toLowerCase(), date].filter(Boolean).join("_");
       }
 
-      async loadExistingTrialData(id, name, date, trialNumber) {
+      async loadExistingTrialData(id, letter, date, trialNumber) {
         try {
-          const key = this.getParticipantKey(id, name, date);
+          const key = this.getParticipantKey(id, letter, date);
           const snapshot = await this.db.ref(`data/${key}/trials/${trialNumber}`).once("value");
 
           if (snapshot.exists()) {
@@ -1388,15 +1391,15 @@
           }
           return { exists: false };
         } catch (error) {
-          const dataLoadError = new DataLoadError(`Failed to load trial data for ${this.getParticipantKey(id, name, date)} trial ${trialNumber}: ${error.message}`);
+          const dataLoadError = new DataLoadError(`Failed to load trial data for ${this.getParticipantKey(id, letter, date)} trial ${trialNumber}: ${error.message}`);
           console.error(dataLoadError.name + ":", dataLoadError.message);
           throw dataLoadError;
         }
       }
 
-      async saveTrialData(id, name, date, trial) {
+      async saveTrialData(id, letter, date, trial) {
         try {
-          const key = this.getParticipantKey(id, name, date);
+          const key = this.getParticipantKey(id, letter, date);
           await this.db.ref(`data/${key}/trials/${trial.trialNumber}`).set(trial);
           console.log(`Successfully saved trial ${trial.trialNumber} for participant ${key}`);
           return true;
@@ -1803,10 +1806,6 @@
 
         canvas.addEventListener("pointerdown", (event) => {
           if (this.activeDraw) return;
-          // if (!this.appState.idIsValid || !this.appState.nameIsValid || !this.appState.trialIsValid) {
-          //   setStatus("❌ Participant ID, Name and Trial number are required to record contact areas.");
-          //   return;
-          // }
           if (!requireIdentification("status.fillInFirst", event)) return;
           if (this.appState.markingMode === "view_all") {
             setStatus("status.viewingMode");
@@ -2008,11 +2007,17 @@
     const syncIndicator = document.getElementById("syncIndicator");
     const participantInput = document.getElementById("participantId");
     const idStatusEl = document.getElementById("idStatus");
-    // Participant Name field disabled — uncomment to re-enable
-    // const participantNameInput = document.getElementById("participantName");
-    // const nameStatusEl = document.getElementById("nameStatus");
+    const letterInput = document.getElementById("familyNameLetter");
+    const letterStatusEl = document.getElementById("letterStatus");
     const trialInput = document.getElementById("trialNumber");
     const trialStatusEl = document.getElementById("trialStatus");
+    // The fields that identify a trial, in page order, each with the appState flag
+    // that is true once it holds a valid value.
+    const IDENTIFICATION_FIELDS = [
+      { input: participantInput, validFlag: "idIsValid", labelKey: "field.participantId" },
+      { input: trialInput, validFlag: "trialIsValid", labelKey: "field.trialNumber" },
+      { input: letterInput, validFlag: "letterIsValid", labelKey: "field.familyNameLetter" },
+    ];
     const requirementBannerTop = document.getElementById("requirementBannerTop");
     const requirementBannerFigures = document.getElementById("requirementBannerFigures");
     const figureMainSlot = document.getElementById("figureMainSlot");
@@ -2071,10 +2076,11 @@
       });
     }
 
-    // Like the body figures, no answer can be given before the participant ID and
-    // trial number are valid, nor once the trial's edit window has closed.
+    // Like the body figures, no answer can be given before the participant ID,
+    // trial number and family-name letter are valid, nor once the trial's edit
+    // window has closed.
     function slidersLocked() {
-      return !appState.idIsValid || !appState.trialIsValid || !appState.isEditable();
+      return missingIdentificationFields().length > 0 || !appState.isEditable();
     }
 
     // Called when a locked slider is pressed: tells the participant why it won't move.
@@ -2360,20 +2366,29 @@
     }
 
     // ============ PARTICIPANT / TRIAL IDENTIFICATION ============
-    // True when the participant ID and trial number are both valid. Otherwise says
-    // which of them to fill in first (messageKey: before doing what) and brings the
-    // participant to the first one still missing. pointerdownEvent is the press that
-    // asked: it is cancelled, or the mousedown that follows it takes the focus back.
+    function missingIdentificationFields() {
+      return IDENTIFICATION_FIELDS.filter(field => !appState[field.validFlag]);
+    }
+
+    // "A", "A and B", "A, B and C", in the current language.
+    function joinFieldNames(fields) {
+      const names = fields.map(field => t(field.labelKey));
+      if (names.length < 2) return names.join("");
+      return names.slice(0, -1).join(", ") + t("list.and") + names[names.length - 1];
+    }
+
+    // True when all identification fields are valid. Otherwise says which of them
+    // to fill in first (messageKey: before doing what) and brings the participant
+    // to the first one still missing. pointerdownEvent is the press that asked:
+    // it is cancelled, or the mousedown that follows it takes the focus back.
     function requireIdentification(messageKey, pointerdownEvent) {
-      if (appState.idIsValid && appState.trialIsValid) return true;
-      const missingKeys = [];
-      if (!appState.idIsValid) missingKeys.push("field.participantId");
-      if (!appState.trialIsValid) missingKeys.push("field.trialNumber");
-      const message = () => t(messageKey, { fields: missingKeys.map(k => t(k)).join(t("list.and")) });
+      const missing = missingIdentificationFields();
+      if (!missing.length) return true;
+      const message = () => t(messageKey, { fields: joinFieldNames(missing) });
       setStatus(() => `❌ ${message()}`);
       alert(message());
       pointerdownEvent.preventDefault();
-      (appState.idIsValid ? trialInput : participantInput).focus();
+      missing[0].input.focus();
       return false;
     }
 
@@ -2404,26 +2419,25 @@
       updateCombinedKeyStatus();
     }
 
-    // Participant Name field disabled — uncomment to re-enable
-    // async function updateNameStatus() {
-    //   const name = participantNameInput.value.trim();
-    //   if (!name) {
-    //     appState.nameIsValid = false;
-    //     nameStatusEl.textContent = "";
-    //     nameStatusEl.className = "id-status";
-    //     return;
-    //   }
-    //   if (!dataService.isValidName(name)) {
-    //     appState.nameIsValid = false;
-    //     nameStatusEl.textContent = "❌ Name must not be empty";
-    //     nameStatusEl.className = "id-status id-invalid";
-    //     return;
-    //   }
-    //   appState.nameIsValid = true;
-    //   nameStatusEl.textContent = "✓ Name is valid";
-    //   nameStatusEl.className = "id-status id-valid";
-    //   updateCombinedKeyStatus();
-    // }
+    async function updateLetterStatus() {
+      const letter = letterInput.value.trim();
+      if (!letter) {
+        appState.letterIsValid = false;
+        setLiveText(letterStatusEl, null);
+        letterStatusEl.className = "id-status";
+        return;
+      }
+      if (!dataService.isValidLetter(letter)) {
+        appState.letterIsValid = false;
+        setLiveText(letterStatusEl, "status.letter.invalid");
+        letterStatusEl.className = "id-status id-invalid";
+        return;
+      }
+      appState.letterIsValid = true;
+      setLiveText(letterStatusEl, "status.letter.valid");
+      letterStatusEl.className = "id-status id-valid";
+      updateCombinedKeyStatus();
+    }
 
     async function updateTrialStatus() {
       const trial = trialInput.value.trim();
@@ -2446,18 +2460,16 @@
     }
 
     async function updateCombinedKeyStatus() {
-      // if (!appState.idIsValid || !appState.nameIsValid || !appState.trialIsValid) return;
-      if (!appState.idIsValid || !appState.trialIsValid) return;
+      if (missingIdentificationFields().length) return;
 
       const id = participantInput.value.trim();
-      // const name = participantNameInput.value.trim(); // Participant Name field disabled
-      const name = "";
+      const letter = letterInput.value.trim();
       const trialNumber = trialInput.value.trim();
       const date = dataService.getSessionDate();
 
       let result;
       try {
-        result = await dataService.loadExistingTrialData(id, name, date, trialNumber);
+        result = await dataService.loadExistingTrialData(id, letter, date, trialNumber);
       } catch (error) {
         setStatus("status.loadFailed", { error: error.message });
         return;
@@ -2486,16 +2498,12 @@
     }
 
     function updateRequirementBanners() {
-      // const ready = appState.idIsValid && appState.nameIsValid && appState.trialIsValid;
-      const ready = appState.idIsValid && appState.trialIsValid;
-      const missingParts = [];
-      if (!appState.idIsValid) missingParts.push(t("field.participantId"));
-      // if (!appState.nameIsValid) missingParts.push("Participant Name"); // Participant Name field disabled
-      if (!appState.trialIsValid) missingParts.push(t("field.trialNumber"));
+      const missing = missingIdentificationFields();
+      const ready = missing.length === 0;
 
       const text = ready
         ? t("banner.ready")
-        : t(missingParts.length > 1 ? "banner.missingMany" : "banner.missingOne", { fields: missingParts.join(t("list.and")) });
+        : t(missing.length > 1 ? "banner.missingMany" : "banner.missingOne", { fields: joinFieldNames(missing) });
       const cls = ready ? "ok" : "missing";
 
       [requirementBannerTop, requirementBannerFigures].forEach(el => {
@@ -2505,7 +2513,13 @@
     }
 
     participantInput.addEventListener("input", () => { updateIdStatus(); updateRequirementBanners(); updateTrialQuestionsEditability(); });
-    // participantNameInput.addEventListener("input", () => { updateNameStatus(); updateRequirementBanners(); }); // Participant Name field disabled
+    letterInput.addEventListener("input", () => {
+      // Shown as a capital whatever the case typed ("s" and "S" open the same
+      // record anyway). ß has no one-letter capital, so it stays as typed.
+      const upper = letterInput.value.toUpperCase();
+      if (upper.length === 1) letterInput.value = upper;
+      updateLetterStatus(); updateRequirementBanners(); updateTrialQuestionsEditability();
+    });
     trialInput.addEventListener("input", () => { updateTrialStatus(); updateRequirementBanners(); updateTrialQuestionsEditability(); });
 
     // iOS Safari doesn't move focus when a slider (or canvas) is tapped, so a text
@@ -2518,8 +2532,8 @@
         active.blur();
       }
     }, true);
-    // Let the keyboard's Return/Done key close it from the ID and trial fields.
-    [participantInput, trialInput].forEach(input => {
+    // Let the keyboard's Return/Done key close it from the identification fields.
+    IDENTIFICATION_FIELDS.forEach(({ input }) => {
       input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
     });
 
@@ -2672,11 +2686,7 @@
     window.saveAllAndReload = async function (isRetry = false) {
       const btn = document.getElementById("saveAndSend");
 
-      // if (!appState.idIsValid || !appState.nameIsValid || !appState.trialIsValid) {
-      //   alert("Participant ID, Name and Trial number must all be valid before saving.");
-      //   return;
-      // }
-      if (!appState.idIsValid || !appState.trialIsValid) {
+      if (missingIdentificationFields().length) {
         alert(t("save.invalidIds"));
         return;
       }
@@ -2721,8 +2731,7 @@
         setStatus(isRetry ? "status.retrying" : "status.saving", { count: appState.getAreasCount() });
 
         const id = participantInput.value.trim();
-        // const name = participantNameInput.value.trim(); // Participant Name field disabled
-        const name = "";
+        const letter = letterInput.value.trim();
         const nowIso = new Date().toISOString();
 
         appState.currentTrial.notes = notesTextarea.value;
@@ -2732,7 +2741,7 @@
 
         const date = appState.sessionDate || dataService.getSessionDate();
 
-        await dataService.saveTrialData(id, name, date, appState.currentTrial);
+        await dataService.saveTrialData(id, letter, date, appState.currentTrial);
 
         appState.clearAllAreas();
         canvasManager.clearAreaMaskCache();
@@ -2740,18 +2749,18 @@
         canvasManager.redrawAllFigures();
 
         participantInput.value = "";
-        // participantNameInput.value = ""; // Participant Name field disabled
+        letterInput.value = "";
         trialInput.value = "";
         notesTextarea.value = "";
         charCountEl.textContent = "0";
         setLiveText(idStatusEl, null);
         idStatusEl.className = "id-status";
-        // nameStatusEl.textContent = ""; // Participant Name field disabled
-        // nameStatusEl.className = "id-status";
+        setLiveText(letterStatusEl, null);
+        letterStatusEl.className = "id-status";
         setLiveText(trialStatusEl, null);
         trialStatusEl.className = "id-status";
         appState.idIsValid = false;
-        appState.nameIsValid = false;
+        appState.letterIsValid = false;
         appState.trialIsValid = false;
         updateRequirementBanners();
 

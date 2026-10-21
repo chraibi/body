@@ -32,6 +32,14 @@ const TRANSLATIONS = {
     en: "e.g. 001",
     de: "z. B. 001",
   },
+  "ident.familyNameLetter": {
+    en: "Last letter of family name (for security):",
+    de: "Letzter Buchstabe des Nachnamens (zur Sicherheit):",
+  },
+  "ident.familyNameLetterPlaceholder": {
+    en: "e.g. R",
+    de: "z. B. R",
+  },
   "ident.trialNumber": {
     en: "Trial number:",
     de: "Durchgangsnummer:",
@@ -43,6 +51,10 @@ const TRANSLATIONS = {
   "field.participantId": {
     en: "Participant ID",
     de: "Teilnehmer-ID",
+  },
+  "field.familyNameLetter": {
+    en: "Last letter of family name",
+    de: "Letzter Buchstabe des Nachnamens",
   },
   "field.trialNumber": {
     en: "Trial number",
@@ -59,6 +71,14 @@ const TRANSLATIONS = {
   "status.id.valid": {
     en: "✓ ID is valid",
     de: "✓ ID ist gültig",
+  },
+  "status.letter.invalid": {
+    en: "❌ Must be a letter",
+    de: "❌ Muss ein Buchstabe sein",
+  },
+  "status.letter.valid": {
+    en: "✓ Letter is valid",
+    de: "✓ Buchstabe ist gültig",
   },
   "status.trial.invalid": {
     en: "❌ Trial number must be numeric",
@@ -542,8 +562,8 @@ const TRANSLATIONS = {
     de: "⚠️ Erneut versuchen",
   },
   "save.invalidIds": {
-    en: "Participant ID and Trial number must all be valid before saving.",
-    de: "Teilnehmer-ID und Durchgangsnummer müssen gültig sein, bevor Sie speichern können.",
+    en: "Participant ID, trial number and last letter of family name must all be valid before saving.",
+    de: "Teilnehmer-ID, Durchgangsnummer und letzter Buchstabe des Nachnamens müssen gültig sein, bevor Sie speichern können.",
   },
   "save.incompleteIntro": {
     en: "Please complete the following before saving:",

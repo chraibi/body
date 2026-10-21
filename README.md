@@ -283,12 +283,12 @@ Each provides:
 
 ### For Returning Participants
 
-1. Enter your ID and Trial number
+1. Enter your ID, the Trial number and the last letter of your family name
 2. System loads the answers you sent for that trial **today** (the same ID and trial number on another day start a new, empty trial)
 3. You have 1 hour to edit your session
 4. Continue where you left off
 
-Trials are stored per day under `data/{id}_{YYYY-MM-DD}/trials/{trialNumber}` (local date of the device), so experiment days that reuse the same IDs and trial numbers never read or overwrite each other.
+Trials are stored per day under `data/{id}_{letter}_{YYYY-MM-DD}/trials/{trialNumber}` (local date of the device), so experiment days that reuse the same IDs and trial numbers never read or overwrite each other. `{letter}` is the last letter of the participant's family name, lower-cased: a participant who mistypes their ID only reaches someone else's answers if that person's family name also ends with the same letter.
 
 ### Languages
 
