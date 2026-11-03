@@ -331,6 +331,30 @@ const TRANSLATIONS = {
     en: "Acceptability of bodily interactions",
     de: "Akzeptanz körperlicher Interaktionen",
   },
+  "question.discomfort": {
+    en: "During this trial, you felt awkward/uncomfortable.",
+    de: "Während dieses Durchgangs fühlten Sie sich verlegen/unwohl.",
+  },
+  "question.fun": {
+    en: "During this trial, you had fun.",
+    de: "Während dieses Durchgangs hatten Sie Spaß.",
+  },
+  "question.unfairness": {
+    en: "During this trial, you felt like the situation was unfair.",
+    de: "Während dieses Durchgangs empfanden Sie die Situation als unfair.",
+  },
+  "question.discomfort.short": {
+    en: "Awkwardness/discomfort",
+    de: "Verlegenheit/Unwohlsein",
+  },
+  "question.fun.short": {
+    en: "Fun during the trial",
+    de: "Spaß während des Durchgangs",
+  },
+  "question.unfairness.short": {
+    en: "Unfairness of the situation",
+    de: "Unfairness der Situation",
+  },
 
   // ---- Comments ----
   "comments.heading": {

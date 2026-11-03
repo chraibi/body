@@ -862,6 +862,18 @@
       <label class="question-text" data-i18n="question.comfort">During this trial, you felt comfortable with the distance you had with your neighbours.</label>
       <div class="choice-options" id="comfortOptions"></div>
     </div>
+    <div class="question-block">
+      <label class="question-text" data-i18n="question.discomfort">During this trial, you felt awkward/uncomfortable.</label>
+      <div class="choice-options" id="discomfortOptions"></div>
+    </div>
+    <div class="question-block">
+      <label class="question-text" data-i18n="question.fun">During this trial, you had fun.</label>
+      <div class="choice-options" id="funOptions"></div>
+    </div>
+    <div class="question-block">
+      <label class="question-text" data-i18n="question.unfairness">During this trial, you felt like the situation was unfair.</label>
+      <div class="choice-options" id="unfairnessOptions"></div>
+    </div>
   </div>
 
   <p class="hint" data-i18n-html="hint.declare">Declare the contact you perceived during the experimental run. All figures represent <strong>your own body</strong>.</p>
@@ -1243,6 +1255,9 @@
         comfortWithDistance: null,
         awarenessOfContacts: null,
         acceptabilityOfInteractions: null,
+        overallDiscomfort: null,
+        trialFun: null,
+        unfairSituation: null,
         noContactTouchedBy: false,
         noContactTouched: false,
         notes: "",
@@ -2059,6 +2074,9 @@
     const comfortOptionsEl = document.getElementById("comfortOptions");
     const awarenessOptionsEl = document.getElementById("awarenessOptions");
     const acceptabilityOptionsEl = document.getElementById("acceptabilityOptions");
+    const discomfortOptionsEl = document.getElementById("discomfortOptions");
+    const funOptionsEl = document.getElementById("funOptions");
+    const unfairnessOptionsEl = document.getElementById("unfairnessOptions");
 
     const ratingModalOverlay = document.getElementById("ratingModalOverlay");
     const ratingModalTitle = document.getElementById("ratingModalTitle");
@@ -2079,6 +2097,9 @@
     const TRIAL_QUESTIONS = [
       { field: "distanceEstimate", container: distanceOptionsEl, options: DISTANCE_OPTIONS, labelKey: "question.distance.short", defaultIndex: 0 },
       { field: "comfortWithDistance", container: comfortOptionsEl, options: AGREEMENT_OPTIONS, labelKey: "question.comfort.short" },
+      { field: "overallDiscomfort", container: discomfortOptionsEl, options: AGREEMENT_OPTIONS, labelKey: "question.discomfort.short" },
+      { field: "trialFun", container: funOptionsEl, options: AGREEMENT_OPTIONS, labelKey: "question.fun.short" },
+      { field: "unfairSituation", container: unfairnessOptionsEl, options: AGREEMENT_OPTIONS, labelKey: "question.unfairness.short" },
       { field: "awarenessOfContacts", container: awarenessOptionsEl, options: AGREEMENT_OPTIONS, labelKey: "question.awareness.short" },
       { field: "acceptabilityOfInteractions", container: acceptabilityOptionsEl, options: AGREEMENT_OPTIONS, labelKey: "question.acceptability.short" },
     ];
