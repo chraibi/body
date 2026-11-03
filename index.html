@@ -1290,8 +1290,20 @@
         return area;
       }
 
+      // Removes the area and renumbers the remaining ones 1..n in the order
+      // they were drawn, so the numbers shown stay consecutive. Returns the
+      // renumbering (old number -> new number).
       removeArea(index) {
         this.currentTrial.areas.splice(index, 1);
+        const renumbered = new Map();
+        [...this.currentTrial.areas]
+          .sort((a, b) => a.number - b.number)
+          .forEach((area, i) => {
+            renumbered.set(area.number, i + 1);
+            area.number = i + 1;
+          });
+        this.nextAreaNumber = this.currentTrial.areas.length + 1;
+        return renumbered;
       }
 
       clearAllAreas() {
@@ -1654,6 +1666,16 @@
 
       clearAreaMaskCache() {
         this.areaMaskCache.clear();
+      }
+
+      // Re-keys the cached masks after the areas were renumbered; the masks of
+      // areas no longer in the list are dropped.
+      renumberAreaMasks(renumbered) {
+        const cache = new Map();
+        renumbered.forEach((newNumber, oldNumber) => {
+          if (this.areaMaskCache.has(oldNumber)) cache.set(newNumber, this.areaMaskCache.get(oldNumber));
+        });
+        this.areaMaskCache = cache;
       }
 
       // Computes the actual shape to save/display for a freshly drawn stroke:
@@ -2206,7 +2228,7 @@
         setStatus("status.expiredDelete");
         return;
       }
-      appState.removeArea(index);
+      canvasManager.renumberAreaMasks(appState.removeArea(index));
       updateAreasList();
       canvasManager.redrawAllFigures();
       setStatus("status.areaDeleted", { total: appState.getAreasCount() });
