@@ -84,14 +84,6 @@
       margin-bottom: 0;
     }
 
-    p.hint {
-      text-align: center;
-      font-size: 0.93rem;
-      color: #444;
-      margin-top: 0.5rem;
-      margin-bottom: 1rem;
-    }
-
     .requirement-banner {
       padding: 0.6rem 0.9rem;
       border-radius: 0.3rem;
@@ -222,89 +214,106 @@
     .sync-indicator.syncing { background: #FFC107; }
     .sync-indicator.error { background: #f44336; }
 
-    /* Marking mode */
-    .filter-options {
+    .save-row {
+      text-align: center;
+      margin: 2rem 0;
+    }
+
+    .save-row .status {
+      margin: 0 0 0.75rem;
+    }
+
+    /* Contact sections, each marked with the colour its areas are drawn in:
+       the script sets --direction-color and --direction-tint on each section
+       from directionColors. */
+    .contact-section {
+      border: 1px solid #e0e0e0;
+      border-top: 4px solid var(--direction-color);
+      border-radius: 0.4rem;
+      padding: 1rem;
+      margin-top: 1rem;
+    }
+
+    .contact-section h4 {
+      font-size: 1.05rem;
+      margin: 0 0 1rem;
+    }
+
+    .drawing-status {
+      margin-bottom: 0.75rem;
+    }
+
+    .card-header-row h5 {
+      font-size: 1rem;
+      margin: 0;
+    }
+
+    /* Yes/No answer: two large boxes, the chosen one highlighted. */
+    .contact-section .question-text {
+      text-align: center;
+    }
+
+    .yes-no-options {
       display: flex;
-      flex-direction: column;
+      justify-content: center;
       gap: 0.75rem;
     }
 
-    .filter-options label {
+    .yes-no-option {
+      flex: 1 1 0;
+      max-width: 10rem;
       display: flex;
-      align-items: flex-start;
-      gap: 0.5rem;
-      cursor: pointer;
-      font-weight: 400;
-      flex-wrap: wrap;
-    }
-
-    .filter-options input[type="radio"] {
-      cursor: pointer;
-      margin-top: 0.25rem;
-      flex-shrink: 0;
-    }
-
-    .mode-row {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 0.5rem 1rem;
-      flex-wrap: wrap;
-    }
-
-    .mode-row > label:first-child {
-      flex: 1 1 16rem;
-    }
-
-    .filter-options label.no-contact-option {
-      flex-wrap: nowrap;
       align-items: center;
-      padding: 0.25rem 0.6rem;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.6rem 0.9rem;
+      border: 2px solid #ccc;
+      border-radius: 0.3rem;
+      background: white;
+      font-size: 0.95rem;
+      cursor: pointer;
     }
 
-    .filter-options label.is-disabled {
-      opacity: 0.5;
+    .yes-no-option:has(input:checked) {
+      border-color: #3498db;
+      background: #eaf4fc;
+    }
+
+    .yes-no-option:has(input:disabled) {
+      opacity: 0.6;
       cursor: not-allowed;
     }
 
-    .no-contact-option input[type="checkbox"] {
+    .yes-no-option input {
       width: 1.1rem;
       height: 1.1rem;
       margin: 0;
       cursor: inherit;
     }
 
-    /* Leaves room on its line for the radio button and the colour dot, so a long
-       label wraps beside the radio rather than dropping onto a line of its own. */
-    .mode-label {
-      max-width: calc(100% - 4.5rem);
+    /* Let a press on a disabled answer reach .yes-no-options, which explains
+       why it can't be given (see .option-slider:disabled). */
+    .yes-no-option input:disabled {
+      pointer-events: none;
     }
 
-    .mode-hint {
-      font-size: 0.75rem;
-      color: #999;
-      font-weight: normal;
-      flex-basis: 100%;
-      margin-left: 1.5rem;
-    }
-
-    .filter-preview {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      border: 1px solid #333;
-      margin-left: 0.5rem;
-      flex-shrink: 0;
+    .drawing-instruction {
+      margin: 1.25rem 0 1rem;
+      padding: 0.75rem 1rem;
+      border-left: 4px solid var(--direction-color);
+      border-radius: 0.3rem;
+      background: var(--direction-tint);
+      font-size: 1rem;
+      line-height: 1.45;
+      color: #2c3e50;
     }
 
     /* Body figures: one large "main" view plus a rail of small thumbnail buttons
        for the other three sides. The main figure is sized by a fixed HEIGHT (its
        width follows from its own aspect ratio) so front/back/left/right all look
        the same size as the main view, instead of the narrower left/right ending up
-       visibly shorter than front/back at a shared fixed width. */
+       visibly shorter than front/back at a shared fixed width. Each contact
+       section's zoom sets its own value on its .figures. */
     :root {
       --main-figure-height: 530px;
     }
@@ -876,93 +885,136 @@
     </div>
   </div>
 
-  <p class="hint" data-i18n-html="hint.declare">Declare the contact you perceived during the experimental run. All figures represent <strong>your own body</strong>.</p>
+  <!-- Contact declaration -->
+  <div class="card" id="contactDeclaration">
+    <h3 data-i18n="section.contacts">Declaration of contacts perceived during the trial</h3>
 
-  <!-- Marking Mode -->
-  <div class="card">
-    <div class="filter-options">
-      <div class="mode-row">
-        <label>
-          <input type="radio" name="markingMode" value="mark_touched_by" checked />
-          <span class="mode-label" data-i18n="mode.markTouchedBy">Locations where other participants made contact on my body</span> <span class="filter-preview" style="background: #e74c3c;"></span>
-          <span class="mode-hint" data-i18n-html="mode.markTouchedBy.hint">Draw the area where you felt other participants contacted your body.<br>(You can also tap to create a small area)</span>
-        </label>
-        <label class="no-contact-option">
-          <input type="checkbox" id="noContactTouchedBy" />
-          <span data-i18n="noContact.touchedBy">No participant made contact on my body</span>
-        </label>
-      </div>
-      <div class="mode-row">
-        <label>
-          <input type="radio" name="markingMode" value="mark_touched" />
-          <span class="mode-label" data-i18n="mode.markTouched">Locations on my body that contacted other participants</span> <span class="filter-preview" style="background: #3498db;"></span>
-          <span class="mode-hint" data-i18n-html="mode.markTouched.hint">Draw the <strong>parts of your own body</strong> which made contact with the other participants.<br>(You can also tap to create a small area)</span>
-        </label>
-        <label class="no-contact-option">
-          <input type="checkbox" id="noContactTouched" />
-          <span data-i18n="noContact.touched">I did not make contact with other participants</span>
-        </label>
-      </div>
-      <label>
-        <input type="radio" name="markingMode" value="view_all" />
-        <span class="mode-label" data-i18n="mode.viewAll">View All Areas</span>
-        <span class="mode-hint" data-i18n="mode.viewAll.hint">Viewing only - no drawing</span>
-      </label>
-    </div>
-  </div>
-
-  <div class="requirement-banner" id="requirementBannerFigures"></div>
-
-  <div class="figures">
-    <div class="figure-main-slot" id="figureMainSlot">
-      <div class="zoom-control">
-        <button type="button" class="zoom-btn zoom-btn-out" id="figureZoomOutBtn" aria-label="Decrease outline size" title="Decrease outline size" data-i18n-aria-label="zoom.out" data-i18n-title="zoom.out">
-          <span class="zoom-sign">&minus;</span>
-        </button>
-        <div class="zoom-icon-box" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round">
-            <circle cx="10.2" cy="10.2" r="6.2"></circle>
-            <line x1="15" y1="15" x2="20.5" y2="20.5"></line>
-          </svg>
+    <!-- One section per contact direction: a yes/no question and, once answered
+         "Yes", the figures to draw the contact areas on and the list of the areas
+         drawn there. The two sections have the same markup; the script finds
+         their parts by class, within each section. -->
+    <div class="contact-section" data-direction="touched_by">
+      <h4 data-i18n="contact.touched_by.heading">Being touched by others</h4>
+      <div class="question-block">
+        <label class="question-text" data-i18n="contact.touched_by.question">During this trial, your body was touched by other participants.</label>
+        <div class="yes-no-options">
+          <label class="yes-no-option"><input type="radio" name="contactAnswer_touched_by" value="yes" /> <span data-i18n="answer.yes">Yes</span></label>
+          <label class="yes-no-option"><input type="radio" name="contactAnswer_touched_by" value="no" /> <span data-i18n="answer.no">No</span></label>
         </div>
-        <button type="button" class="zoom-btn zoom-btn-in" id="figureZoomInBtn" aria-label="Increase outline size" title="Increase outline size" data-i18n-aria-label="zoom.in" data-i18n-title="zoom.in">
-          <span class="zoom-sign">+</span>
-        </button>
+      </div>
+
+      <div class="contact-drawing" hidden>
+        <p class="drawing-instruction" data-i18n-html="contact.touched_by.instruction">Draw, on the outlines, the area of <strong>your body</strong> where you felt contact from other participants.<br>(You can also tap to create a small area)</p>
+
+        <div class="figures">
+          <div class="figure-main-slot">
+            <div class="zoom-control">
+              <button type="button" class="zoom-btn zoom-btn-out" aria-label="Decrease outline size" title="Decrease outline size" data-i18n-aria-label="zoom.out" data-i18n-title="zoom.out">
+                <span class="zoom-sign">&minus;</span>
+              </button>
+              <div class="zoom-icon-box" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round">
+                  <circle cx="10.2" cy="10.2" r="6.2"></circle>
+                  <line x1="15" y1="15" x2="20.5" y2="20.5"></line>
+                </svg>
+              </div>
+              <button type="button" class="zoom-btn zoom-btn-in" aria-label="Increase outline size" title="Increase outline size" data-i18n-aria-label="zoom.in" data-i18n-title="zoom.in">
+                <span class="zoom-sign">+</span>
+              </button>
+            </div>
+          </div>
+          <div class="figure-thumbs-rail">
+            <div class="figure-wrapper" data-figure="front">
+              <div class="figure-label" data-i18n="figure.front">Front</div>
+              <canvas width="200" height="600"></canvas>
+            </div>
+            <div class="figure-wrapper" data-figure="back">
+              <div class="figure-label" data-i18n="figure.back">Back</div>
+              <canvas width="200" height="600"></canvas>
+            </div>
+            <div class="figure-wrapper" data-figure="left">
+              <div class="figure-label" data-i18n="figure.left">Left</div>
+              <canvas width="100" height="600"></canvas>
+            </div>
+            <div class="figure-wrapper" data-figure="right">
+              <div class="figure-label" data-i18n="figure.right">Right</div>
+              <canvas width="100" height="600"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="status drawing-status"></div>
+
+        <div class="card-header-row">
+          <h5 data-i18n="areas.heading">Recorded Contact Areas</h5>
+          <button type="button" class="secondary clear-areas" data-i18n="areas.clearAll">Clear all areas</button>
+        </div>
+        <div class="areas-list">
+          <div class="empty-list" data-i18n="areas.empty">No contact areas recorded yet</div>
+        </div>
       </div>
     </div>
-    <div class="figure-thumbs-rail" id="figureThumbsRail"></div>
-  </div>
 
-  <div id="figureWrapper_front" class="figure-wrapper" style="display: none;">
-    <div class="figure-label" data-i18n="figure.front">Front</div>
-    <canvas id="figure_front" width="200" height="600"></canvas>
-  </div>
-  <div id="figureWrapper_back" class="figure-wrapper" style="display: none;">
-    <div class="figure-label" data-i18n="figure.back">Back</div>
-    <canvas id="figure_back" width="200" height="600"></canvas>
-  </div>
-  <div id="figureWrapper_left" class="figure-wrapper" style="display: none;">
-    <div class="figure-label" data-i18n="figure.left">Left</div>
-    <canvas id="figure_left" width="100" height="600"></canvas>
-  </div>
-  <div id="figureWrapper_right" class="figure-wrapper" style="display: none;">
-    <div class="figure-label" data-i18n="figure.right">Right</div>
-    <canvas id="figure_right" width="100" height="600"></canvas>
-  </div>
+    <div class="contact-section" data-direction="touched">
+      <h4 data-i18n="contact.touched.heading">Touching others</h4>
+      <div class="question-block">
+        <label class="question-text" data-i18n="contact.touched.question">During this trial, you touched other participants.</label>
+        <div class="yes-no-options">
+          <label class="yes-no-option"><input type="radio" name="contactAnswer_touched" value="yes" /> <span data-i18n="answer.yes">Yes</span></label>
+          <label class="yes-no-option"><input type="radio" name="contactAnswer_touched" value="no" /> <span data-i18n="answer.no">No</span></label>
+        </div>
+      </div>
 
-  <div class="status" id="status">
-    <span id="statusMessage" data-i18n="status.readyShort">Ready</span>
-    <span class="sync-indicator" id="syncIndicator"></span>
-  </div>
+      <div class="contact-drawing" hidden>
+        <p class="drawing-instruction" data-i18n-html="contact.touched.instruction">Draw, on the outlines, the area of <strong>your body</strong> which made contact with other participants.<br>(You can also tap to create a small area)</p>
 
-  <!-- Areas List -->
-  <div class="card">
-    <div class="card-header-row">
-      <h3 data-i18n="areas.heading">Recorded Contact Areas</h3>
-      <button id="clearAreas" class="secondary" data-i18n="areas.clearAll">Clear all areas</button>
-    </div>
-    <div class="areas-list" id="areasList">
-      <div class="empty-list" data-i18n="areas.empty">No contact areas recorded yet</div>
+        <div class="figures">
+          <div class="figure-main-slot">
+            <div class="zoom-control">
+              <button type="button" class="zoom-btn zoom-btn-out" aria-label="Decrease outline size" title="Decrease outline size" data-i18n-aria-label="zoom.out" data-i18n-title="zoom.out">
+                <span class="zoom-sign">&minus;</span>
+              </button>
+              <div class="zoom-icon-box" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round">
+                  <circle cx="10.2" cy="10.2" r="6.2"></circle>
+                  <line x1="15" y1="15" x2="20.5" y2="20.5"></line>
+                </svg>
+              </div>
+              <button type="button" class="zoom-btn zoom-btn-in" aria-label="Increase outline size" title="Increase outline size" data-i18n-aria-label="zoom.in" data-i18n-title="zoom.in">
+                <span class="zoom-sign">+</span>
+              </button>
+            </div>
+          </div>
+          <div class="figure-thumbs-rail">
+            <div class="figure-wrapper" data-figure="front">
+              <div class="figure-label" data-i18n="figure.front">Front</div>
+              <canvas width="200" height="600"></canvas>
+            </div>
+            <div class="figure-wrapper" data-figure="back">
+              <div class="figure-label" data-i18n="figure.back">Back</div>
+              <canvas width="200" height="600"></canvas>
+            </div>
+            <div class="figure-wrapper" data-figure="left">
+              <div class="figure-label" data-i18n="figure.left">Left</div>
+              <canvas width="100" height="600"></canvas>
+            </div>
+            <div class="figure-wrapper" data-figure="right">
+              <div class="figure-label" data-i18n="figure.right">Right</div>
+              <canvas width="100" height="600"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="status drawing-status"></div>
+
+        <div class="card-header-row">
+          <h5 data-i18n="areas.heading">Recorded Contact Areas</h5>
+          <button type="button" class="secondary clear-areas" data-i18n="areas.clearAll">Clear all areas</button>
+        </div>
+        <div class="areas-list">
+          <div class="empty-list" data-i18n="areas.empty">No contact areas recorded yet</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1035,7 +1087,11 @@
     </div>
   </div>
 
-  <div style="text-align: center; margin: 2rem 0;">
+  <div class="save-row">
+    <div class="status" id="status">
+      <span id="statusMessage" data-i18n="status.readyShort">Ready</span>
+      <span class="sync-indicator" id="syncIndicator"></span>
+    </div>
     <button id="saveAndSend" type="button" class="secondary" onclick="saveAllAndReload()" data-i18n="save.button">Save and Send</button>
   </div>
 
@@ -1243,7 +1299,7 @@
       // into a page scroll ends in "pointercancel" instead, so it answers nothing.
       slider.addEventListener("pointerup", () => { if (!answered) select(); });
       // Presses on a disabled slider land here (see .option-slider:disabled).
-      trackWrap.addEventListener("pointerdown", (event) => { if (slider.disabled) explainSliderLock(event); });
+      trackWrap.addEventListener("pointerdown", (event) => { if (slider.disabled) explainAnswerLock(event); });
       paint();
     }
 
@@ -1290,9 +1346,10 @@
         // would replace the answers already sent.
         this.sentTrialConflict = false;
 
-        this.markingMode = "mark_touched_by";
-        this.currentDirection = "touched_by";
-        this.displayFilter = "touched_by";
+        // "yes", "no" or null (not answered yet) for each contact direction.
+        // Only a "no" is saved, as the trial's noContact* field; a "yes" shows
+        // in the areas drawn in that direction.
+        this.contactAnswers = { touched_by: null, touched: null };
       }
 
       isEditable() {
@@ -1305,11 +1362,21 @@
         return area;
       }
 
-      // Removes the area and renumbers the remaining ones 1..n in the order
-      // they were drawn, so the numbers shown stay consecutive. Returns the
-      // renumbering (old number -> new number).
+      // Removing areas renumbers the remaining ones (see renumberAreas) and
+      // returns that renumbering.
       removeArea(index) {
         this.currentTrial.areas.splice(index, 1);
+        return this.renumberAreas();
+      }
+
+      removeAreasInDirection(direction) {
+        this.currentTrial.areas = this.currentTrial.areas.filter(a => a.direction !== direction);
+        return this.renumberAreas();
+      }
+
+      // Renumbers the areas 1..n in the order they were drawn, so the numbers
+      // shown stay consecutive. Returns the renumbering (old number -> new number).
+      renumberAreas() {
         const renumbered = new Map();
         [...this.currentTrial.areas]
           .sort((a, b) => a.number - b.number)
@@ -1334,27 +1401,12 @@
         return this.currentTrial.areas.filter(a => !a.intensity || !a.duration || !a.expectation || !a.confidence);
       }
 
-      setMarkingMode(mode) {
-        this.markingMode = mode;
-        if (mode === "mark_touched_by") {
-          this.currentDirection = "touched_by";
-          this.displayFilter = "touched_by";
-        } else if (mode === "mark_touched") {
-          this.currentDirection = "touched";
-          this.displayFilter = "touched";
-        } else if (mode === "view_all") {
-          this.displayFilter = "all";
-        }
-      }
-
       resetForNewTrial(trialNumber) {
         this.currentTrial = emptyTrial(trialNumber);
         this.nextAreaNumber = 1;
         this.isExistingSession = false;
         this.canEdit = true;
-        this.markingMode = "mark_touched_by";
-        this.currentDirection = "touched_by";
-        this.displayFilter = "touched_by";
+        this.contactAnswers = { touched_by: null, touched: null };
         if (this.editStatusTimer) {
           clearInterval(this.editStatusTimer);
           this.editStatusTimer = null;
@@ -1613,9 +1665,11 @@
         this.directionColors = directionColors;
         this.appState = appState;
         this.imageCache = {};
-        this.canvases = {};
-        this.contexts = {};
-        this.activeDraw = null; // { figureId, direction, path: [{x,y}], activePointerId }
+        // Every canvas a figure is drawn on: { id (figure), direction, canvas, ctx, wrapper }.
+        // Each contact section has its own view of each figure, showing and
+        // recording the areas of its own direction only.
+        this.views = [];
+        this.activeDraw = null; // { view, path: [{x,y}], pointerId, lastPxX, lastPxY }
         this.bodyMasks = {}; // figureId -> { canvas, width, height } filled-silhouette mask
         this.areaMaskCache = new Map(); // area.number -> { drawable, bbox }
       }
@@ -1816,22 +1870,22 @@
         }
       }
 
-      setupFigure(figureConfig) {
-        const canvas = document.getElementById(figureConfig.canvasId);
-        if (!canvas) return;
-
-        this.canvases[figureConfig.id] = canvas;
-        this.contexts[figureConfig.id] = canvas.getContext("2d");
+      // Registers a view (see this.views; its ctx is added here) and makes its
+      // canvas drawable.
+      setupFigure(view) {
+        const canvas = view.canvas;
+        view.ctx = canvas.getContext("2d");
+        this.views.push(view);
 
         // Match the canvas box to the actual SVG's proportions so the figure is never
         // stretched, regardless of what aspect ratio that particular image happens to be.
-        const img = this.imageCache[figureConfig.id];
+        const img = this.imageCache[view.id];
         if (img && img.naturalWidth && img.naturalHeight) {
           canvas.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
         }
 
         this.resizeCanvasToDisplaySize(canvas);
-        this.redrawFigure(figureConfig);
+        this.redrawFigure(view);
 
         const toNormalized = (event) => {
           const rect = canvas.getBoundingClientRect();
@@ -1845,17 +1899,8 @@
         canvas.addEventListener("pointerdown", (event) => {
           if (this.activeDraw) return;
           if (!requireIdentification("status.fillInFirst", event)) return;
-          if (this.appState.markingMode === "view_all") {
-            setStatus("status.viewingMode");
-            return;
-          }
           if (!this.appState.isEditable()) {
-            setStatus("status.expiredRecord");
-            return;
-          }
-          if (NO_CONTACT_FIELDS[this.appState.currentDirection] && this.appState.currentTrial[NO_CONTACT_FIELDS[this.appState.currentDirection]]) {
-            const direction = this.appState.currentDirection;
-            setStatus(() => t("status.noContactTicked", { label: t(NO_CONTACT_LABEL_KEYS[direction]) }));
+            setDrawingStatus(view.direction, "status.expiredRecord");
             return;
           }
 
@@ -1863,8 +1908,7 @@
           canvas.setPointerCapture(event.pointerId);
           const { x, y } = toNormalized(event);
           this.activeDraw = {
-            figureId: figureConfig.id,
-            direction: this.appState.currentDirection,
+            view,
             path: [{ x, y }],
             pointerId: event.pointerId,
             lastPxX: event.clientX,
@@ -1882,7 +1926,7 @@
           this.activeDraw.lastPxY = event.clientY;
           const { x, y } = toNormalized(event);
           this.activeDraw.path.push({ x, y });
-          this.redrawFigure(figureConfig);
+          this.redrawFigure(view);
         });
 
         const finishDraw = (event) => {
@@ -1904,9 +1948,9 @@
 
           // A tap marks a disc around the touched point (built in computeClippedAreaMask).
           if (spreadPx < TAP_THRESHOLD_PX || draw.path.length < 3) {
-            addArea(draw.figureId, draw.direction, null, draw.path[0]);
+            addArea(draw.view.id, draw.view.direction, null, draw.path[0]);
           } else {
-            addArea(draw.figureId, draw.direction, trimLoopTails(draw.path));
+            addArea(draw.view.id, draw.view.direction, trimLoopTails(draw.path));
           }
         };
 
@@ -1914,29 +1958,22 @@
         canvas.addEventListener("pointercancel", finishDraw);
       }
 
-      getFilteredAreas() {
-        const areas = this.appState.currentTrial.areas;
-        if (this.appState.displayFilter === "all") return areas;
-        return areas.filter(a => a.direction === this.appState.displayFilter);
-      }
+      redrawFigure(view) {
+        const { canvas, ctx } = view;
+        if (!ctx) return; // not set up yet
 
-      redrawFigure(figureConfig) {
-        const canvas = this.canvases[figureConfig.id];
-        const ctx = this.contexts[figureConfig.id];
-        if (!canvas || !ctx) return;
-
-        const img = this.imageCache[figureConfig.id];
+        const img = this.imageCache[view.id];
         if (!img) return;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        this.getFilteredAreas()
-          .filter(area => area.figure === figureConfig.id)
+        this.appState.currentTrial.areas
+          .filter(area => area.figure === view.id && area.direction === view.direction)
           .forEach(area => this.drawArea(ctx, area, canvas.width, canvas.height));
 
-        if (this.activeDraw && this.activeDraw.figureId === figureConfig.id) {
-          this.drawLivePath(ctx, this.activeDraw.path, this.activeDraw.direction, canvas.width, canvas.height);
+        if (this.activeDraw && this.activeDraw.view === view) {
+          this.drawLivePath(ctx, this.activeDraw.path, view.direction, canvas.width, canvas.height);
         }
       }
 
@@ -1981,15 +2018,13 @@
       }
 
       redrawAllFigures() {
-        this.figureConfigs.forEach(figureConfig => this.redrawFigure(figureConfig));
+        this.views.forEach(view => this.redrawFigure(view));
       }
 
       handleResize() {
-        this.figureConfigs.forEach(figureConfig => {
-          const canvas = this.canvases[figureConfig.id];
-          if (!canvas) return;
-          this.resizeCanvasToDisplaySize(canvas);
-          this.redrawFigure(figureConfig);
+        this.views.forEach(view => {
+          this.resizeCanvasToDisplaySize(view.canvas);
+          this.redrawFigure(view);
         });
       }
     }
@@ -2009,13 +2044,15 @@
     const db = firebase.database();
     const dataService = new DataService(db);
 
+    // The colour of each contact direction, the one place to set it: used for
+    // the areas drawn, their swatch in the areas list, and the section's top
+    // border and instruction box. Write it as #rrggbb (read by hexToRgba).
     const directionColors = {
       touched: "#3498db",
       touched_by: "#e74c3c"
     };
 
     const NO_CONTACT_FIELDS = { touched_by: "noContactTouchedBy", touched: "noContactTouched" };
-    const NO_CONTACT_LABEL_KEYS = { touched_by: "noContact.touchedBy", touched: "noContact.touched" };
 
     // Inline data URIs for the filled body-silhouette masks (used only to build
     // the offscreen "inside the body" pixel masks for clipping drawn areas).
@@ -2032,10 +2069,10 @@
     };
 
     const figureConfigs = [
-      { id: "front", canvasId: "figure_front", wrapperId: "figureWrapper_front", imageSrc: "front.svg", maskSrc: BODY_MASK_DATA_URIS.front },
-      { id: "back",  canvasId: "figure_back",  wrapperId: "figureWrapper_back",  imageSrc: "back.svg",  maskSrc: BODY_MASK_DATA_URIS.back  },
-      { id: "left",  canvasId: "figure_left",  wrapperId: "figureWrapper_left",  imageSrc: "left.svg",  maskSrc: BODY_MASK_DATA_URIS.left  },
-      { id: "right", canvasId: "figure_right", wrapperId: "figureWrapper_right", imageSrc: "right.svg", maskSrc: BODY_MASK_DATA_URIS.right },
+      { id: "front", imageSrc: "front.svg", maskSrc: BODY_MASK_DATA_URIS.front },
+      { id: "back",  imageSrc: "back.svg",  maskSrc: BODY_MASK_DATA_URIS.back  },
+      { id: "left",  imageSrc: "left.svg",  maskSrc: BODY_MASK_DATA_URIS.left  },
+      { id: "right", imageSrc: "right.svg", maskSrc: BODY_MASK_DATA_URIS.right },
     ];
 
     const canvasManager = new CanvasManager(figureConfigs, directionColors, appState);
@@ -2057,15 +2094,36 @@
       { input: letterInput, validFlag: "letterIsValid", labelKey: "field.familyNameLetter" },
     ];
     const requirementBannerTop = document.getElementById("requirementBannerTop");
-    const requirementBannerFigures = document.getElementById("requirementBannerFigures");
-    const figureMainSlot = document.getElementById("figureMainSlot");
-    const figureThumbsRail = document.getElementById("figureThumbsRail");
-    const areasListEl = document.getElementById("areasList");
-    const markingModeRadios = document.querySelectorAll('input[name="markingMode"]');
-    const noContactCheckboxes = {
-      touched_by: document.getElementById("noContactTouchedBy"),
-      touched: document.getElementById("noContactTouched"),
-    };
+
+    // The parts of each contact section (keyed by direction), with the view of
+    // each figure drawn in it, which one is shown large and the zoom level.
+    const contactSections = {};
+    Object.keys(NO_CONTACT_FIELDS).forEach(direction => {
+      const section = document.querySelector(`.contact-section[data-direction="${direction}"]`);
+      section.style.setProperty("--direction-color", directionColors[direction]);
+      section.style.setProperty("--direction-tint", hexToRgba(directionColors[direction], 0.1));
+      contactSections[direction] = {
+        direction,
+        questionBlock: section.querySelector(".question-block"),
+        answerOptionsEl: section.querySelector(".yes-no-options"),
+        answerRadios: section.querySelectorAll(".yes-no-options input"),
+        drawingEl: section.querySelector(".contact-drawing"),
+        figuresEl: section.querySelector(".figures"),
+        mainSlot: section.querySelector(".figure-main-slot"),
+        thumbsRail: section.querySelector(".figure-thumbs-rail"),
+        zoomOutBtn: section.querySelector(".zoom-btn-out"),
+        zoomInBtn: section.querySelector(".zoom-btn-in"),
+        statusEl: section.querySelector(".drawing-status"),
+        areasListEl: section.querySelector(".areas-list"),
+        clearAreasBtn: section.querySelector(".clear-areas"),
+        views: figureConfigs.map(fc => {
+          const wrapper = section.querySelector(`.figure-wrapper[data-figure="${fc.id}"]`);
+          return { id: fc.id, direction, wrapper, canvas: wrapper.querySelector("canvas") };
+        }),
+        activeFigureId: "back",
+        zoom: 1,
+      };
+    });
 
     const notesTextarea = document.getElementById("sessionNotes");
     const charCountEl = document.getElementById("charCount");
@@ -2113,22 +2171,27 @@
       updateTrialQuestionsEditability();
     }
 
+    // The sliders and the yes/no answers of the contact sections.
     function updateTrialQuestionsEditability() {
-      const disabled = slidersLocked();
+      const disabled = answersLocked();
       TRIAL_QUESTIONS.forEach(q => {
         q.container.querySelectorAll("input").forEach(input => { input.disabled = disabled; });
+      });
+      Object.values(contactSections).forEach(cs => {
+        cs.answerRadios.forEach(radio => { radio.disabled = disabled; });
       });
     }
 
     // Like the body figures, no answer can be given before the participant ID,
     // trial number and family-name letter are valid, nor once the trial's edit
     // window has closed.
-    function slidersLocked() {
+    function answersLocked() {
       return missingIdentificationFields().length > 0 || !appState.isEditable();
     }
 
-    // Called when a locked slider is pressed: tells the participant why it won't move.
-    function explainSliderLock(pointerdownEvent) {
+    // Called when a locked slider or yes/no answer is pressed: tells the
+    // participant why it can't be answered.
+    function explainAnswerLock(pointerdownEvent) {
       if (!requireIdentification("status.fillInFirstQuestions", pointerdownEvent)) return;
       if (!appState.isEditable()) setStatus("status.trial.expired");
     }
@@ -2144,7 +2207,7 @@
     function addArea(figureId, direction, path, tapPoint = null) {
       const result = canvasManager.computeClippedAreaMask(figureId, direction, path, tapPoint);
       if (!result) {
-        setStatus("status.nothingToRecord");
+        setDrawingStatus(direction, "status.nothingToRecord");
         canvasManager.redrawAllFigures();
         return;
       }
@@ -2161,8 +2224,8 @@
       canvasManager.cacheAreaMask(area.number, result.canvas, result.bbox, direction);
       updateAreasList();
       canvasManager.redrawAllFigures();
-      const total = appState.getAreasCount();
-      setStatus(() => t("status.areaRecorded", { n: area.number, figure: t(`figure.${figureId}`), total }));
+      const total = areasInDirection(direction);
+      setDrawingStatus(direction, () => t("status.areaRecorded", { n: area.number, figure: t(`figure.${figureId}`), total }));
       openRatingPanel(0);
     }
 
@@ -2172,30 +2235,34 @@
       return { text, incomplete: false };
     }
 
+    // Each section lists the areas of its own direction. `index` stays the
+    // area's position among all the trial's areas, as the buttons expect.
     function updateAreasList() {
-      updateNoContactCheckboxes();
-      const areas = appState.currentTrial.areas;
-      if (areas.length === 0) {
-        areasListEl.innerHTML = `<div class="empty-list">${t("areas.empty")}</div>`;
-        return;
-      }
+      Object.values(contactSections).forEach(cs => {
+        const items = appState.currentTrial.areas
+          .map((area, index) => ({ area, index }))
+          .filter(({ area }) => area.direction === cs.direction);
+        if (items.length === 0) {
+          cs.areasListEl.innerHTML = `<div class="empty-list">${t("areas.empty")}</div>`;
+          return;
+        }
 
-      areasListEl.innerHTML = areas.map((area, index) => {
-        const directionLabel = t(`direction.${area.direction}`);
-        const summary = areaSummary(area);
-        return `
-        <div class="area-item">
-          <div class="area-color" style="background: ${escapeHtml(directionColors[area.direction])}"></div>
-          <div class="area-info">
-            <strong>#${escapeHtml(area.number)}</strong> ${escapeHtml(t(`figure.${area.figure}`))} — <strong>${escapeHtml(directionLabel)}</strong>
-            <span class="area-ratings-summary ${summary.incomplete ? "incomplete" : ""}">${escapeHtml(summary.text)}</span>
-          </div>
-          <div class="area-actions">
-            <button type="button" onclick="openRatingPanel(${index})">${t("areas.edit")}</button>
-            <button type="button" class="danger" onclick="deleteArea(${index})">${t("areas.delete")}</button>
-          </div>
-        </div>`;
-      }).join("");
+        cs.areasListEl.innerHTML = items.map(({ area, index }) => {
+          const summary = areaSummary(area);
+          return `
+          <div class="area-item">
+            <div class="area-color" style="background: ${escapeHtml(directionColors[area.direction])}"></div>
+            <div class="area-info">
+              <strong>#${escapeHtml(area.number)}</strong> ${escapeHtml(t(`figure.${area.figure}`))}
+              <span class="area-ratings-summary ${summary.incomplete ? "incomplete" : ""}">${escapeHtml(summary.text)}</span>
+            </div>
+            <div class="area-actions">
+              <button type="button" onclick="openRatingPanel(${index})">${t("areas.edit")}</button>
+              <button type="button" class="danger" onclick="deleteArea(${index})">${t("areas.delete")}</button>
+            </div>
+          </div>`;
+        }).join("");
+      });
     }
 
     function openRatingPanel(index) {
@@ -2212,7 +2279,7 @@
       RATING_GROUPS.forEach(g => renderSliderField(g.container, g.options, area[g.field], (value) => {
         appState.currentTrial.areas[index][g.field] = value;
       }, g.defaultIndex));
-      const locked = slidersLocked();
+      const locked = answersLocked();
       RATING_GROUPS.forEach(g => g.container.querySelectorAll("input").forEach(input => { input.disabled = locked; }));
       ratingModalDeleteBtn.disabled = !appState.isEditable();
 
@@ -2230,7 +2297,7 @@
     // anymore, so the panel closes regardless.
     ratingModalDoneBtn.addEventListener("click", () => {
       const area = appState.currentTrial.areas[openAreaIndex];
-      const missingFields = area && !slidersLocked() ? RATING_GROUPS.filter(g => !area[g.field]).map(g => t(g.labelKey)) : [];
+      const missingFields = area && !answersLocked() ? RATING_GROUPS.filter(g => !area[g.field]).map(g => t(g.labelKey)) : [];
       if (missingFields.length) {
         alert(t("rating.incompleteAlert", { fields: missingFields.join(", ") }));
         return;
@@ -2245,27 +2312,38 @@
     });
 
     function deleteArea(index) {
+      const area = appState.currentTrial.areas[index];
+      if (!area) return;
       if (!appState.isEditable()) {
-        setStatus("status.expiredDelete");
+        setDrawingStatus(area.direction, "status.expiredDelete");
         return;
       }
       canvasManager.renumberAreaMasks(appState.removeArea(index));
       updateAreasList();
       canvasManager.redrawAllFigures();
-      setStatus("status.areaDeleted", { total: appState.getAreasCount() });
+      setDrawingStatus(area.direction, "status.areaDeleted", { total: areasInDirection(area.direction) });
     }
 
-    function clearAreas() {
+    function deleteAreasInDirection(direction) {
+      canvasManager.renumberAreaMasks(appState.removeAreasInDirection(direction));
+      updateAreasList();
+      canvasManager.redrawAllFigures();
+    }
+
+    function clearAreas(direction) {
+      if (!appState.isEditable()) {
+        setDrawingStatus(direction, "status.expiredDelete");
+        return;
+      }
       if (confirm(t("areas.confirmClear"))) {
-        appState.clearAllAreas();
-        canvasManager.clearAreaMaskCache();
-        updateAreasList();
-        canvasManager.redrawAllFigures();
-        setStatus("status.areasCleared");
+        deleteAreasInDirection(direction);
+        setDrawingStatus(direction, "status.areasCleared");
       }
     }
 
-    document.getElementById("clearAreas").addEventListener("click", clearAreas);
+    Object.values(contactSections).forEach(cs => {
+      cs.clearAreasBtn.addEventListener("click", () => clearAreas(cs.direction));
+    });
 
     // ============ COMMENTS ============
     notesTextarea.addEventListener("input", () => {
@@ -2285,90 +2363,77 @@
       setLiveText(statusMessageEl, keyOrBuild, params);
     }
 
+    // Feedback on drawing, shown under the figures of the direction's section.
+    function setDrawingStatus(direction, keyOrBuild, params) {
+      setLiveText(contactSections[direction].statusEl, keyOrBuild, params);
+    }
+
     function setSyncStatus(status) {
       syncIndicator.className = "sync-indicator";
       if (status) syncIndicator.classList.add(status);
     }
 
-    // ============ MARKING MODE ============
-    const MARKING_MODE_LABEL_KEYS = {
-      mark_touched_by: "mode.markTouchedBy",
-      mark_touched: "mode.markTouched",
-      view_all: "mode.viewAll",
-    };
-
-    // Forces both the internal marking mode and the visible radio button back
-    // to "I was touched" whenever a trial is (re)loaded. Without syncing the
-    // radio too, appState.resetForNewTrial() alone left the UI showing "I
-    // touched" (blue) while new areas were actually recorded as "I was
-    // touched" (red) - the switch and the state it drives could drift apart.
-    function resetMarkingModeToDefault() {
-      appState.setMarkingMode("mark_touched_by");
-      markingModeRadios.forEach(radio => { radio.checked = radio.value === "mark_touched_by"; });
-    }
-
-    markingModeRadios.forEach(radio => {
-      radio.addEventListener("change", (e) => {
-        appState.setMarkingMode(e.target.value);
-        canvasManager.redrawAllFigures();
-        const modeKey = MARKING_MODE_LABEL_KEYS[e.target.value];
-        setStatus(() => t("status.mode", { mode: t(modeKey) }));
-      });
-    });
-
-    // ============ NO-CONTACT DECLARATIONS ============
-    // Each direction must be declared: either at least one area is marked, or
-    // the matching "no contact" box is ticked. A box can't be ticked while
-    // areas of that direction exist, so the two answers can't contradict.
+    // ============ CONTACT ANSWERS ============
+    // Each direction must be declared: "No", or "Yes" with at least one area
+    // drawn. A section's figures are only shown once it is answered "Yes", and
+    // answering "No" deletes the areas drawn there, so the two can't contradict.
     function areasInDirection(direction) {
       return appState.currentTrial.areas.filter(a => a.direction === direction).length;
     }
 
-    function updateNoContactCheckboxes() {
-      Object.entries(noContactCheckboxes).forEach(([direction, checkbox]) => {
-        const field = NO_CONTACT_FIELDS[direction];
-        const hasAreas = areasInDirection(direction) > 0;
-        if (hasAreas) appState.currentTrial[field] = false;
-        checkbox.checked = !!appState.currentTrial[field];
-        checkbox.disabled = hasAreas || !appState.isEditable();
-        checkbox.parentElement.classList.toggle("is-disabled", checkbox.disabled);
-        checkbox.parentElement.title = hasAreas ? t("noContact.disabledTitle") : "";
+    // The answers of a trial already sent: "yes" where it has areas, "no"
+    // where its "no contact" field is set.
+    function contactAnswersFromTrial(trial) {
+      const answers = {};
+      Object.entries(NO_CONTACT_FIELDS).forEach(([direction, field]) => {
+        answers[direction] = trial.areas.some(a => a.direction === direction) ? "yes" : trial[field] ? "no" : null;
       });
-      updateMarkingModeAvailability();
+      return answers;
     }
 
-    // A direction declared as "no contact" can't be marked: grey out its radio
-    // and, if it was the active mode, move to the other mark mode (or to
-    // "View All" when both directions are declared as "no contact").
-    function updateMarkingModeAvailability() {
-      const isDeclared = direction => !!appState.currentTrial[NO_CONTACT_FIELDS[direction]];
-      markingModeRadios.forEach(radio => {
-        const direction = radio.value.replace(/^mark_/, "");
-        const disabled = radio.value !== "view_all" && isDeclared(direction);
-        radio.disabled = disabled;
-        radio.parentElement.classList.toggle("is-disabled", disabled);
+    function updateContactSections() {
+      Object.values(contactSections).forEach(cs => {
+        const answer = appState.contactAnswers[cs.direction];
+        cs.answerRadios.forEach(radio => { radio.checked = radio.value === answer; });
+        cs.questionBlock.classList.toggle("is-answered", answer !== null);
+        const show = answer === "yes";
+        if (cs.drawingEl.hidden === show) {
+          cs.drawingEl.hidden = !show;
+          // Its canvases were sized while hidden, to nothing: size them now.
+          if (show) setActiveFigure(cs, cs.activeFigureId);
+        }
       });
-
-      const activeRadio = [...markingModeRadios].find(radio => radio.value === appState.markingMode);
-      if (!activeRadio || !activeRadio.disabled) return;
-      const fallback = [...markingModeRadios].find(radio => !radio.disabled && radio.value !== "view_all")
-        || [...markingModeRadios].find(radio => radio.value === "view_all");
-      markingModeRadios.forEach(radio => { radio.checked = radio === fallback; });
-      appState.setMarkingMode(fallback.value);
-      canvasManager.redrawAllFigures();
     }
 
     function getMissingContactDeclarations() {
-      return Object.keys(NO_CONTACT_FIELDS)
-        .filter(direction => !areasInDirection(direction) && !appState.currentTrial[NO_CONTACT_FIELDS[direction]])
-        .map(direction => t(direction === "touched_by" ? "save.missingTouchedBy" : "save.missingTouched"));
+      return Object.keys(NO_CONTACT_FIELDS).flatMap(direction => {
+        const answer = appState.contactAnswers[direction];
+        if (answer === null) return [t(`save.missingAnswer.${direction}`)];
+        if (answer === "yes" && !areasInDirection(direction)) return [t(`save.missingAreas.${direction}`)];
+        return [];
+      });
     }
 
-    Object.entries(noContactCheckboxes).forEach(([direction, checkbox]) => {
-      checkbox.addEventListener("change", () => {
-        appState.currentTrial[NO_CONTACT_FIELDS[direction]] = checkbox.checked;
-        updateNoContactCheckboxes();
-        if (checkbox.checked) setStatus(() => t("status.declared", { label: t(NO_CONTACT_LABEL_KEYS[direction]) }));
+    Object.values(contactSections).forEach(cs => {
+      // Presses on a disabled answer land here (see .yes-no-option input:disabled).
+      cs.answerOptionsEl.addEventListener("pointerdown", (event) => {
+        if (cs.answerRadios[0].disabled) explainAnswerLock(event);
+      });
+      cs.answerRadios.forEach(radio => {
+        radio.addEventListener("change", () => {
+          const count = areasInDirection(cs.direction);
+          if (radio.value === "no" && count > 0) {
+            if (!confirm(t("contact.confirmNo", { count }))) {
+              updateContactSections(); // back to "Yes"
+              return;
+            }
+            deleteAreasInDirection(cs.direction);
+            setDrawingStatus(cs.direction, null);
+          }
+          appState.contactAnswers[cs.direction] = radio.value;
+          appState.currentTrial[NO_CONTACT_FIELDS[cs.direction]] = radio.value === "no";
+          updateContactSections();
+        });
       });
     });
 
@@ -2442,7 +2507,7 @@
       return !appState.isExistingSession && (
         TRIAL_QUESTIONS.some(q => trial[q.field] != null) ||
         trial.areas.length > 0 ||
-        Object.values(NO_CONTACT_FIELDS).some(field => trial[field]) ||
+        Object.values(appState.contactAnswers).some(answer => answer !== null) ||
         trial.notes.trim() !== ""
       );
     }
@@ -2450,6 +2515,7 @@
     function refreshUiForCurrentTrial() {
       renderTrialQuestions();
       updateNotesDisplay();
+      updateContactSections();
       updateAreasList();
       canvasManager.redrawAllFigures();
     }
@@ -2547,9 +2613,9 @@
         trialStatusEl.className = "id-status id-invalid";
       } else if (result.exists) {
         canvasManager.clearAreaMaskCache();
-        resetMarkingModeToDefault();
         appState.isExistingSession = true;
         appState.currentTrial = result.trial;
+        appState.contactAnswers = contactAnswersFromTrial(result.trial);
         appState.currentTrial.areas.forEach(a => { appState.nextAreaNumber = Math.max(appState.nextAreaNumber, (a.number || 0) + 1); });
 
         await canvasManager.loadAreaMaskCache(appState.currentTrial.areas);
@@ -2563,7 +2629,6 @@
         trialStatusEl.className = "id-status id-valid";
       } else {
         canvasManager.clearAreaMaskCache();
-        resetMarkingModeToDefault();
         appState.resetForNewTrial(trialNumber);
         setLiveText(trialStatusEl, "status.trial.new");
         trialStatusEl.className = "id-status id-valid";
@@ -2571,7 +2636,7 @@
       }
     }
 
-    function updateRequirementBanners() {
+    function updateRequirementBanner() {
       const missing = missingIdentificationFields();
       const ready = missing.length === 0;
 
@@ -2580,21 +2645,19 @@
         : t(missing.length > 1 ? "banner.missingMany" : "banner.missingOne", { fields: joinFieldNames(missing) });
       const cls = ready ? "ok" : "missing";
 
-      [requirementBannerTop, requirementBannerFigures].forEach(el => {
-        el.textContent = text;
-        el.className = `requirement-banner ${cls}`;
-      });
+      requirementBannerTop.textContent = text;
+      requirementBannerTop.className = `requirement-banner ${cls}`;
     }
 
-    participantInput.addEventListener("input", () => { updateIdStatus(); updateRequirementBanners(); updateTrialQuestionsEditability(); });
+    participantInput.addEventListener("input", () => { updateIdStatus(); updateRequirementBanner(); updateTrialQuestionsEditability(); });
     letterInput.addEventListener("input", () => {
       // Shown as a capital whatever the case typed ("s" and "S" open the same
       // record anyway). ß has no one-letter capital, so it stays as typed.
       const upper = letterInput.value.toUpperCase();
       if (upper.length === 1) letterInput.value = upper;
-      updateLetterStatus(); updateRequirementBanners(); updateTrialQuestionsEditability();
+      updateLetterStatus(); updateRequirementBanner(); updateTrialQuestionsEditability();
     });
-    trialInput.addEventListener("input", () => { updateTrialStatus(); updateRequirementBanners(); updateTrialQuestionsEditability(); });
+    trialInput.addEventListener("input", () => { updateTrialStatus(); updateRequirementBanner(); updateTrialQuestionsEditability(); });
 
     // iOS Safari doesn't move focus when a slider (or canvas) is tapped, so a text
     // field stays focused and the keyboard pops back up after every slider move.
@@ -2612,15 +2675,11 @@
     });
 
     // ============ ACTIVE FIGURE (main view + thumbnail rail) ============
-    // Exactly one figure is shown large at a time; the other three sit as small
-    // click-to-switch thumbnails. The underlying canvases keep their own aspect ratio
-    // (see CanvasManager.setupFigure), so each just scales to whichever slot it's in.
-    let activeFigureId = "back";
+    // In each contact section, exactly one figure is shown large at a time; the
+    // other three sit as small click-to-switch thumbnails. The underlying canvases
+    // keep their own aspect ratio (see CanvasManager.setupFigure), so each just
+    // scales to whichever slot it's in.
     const THUMB_RAIL_GAP_PX = 8; // must match .figure-thumbs-rail { gap: 0.5rem }
-
-    function getFigureConfig(figureId) {
-      return figureConfigs.find(fc => fc.id === figureId);
-    }
 
     function aspectRatioHeightPerWidth(figureId) {
       const img = canvasManager.imageCache[figureId];
@@ -2630,74 +2689,72 @@
     // Picks a width for the thumbnail rail so the 3 stacked thumbnails (each keeping
     // its own correct aspect ratio) add up to the same total height as the main figure,
     // rather than a fixed width that happens to make them taller or shorter than it.
-    function syncThumbRailHeight() {
-      const mainWrapper = document.getElementById(getFigureConfig(activeFigureId).wrapperId);
-      const targetHeight = mainWrapper.getBoundingClientRect().height;
-      if (!targetHeight) return;
+    function syncThumbRailHeight(cs) {
+      const mainView = cs.views.find(view => view.id === cs.activeFigureId);
+      const targetHeight = mainView.wrapper.getBoundingClientRect().height;
+      if (!targetHeight) return; // section hidden
 
-      const thumbIds = figureConfigs.map(fc => fc.id).filter(id => id !== activeFigureId);
+      const thumbViews = cs.views.filter(view => view !== mainView);
       let ratioSum = 0;
       let overheadSum = 0;
-      thumbIds.forEach(id => {
-        const rect = document.getElementById(getFigureConfig(id).wrapperId).getBoundingClientRect();
-        const ratio = aspectRatioHeightPerWidth(id);
+      thumbViews.forEach(view => {
+        const rect = view.wrapper.getBoundingClientRect();
+        const ratio = aspectRatioHeightPerWidth(view.id);
         ratioSum += ratio;
         overheadSum += rect.height - rect.width * ratio; // padding + label, independent of width
       });
 
-      const numGaps = thumbIds.length - 1;
+      const numGaps = thumbViews.length - 1;
       const available = targetHeight - numGaps * THUMB_RAIL_GAP_PX - overheadSum;
-      figureThumbsRail.style.width = `${Math.max(36, available / ratioSum)}px`;
+      cs.thumbsRail.style.width = `${Math.max(36, available / ratioSum)}px`;
     }
 
-    function setActiveFigure(figureId) {
-      activeFigureId = figureId;
+    function setActiveFigure(cs, figureId) {
+      cs.activeFigureId = figureId;
 
-      figureConfigs.forEach(fc => {
-        const wrapper = document.getElementById(fc.wrapperId);
-        wrapper.style.display = "";
-        if (fc.id === figureId) {
+      cs.views.forEach(({ id, wrapper }) => {
+        if (id === figureId) {
           wrapper.classList.add("figure-main");
           wrapper.classList.remove("figure-thumb");
           wrapper.removeAttribute("role");
           wrapper.removeAttribute("tabindex");
-          figureMainSlot.appendChild(wrapper);
+          cs.mainSlot.appendChild(wrapper);
         } else {
           wrapper.classList.add("figure-thumb");
           wrapper.classList.remove("figure-main");
           wrapper.setAttribute("role", "button");
           wrapper.setAttribute("tabindex", "0");
-          figureThumbsRail.appendChild(wrapper);
+          cs.thumbsRail.appendChild(wrapper);
         }
       });
 
-      syncThumbRailHeight();
+      syncThumbRailHeight(cs);
 
-      figureConfigs.forEach(fc => {
-        const canvas = canvasManager.canvases[fc.id];
-        if (!canvas) return;
-        canvasManager.resizeCanvasToDisplaySize(canvas);
-        canvasManager.redrawFigure(fc);
+      cs.views.forEach(view => {
+        canvasManager.resizeCanvasToDisplaySize(view.canvas);
+        canvasManager.redrawFigure(view);
       });
     }
 
-    figureConfigs.forEach(fc => {
-      const wrapper = document.getElementById(fc.wrapperId);
-      wrapper.addEventListener("click", () => {
-        if (wrapper.classList.contains("figure-thumb")) setActiveFigure(fc.id);
-      });
-      wrapper.addEventListener("keydown", (e) => {
-        if ((e.key === "Enter" || e.key === " ") && wrapper.classList.contains("figure-thumb")) {
-          e.preventDefault();
-          setActiveFigure(fc.id);
-        }
+    Object.values(contactSections).forEach(cs => {
+      cs.views.forEach(({ id, wrapper }) => {
+        wrapper.addEventListener("click", () => {
+          if (wrapper.classList.contains("figure-thumb")) setActiveFigure(cs, id);
+        });
+        wrapper.addEventListener("keydown", (e) => {
+          if ((e.key === "Enter" || e.key === " ") && wrapper.classList.contains("figure-thumb")) {
+            e.preventDefault();
+            setActiveFigure(cs, id);
+          }
+        });
       });
     });
 
     // ============ RESIZE HANDLING ============
     function handleViewportChange() {
       canvasManager.handleResize(); // sync canvases to their current CSS size first
-      syncThumbRailHeight(); // then recompute thumb width from the (possibly new) main height
+      // then recompute thumb width from the (possibly new) main height
+      Object.values(contactSections).forEach(syncThumbRailHeight);
       canvasManager.handleResize(); // and re-sync thumb canvases now that their width changed
     }
 
@@ -2713,32 +2770,31 @@
     const ZOOM_MIN = 0.6;
     const ZOOM_MAX = 1.8;
     const ZOOM_STEP = 0.15;
-    let mainFigureZoom = 1;
 
-    const zoomOutBtn = document.getElementById("figureZoomOutBtn");
-    const zoomInBtn = document.getElementById("figureZoomInBtn");
-
-    function applyMainFigureZoom() {
-      const height = Math.round(BASE_MAIN_FIGURE_HEIGHT * mainFigureZoom);
-      document.documentElement.style.setProperty("--main-figure-height", `${height}px`);
+    // Each section zooms its own figures (cs.zoom).
+    function applyMainFigureZoom(cs) {
+      const height = Math.round(BASE_MAIN_FIGURE_HEIGHT * cs.zoom);
+      cs.figuresEl.style.setProperty("--main-figure-height", `${height}px`);
       handleViewportChange();
-      zoomOutBtn.disabled = mainFigureZoom <= ZOOM_MIN + 1e-9;
-      zoomInBtn.disabled = mainFigureZoom >= ZOOM_MAX - 1e-9;
+      cs.zoomOutBtn.disabled = cs.zoom <= ZOOM_MIN + 1e-9;
+      cs.zoomInBtn.disabled = cs.zoom >= ZOOM_MAX - 1e-9;
     }
 
-    zoomOutBtn.addEventListener("click", () => {
-      mainFigureZoom = Math.max(ZOOM_MIN, +(mainFigureZoom - ZOOM_STEP).toFixed(2));
-      applyMainFigureZoom();
-    });
+    Object.values(contactSections).forEach(cs => {
+      cs.zoomOutBtn.addEventListener("click", () => {
+        cs.zoom = Math.max(ZOOM_MIN, +(cs.zoom - ZOOM_STEP).toFixed(2));
+        applyMainFigureZoom(cs);
+      });
 
-    zoomInBtn.addEventListener("click", () => {
-      mainFigureZoom = Math.min(ZOOM_MAX, +(mainFigureZoom + ZOOM_STEP).toFixed(2));
-      applyMainFigureZoom();
+      cs.zoomInBtn.addEventListener("click", () => {
+        cs.zoom = Math.min(ZOOM_MAX, +(cs.zoom + ZOOM_STEP).toFixed(2));
+        applyMainFigureZoom(cs);
+      });
     });
 
     // ============ NO-CONTACT CONFIRMATION ============
-    // Asked before saving a trial with no contact areas at all (both "no contact"
-    // boxes ticked). A custom dialog rather than
+    // Asked before saving a trial with no contact areas at all (both questions
+    // answered "No"). A custom dialog rather than
     // confirm(), which can't relabel its OK/Cancel buttons.
     let resolveNoContactModal = null;
 
@@ -2792,8 +2848,8 @@
         return;
       }
 
-      // Validation above guarantees each direction has areas or its "no contact"
-      // box ticked, so zero areas here means both boxes are ticked.
+      // Validation above guarantees each direction has areas or is answered
+      // "No", so zero areas here means both are answered "No".
       if (!isRetry && appState.getAreasCount() === 0 && !(await confirmNoContactSubmission())) {
         return;
       }
@@ -2841,7 +2897,7 @@
         appState.idIsValid = false;
         appState.letterIsValid = false;
         appState.trialIsValid = false;
-        updateRequirementBanners();
+        updateRequirementBanner();
 
         setSyncStatus("synced");
         setStatus("status.saved");
@@ -2875,7 +2931,7 @@
         setLanguage(btn.dataset.lang);
         renderTrialQuestions();
         updateAreasList();
-        updateRequirementBanners();
+        updateRequirementBanner();
         if (openAreaIndex !== null) openRatingPanel(openAreaIndex);
         handleViewportChange(); // figure labels changed length
       });
@@ -2883,12 +2939,13 @@
 
     // ============ INIT ============
     renderTrialQuestions();
-    updateRequirementBanners();
+    updateRequirementBanner();
     (async () => {
       await Promise.all([canvasManager.preloadImages(), canvasManager.preloadBodyMasks()]);
-      figureConfigs.forEach(figureConfig => canvasManager.setupFigure(figureConfig));
-      setActiveFigure("back");
-      setStatus("status.ready");
+      Object.values(contactSections).forEach(cs => {
+        cs.views.forEach(view => canvasManager.setupFigure(view));
+        setActiveFigure(cs, cs.activeFigureId);
+      });
     })();
   </script>
 

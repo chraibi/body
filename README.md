@@ -12,7 +12,7 @@ A web-based interactive body mapping tool for recording and analyzing physical i
 flowchart TB
     A["BodyMapApp<br/>Coordinator"]
     
-    B["SessionState<br/>──────<br/>State Management<br/><br/>points, notes, confidence<br/>canEdit, addPoint<br/>removePoint, setMarkingMode<br/>+ 10 methods"]
+    B["SessionState<br/>──────<br/>State Management<br/><br/>points, notes, confidence<br/>canEdit, addPoint<br/>removePoint, contactAnswers<br/>+ 10 methods"]
     
     C["DataService<br/>──────<br/>Firebase & Validation<br/><br/>loadExistingIds<br/>loadExistingData<br/>saveSessionData<br/>keyAlreadyExists<br/>getParticipantKey<br/>isValidNumericId<br/>isValidName<br/><br/>+ Error Classes"]
     
@@ -109,9 +109,7 @@ Pure state management class for the user session.
 - `sessionNotes` - Participant notes
 - `sessionConfidence` - Confidence rating (1-5 stars)
 - `questionnaireResponses` - Object with questionnaire answers (q1-q4)
-- `markingMode` - Current marking mode ("mark_touched_by", "mark_touched", "view_all")
-- `currentDirection` - Direction being marked ("touched" or "touched_by")
-- `displayFilter` - Current filter for display ("all", "touched", "touched_by")
+- `contactAnswers` - Yes/no answer of each contact section (`{ touched_by, touched }`, each "yes", "no" or null). Only a "no" is saved, as the trial's `noContactTouchedBy` / `noContactTouched`; a "yes" shows in the areas drawn
 
 **Methods:**
 - `addPoint(point)` - Add point to collection
@@ -122,7 +120,6 @@ Pure state management class for the user session.
 - `setSessionData(notes, confidence)` - Update notes and confidence
 - `setQuestionnaireResponse(questionKey, value)` - Update single question
 - `getUnansweredItems()` - Get list of unanswered questions
-- `setMarkingMode(mode)` - Set marking mode with auto-update of direction/filter
 - `reset()` - Reset entire session to initial state
 
 ---
@@ -229,7 +226,7 @@ Each provides:
 
 ### User Experience
 - **Real-time Feedback** - Points appear immediately on figures
-- **Filter Views** - View all points, only "touched", or only "touched by"
+- **Separate Contact Sections** - "Being touched by others" and "Touching others", each with its own yes/no question and its own set of figures
 - **Touch Optimization** - Smart touch handling with scroll detection
 - **Responsive Design** - Works on desktop and mobile
 - **Error Handling** - Clear error messages with retry capability
@@ -260,16 +257,12 @@ Each provides:
    - Name cannot be empty
    - System checks if you're a new or returning participant
 
-2. **Mark Interactions**
-   - Select "Mark 'I was touched'" or "Mark 'I touched'"
-   - Click/tap body areas to record points
-   - Watch points appear in real-time
-
-3. **Review & Filter**
-   - Use "View All Points" to see everything
-   - Filter to specific interaction types
-   - Delete individual points if needed
-   - Clear all points with confirmation
+2. **Declare Contacts**
+   - Answer the two yes/no questions: "your body was touched by other participants" and "you touched other participants"
+   - On "Yes", that section shows its own figures: draw (or tap) the contact areas there
+   - Each section lists its own areas: edit their ratings, delete one, or clear them all
+   - Answering "No" after drawing asks for confirmation, then deletes that section's areas
+   - Saving requires both questions answered, and at least one area for each "Yes"
 
 4. **Add Session Data**
    - Enter optional notes
@@ -342,7 +335,6 @@ appState.getPointsCount()
 appState.setSessionData(notes, confidence)
 appState.setQuestionnaireResponse('q1', 3)
 appState.getUnansweredItems()
-appState.setMarkingMode('mark_touched')
 appState.reset()
 ```
 
@@ -432,11 +424,11 @@ isValidCustomField(value) {
 ```
 
 ### Customizing Colors
-Update `directionColors` object:
+Update the `directionColors` object in `index.html`, as `#rrggbb` values. It sets the colour of the areas drawn, of their swatch in the areas list, and of each contact section's top border and instruction box:
 ```javascript
 const directionColors = {
-  touched: "#3498db",        // Your color here
-  touched_by: "#e74c3c"
+  touched: "#3498db",        // "Touching others" (blue)
+  touched_by: "#e74c3c"      // "Being touched by others" (red)
 };
 ```
 

@@ -142,45 +142,49 @@ const TRANSLATIONS = {
   },
 
   // ---- Marking ----
-  "hint.declare": {
-    en: "Declare the contact you perceived during the experimental run. All figures represent <strong>your own body</strong>.",
-    de: "Geben Sie die Kontakte an, die Sie während des Durchgangs wahrgenommen haben. Alle Figuren stellen <strong>Ihren eigenen Körper</strong> dar.",
+  "section.contacts": {
+    en: "Declaration of contacts perceived during the trial",
+    de: "Angabe der während des Durchgangs wahrgenommenen Kontakte",
   },
-  "mode.markTouchedBy": {
-    en: "Locations where other participants made contact on my body",
-    de: "Stellen meines Körpers, an denen mich andere Teilnehmende berührt haben",
+  "answer.yes": {
+    en: "Yes",
+    de: "Ja",
   },
-  "mode.markTouchedBy.hint": {
-    en: "Draw the area where you felt other participants contacted your body.<br>(You can also tap to create a small area)",
-    de: "Zeichnen Sie den Bereich ein, an dem Sie gespürt haben, dass andere Teilnehmende Ihren Körper berührt haben.<br>(Sie können auch tippen, um einen kleinen Bereich zu erstellen)",
+  "answer.no": {
+    en: "No",
+    de: "Nein",
   },
-  "mode.markTouched": {
-    en: "Locations on my body that contacted other participants",
-    de: "Stellen meines Körpers, mit denen ich andere Teilnehmende berührt habe",
+  // Section about the contacts other participants made on the participant's body.
+  "contact.touched_by.heading": {
+    en: "Being touched by others",
+    de: "Von anderen berührt werden",
   },
-  "mode.markTouched.hint": {
-    en: "Draw the <strong>parts of your own body</strong> which made contact with the other participants.<br>(You can also tap to create a small area)",
-    de: "Zeichnen Sie die <strong>Teile Ihres eigenen Körpers</strong> ein, mit denen Sie die anderen Teilnehmenden berührt haben.<br>(Sie können auch tippen, um einen kleinen Bereich zu erstellen)",
+  "contact.touched_by.question": {
+    en: "During this trial, your body was touched by other participants.",
+    de: "Während dieses Durchgangs wurde Ihr Körper von anderen Teilnehmenden berührt.",
   },
-  "mode.viewAll": {
-    en: "View All Areas",
-    de: "Alle Bereiche anzeigen",
+  // Shown above the figures once the question is answered "Yes".
+  "contact.touched_by.instruction": {
+    en: "Draw, on the outlines, the area of <strong>your body</strong> where you felt contact from other participants.<br>(You can also tap to create a small area)",
+    de: "Zeichnen Sie auf den Figuren den Bereich <strong>Ihres Körpers</strong> ein, an dem Sie einen Kontakt von anderen Teilnehmenden gespürt haben.<br>(Sie können auch tippen, um einen kleinen Bereich zu erstellen)",
   },
-  "mode.viewAll.hint": {
-    en: "Viewing only - no drawing",
-    de: "Nur Ansicht – kein Zeichnen",
+  // Section about the parts of the participant's body that touched others.
+  "contact.touched.heading": {
+    en: "Touching others",
+    de: "Andere berühren",
   },
-  "noContact.touchedBy": {
-    en: "No participant made contact on my body",
-    de: "Keine teilnehmende Person hat mich berührt",
+  "contact.touched.question": {
+    en: "During this trial, you touched other participants.",
+    de: "Während dieses Durchgangs haben Sie andere Teilnehmende berührt.",
   },
-  "noContact.touched": {
-    en: "I did not make contact with other participants",
-    de: "Ich habe keine anderen Teilnehmenden berührt",
+  "contact.touched.instruction": {
+    en: "Draw, on the outlines, the area of <strong>your body</strong> which made contact with other participants.<br>(You can also tap to create a small area)",
+    de: "Zeichnen Sie auf den Figuren den Bereich <strong>Ihres Körpers</strong> ein, der andere Teilnehmende berührt hat.<br>(Sie können auch tippen, um einen kleinen Bereich zu erstellen)",
   },
-  "noContact.disabledTitle": {
-    en: "Delete the areas marked in this mode first",
-    de: "Löschen Sie zuerst die in diesem Modus markierten Bereiche",
+  // Asked when "No" is chosen after areas were drawn in that section.
+  "contact.confirmNo": {
+    en: "You drew {count} area(s) in this section. Answering \"No\" deletes them. Continue?",
+    de: "Sie haben in diesem Abschnitt {count} Bereich(e) eingezeichnet. Mit der Antwort „Nein“ werden diese gelöscht. Fortfahren?",
   },
   "direction.touched_by": {
     en: "I was touched",
@@ -223,10 +227,6 @@ const TRANSLATIONS = {
     en: "Ready",
     de: "Bereit",
   },
-  "status.ready": {
-    en: "Ready. Drag on a body figure to mark a contact area (or tap for a small one).",
-    de: "Bereit. Ziehen Sie über eine Körperfigur, um einen Kontaktbereich zu markieren (oder tippen Sie für einen kleinen Bereich).",
-  },
   "status.fillInFirst": {
     en: "Please fill in the {fields} at the top of the page before drawing contact areas.",
     de: "Bitte geben Sie oben auf der Seite {fields} ein, bevor Sie Kontaktbereiche einzeichnen.",
@@ -235,10 +235,6 @@ const TRANSLATIONS = {
     en: "Please fill in the {fields} at the top of the page before answering the questions.",
     de: "Bitte geben Sie oben auf der Seite {fields} ein, bevor Sie die Fragen beantworten.",
   },
-  "status.viewingMode": {
-    en: "⚠️ Viewing mode. Switch to 'Mark' mode to draw contact areas.",
-    de: "⚠️ Ansichtsmodus. Wählen Sie einen Markierungsmodus, um Kontaktbereiche einzuzeichnen.",
-  },
   "status.expiredRecord": {
     en: "❌ Edit time limit expired. Cannot record new areas.",
     de: "❌ Bearbeitungszeit abgelaufen. Es können keine neuen Bereiche eingezeichnet werden.",
@@ -246,10 +242,6 @@ const TRANSLATIONS = {
   "status.expiredDelete": {
     en: "❌ Edit time limit expired. Cannot delete areas.",
     de: "❌ Bearbeitungszeit abgelaufen. Bereiche können nicht gelöscht werden.",
-  },
-  "status.noContactTicked": {
-    en: "⚠️ You ticked \"{label}\". Untick it to mark areas in this mode.",
-    de: "⚠️ Sie haben „{label}“ angekreuzt. Entfernen Sie das Häkchen, um in diesem Modus Bereiche zu markieren.",
   },
   "status.nothingToRecord": {
     en: "⚠️ Nothing to record there — that's outside the body outline or already marked. Try again.",
@@ -264,16 +256,8 @@ const TRANSLATIONS = {
     de: "Bereich gelöscht. Bereiche insgesamt: {total}",
   },
   "status.areasCleared": {
-    en: "Cleared all areas for this trial.",
-    de: "Alle Bereiche dieses Durchgangs wurden gelöscht.",
-  },
-  "status.mode": {
-    en: "Mode: {mode}",
-    de: "Modus: {mode}",
-  },
-  "status.declared": {
-    en: "Declared: {label}.",
-    de: "Angegeben: {label}.",
+    en: "Cleared all areas of this section.",
+    de: "Alle Bereiche dieses Abschnitts wurden gelöscht.",
   },
   "status.loadFailed": {
     en: "❌ Failed to check existing data: {error}",
@@ -290,8 +274,8 @@ const TRANSLATIONS = {
     de: "Alle Bereiche löschen",
   },
   "areas.confirmClear": {
-    en: "Are you sure you want to delete ALL contact areas for this trial?",
-    de: "Möchten Sie wirklich ALLE Kontaktbereiche dieses Durchgangs löschen?",
+    en: "Are you sure you want to delete ALL the contact areas of this section?",
+    de: "Möchten Sie wirklich ALLE Kontaktbereiche dieses Abschnitts löschen?",
   },
   "areas.empty": {
     en: "No contact areas recorded yet",
@@ -577,13 +561,21 @@ const TRANSLATIONS = {
     en: "Area #{n}: {fields}",
     de: "Bereich #{n}: {fields}",
   },
-  "save.missingTouchedBy": {
-    en: "Mark the locations where other participants made contact on your body, or tick \"No participant made contact on my body\"",
-    de: "Markieren Sie die Stellen, an denen andere Teilnehmende Sie berührt haben, oder setzen Sie das Häkchen bei „Keine teilnehmende Person hat mich berührt“",
+  "save.missingAnswer.touched_by": {
+    en: "Answer whether your body was touched by other participants",
+    de: "Geben Sie an, ob Ihr Körper von anderen Teilnehmenden berührt wurde",
   },
-  "save.missingTouched": {
-    en: "Mark the locations on your body that contacted other participants, or tick \"I did not make contact with other participants\"",
-    de: "Markieren Sie die Stellen Ihres Körpers, mit denen Sie andere Teilnehmende berührt haben, oder setzen Sie das Häkchen bei „Ich habe keine anderen Teilnehmenden berührt“",
+  "save.missingAnswer.touched": {
+    en: "Answer whether you touched other participants",
+    de: "Geben Sie an, ob Sie andere Teilnehmende berührt haben",
+  },
+  "save.missingAreas.touched_by": {
+    en: "You answered \"Yes\" to being touched by other participants: draw at least one area where you felt a contact, or answer \"No\"",
+    de: "Sie haben angegeben, von anderen Teilnehmenden berührt worden zu sein: Zeichnen Sie mindestens einen Bereich ein, an dem Sie einen Kontakt gespürt haben, oder antworten Sie mit „Nein“",
+  },
+  "save.missingAreas.touched": {
+    en: "You answered \"Yes\" to touching other participants: draw at least one part of your body that made contact, or answer \"No\"",
+    de: "Sie haben angegeben, andere Teilnehmende berührt zu haben: Zeichnen Sie mindestens einen Körperteil ein, mit dem Sie andere berührt haben, oder antworten Sie mit „Nein“",
   },
   "status.saving": {
     en: "📤 Saving your data... ({count} area(s) + questionnaire)",
