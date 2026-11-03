@@ -996,11 +996,11 @@
         <div class="choice-options" id="ratingDurationOptions"></div>
       </div>
       <div class="question-block">
-        <label class="question-text" data-i18n="rating.expectation">Level of expectation you had about having contact at this location</label>
+        <label class="question-text" data-i18n="rating.expectation">Before the start of the run, you were expecting to be touched at this location.</label>
         <div class="choice-options" id="ratingExpectationOptions"></div>
       </div>
       <div class="question-block">
-        <label class="question-text" data-i18n="rating.confidence">Level of confidence in this declaration</label>
+        <label class="question-text" data-i18n="rating.confidence">You are confident in your declaration of this contact.</label>
         <div class="choice-options" id="ratingConfidenceOptions"></div>
       </div>
 
@@ -1141,20 +1141,6 @@
       { value: "2_to_3s", labelKey: "duration.2_to_3s" },
       { value: "3_to_4s", labelKey: "duration.3_to_4s" },
       { value: "more_than_4s", labelKey: "duration.more_than_4s" },
-    ];
-    const EXPECTATION_OPTIONS = [
-      { value: "very_unexpected", labelKey: "expectation.very_unexpected" },
-      { value: "not_expected", labelKey: "expectation.not_expected" },
-      { value: "neutral", labelKey: "expectation.neutral" },
-      { value: "strongly_expected", labelKey: "expectation.strongly_expected" },
-      { value: "certain", labelKey: "expectation.certain" },
-    ];
-    const CONFIDENCE_OPTIONS = [
-      { value: "very_low", labelKey: "confidence.very_low" },
-      { value: "low", labelKey: "confidence.low" },
-      { value: "moderate", labelKey: "confidence.moderate" },
-      { value: "high", labelKey: "confidence.high" },
-      { value: "very_high", labelKey: "confidence.very_high" },
     ];
     // Displayed text of the option of `options` stored as `value`.
     function optionLabel(options, value) {
@@ -2108,8 +2094,8 @@
     const RATING_GROUPS = [
       { field: "intensity", container: ratingIntensityEl, options: INTENSITY_OPTIONS, labelKey: "rating.intensity.short" },
       { field: "duration", container: ratingDurationEl, options: DURATION_OPTIONS, labelKey: "rating.duration.short", defaultIndex: 0 },
-      { field: "expectation", container: ratingExpectationEl, options: EXPECTATION_OPTIONS, labelKey: "rating.expectation.short" },
-      { field: "confidence", container: ratingConfidenceEl, options: CONFIDENCE_OPTIONS, labelKey: "rating.confidence.short" },
+      { field: "expectation", container: ratingExpectationEl, options: AGREEMENT_OPTIONS, labelKey: "rating.expectation.short" },
+      { field: "confidence", container: ratingConfidenceEl, options: AGREEMENT_OPTIONS, labelKey: "rating.confidence.short" },
     ];
 
     function addArea(figureId, direction, path, tapPoint = null) {

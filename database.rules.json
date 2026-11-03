@@ -43,8 +43,8 @@
                 },
                 "intensity": { ".validate": "newData.isString() && newData.val().matches(/^(very_weak|weak|moderate|strong|very_strong)$/)" },
                 "duration": { ".validate": "newData.isString() && newData.val().matches(/^(less_1s|1_to_2s|2_to_3s|3_to_4s|more_than_4s)$/)" },
-                "expectation": { ".validate": "newData.isString() && newData.val().matches(/^(very_unexpected|not_expected|neutral|strongly_expected|certain)$/)" },
-                "confidence": { ".validate": "newData.isString() && newData.val().matches(/^(very_low|low|moderate|high|very_high)$/)" },
+                "expectation": { ".validate": "newData.isString() && newData.val().matches(/^(strongly_disagree|disagree|neutral|agree|strongly_agree)$/)" },
+                "confidence": { ".validate": "newData.isString() && newData.val().matches(/^(strongly_disagree|disagree|neutral|agree|strongly_agree)$/)" },
                 "timestamp": { ".validate": "newData.isString() && newData.val().matches(/^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]\\.[0-9][0-9][0-9]Z$/)" },
                 "$other": { ".validate": false }
               }

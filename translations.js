@@ -364,12 +364,12 @@ const TRANSLATIONS = {
     de: "Geschätzte Dauer des Kontakts (in Sekunden).",
   },
   "rating.expectation": {
-    en: "Level of expectation you had about having contact at this location",
-    de: "Wie stark Sie einen Kontakt an dieser Stelle erwartet haben",
+    en: "Before the start of the run, you were expecting to be touched at this location.",
+    de: "Vor Beginn des Durchgangs haben Sie erwartet, an dieser Stelle berührt zu werden.",
   },
   "rating.confidence": {
-    en: "Level of confidence in this declaration",
-    de: "Wie sicher Sie sich bei dieser Angabe sind",
+    en: "You are confident in your declaration of this contact.",
+    de: "Sie sind sich bei Ihrer Angabe zu diesem Kontakt sicher.",
   },
   "rating.intensity.short": {
     en: "Intensity",
@@ -380,7 +380,7 @@ const TRANSLATIONS = {
     de: "Dauer",
   },
   "rating.expectation.short": {
-    en: "Level of expectation",
+    en: "Expectation",
     de: "Erwartung",
   },
   "rating.confidence.short": {
@@ -484,46 +484,6 @@ const TRANSLATIONS = {
   "duration.more_than_4s": {
     en: "More than 4s",
     de: "Mehr als 4\u00a0s",
-  },
-  "expectation.very_unexpected": {
-    en: "Very unexpected",
-    de: "Völlig unerwartet",
-  },
-  "expectation.not_expected": {
-    en: "Not expected",
-    de: "Nicht erwartet",
-  },
-  "expectation.neutral": {
-    en: "Neutral",
-    de: "Neutral",
-  },
-  "expectation.strongly_expected": {
-    en: "Strongly expected",
-    de: "Stark erwartet",
-  },
-  "expectation.certain": {
-    en: "Certain",
-    de: "Mit Sicherheit erwartet",
-  },
-  "confidence.very_low": {
-    en: "Very low",
-    de: "Sehr gering",
-  },
-  "confidence.low": {
-    en: "Low",
-    de: "Gering",
-  },
-  "confidence.moderate": {
-    en: "Moderate",
-    de: "Mittel",
-  },
-  "confidence.high": {
-    en: "High",
-    de: "Hoch",
-  },
-  "confidence.very_high": {
-    en: "Very high",
-    de: "Sehr hoch",
   },
 
   // ---- No-contact confirmation ----
