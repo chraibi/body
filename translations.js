@@ -125,16 +125,16 @@ const TRANSLATIONS = {
     de: "Zu diesem Durchgang",
   },
   "question.distance": {
-    en: "On average during this trial, how far did you think you were from neighbouring participants?",
-    de: "Wie weit waren Sie Ihrer Einschätzung nach während dieses Durchgangs durchschnittlich von den Personen neben Ihnen entfernt?",
+    en: "Before the perturbation (\"push\"), what was the estimated distance between you and your first neighbour?",
+    de: "Wie groß war Ihrer Einschätzung nach vor der Störung („Stoß“) der Abstand zwischen Ihnen und der Person direkt neben Ihnen?",
   },
   "question.comfort": {
     en: "During this trial, you felt comfortable with the distance you had with your neighbours.",
     de: "Fühlten Sie sich mit dem Abstand zu den Personen neben Ihnen wohl?",
   },
   "question.distance.short": {
-    en: "Estimated distance from neighbouring participants",
-    de: "Geschätzter Abstand zu den Personen neben Ihnen",
+    en: "Estimated distance from your first neighbour before the push",
+    de: "Geschätzter Abstand zur Person direkt neben Ihnen vor dem Stoß",
   },
   "question.comfort.short": {
     en: "Comfort with that distance",
