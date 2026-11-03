@@ -315,7 +315,7 @@
        visibly shorter than front/back at a shared fixed width. Each contact
        section's zoom sets its own value on its .figures. */
     :root {
-      --main-figure-height: 530px;
+      --main-figure-height: 610px; /* default zoom 1.15 × BASE_MAIN_FIGURE_HEIGHT */
     }
 
     .figures {
@@ -1640,7 +1640,7 @@
 
     // ============ CANVAS MANAGER CLASS ============
     const TAP_THRESHOLD_PX = 12;
-    // Tap circle radius in px on the main figure at default zoom. Applied as a
+    // Tap circle radius in px on the main figure at zoom 1. Applied as a
     // fraction of the figure's height (see computeClippedAreaMask), so a tap
     // marks the same body-relative size whatever the zoom level, like drawn areas.
     const TAP_RADIUS_PX = 11.2;
@@ -1976,15 +1976,15 @@
         ctx.drawImage(tinted, dx, dy, dw, dh);
 
         // The number grows with the main figure's zoom (its height against the
-        // default-zoom height), but never drops below its default size, so it
+        // zoom-1 height), but never drops below its zoom-1 size, so it
         // stays readable when zoomed out and on the small thumbnails.
         const labelScale = Math.max(1, canvasH / (window.devicePixelRatio || 1) / BASE_MAIN_FIGURE_HEIGHT);
         const cx = area.centroid.x * canvasW, cy = area.centroid.y * canvasH;
         ctx.save();
-        ctx.font = `bold ${Math.round(26 * labelScale)}px system-ui, sans-serif`;
+        ctx.font = `bold ${Math.round(13 * labelScale)}px system-ui, sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.lineWidth = 6 * labelScale;
+        ctx.lineWidth = 3 * labelScale;
         ctx.strokeStyle = "rgba(255,255,255,0.9)";
         ctx.strokeText(String(area.number), cx, cy);
         ctx.fillStyle = "#000";
@@ -2111,7 +2111,7 @@
           return { id: fc.id, direction, wrapper, canvas: wrapper.querySelector("canvas") };
         }),
         activeFigureId: "back",
-        zoom: 1,
+        zoom: 1.15, // keep in sync with --main-figure-height in :root
       };
     });
 
@@ -2756,7 +2756,7 @@
     // ============ MAIN FIGURE ZOOM ============
     const BASE_MAIN_FIGURE_HEIGHT = 530;
     const ZOOM_MIN = 0.6;
-    const ZOOM_MAX = 1.8;
+    const ZOOM_MAX = 2.25;
     const ZOOM_STEP = 0.15;
 
     // Each section zooms its own figures (cs.zoom).
