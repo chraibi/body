@@ -140,6 +140,38 @@ const TRANSLATIONS = {
     en: "Comfort with that distance",
     de: "Wohlbefinden mit diesem Abstand",
   },
+  "question.discomfort": {
+    en: "During this trial, you felt awkward/uncomfortable.",
+    de: "Während dieses Durchgangs fühlten Sie sich verlegen/unwohl.",
+  },
+  "question.fun": {
+    en: "During this trial, you had fun.",
+    de: "Während dieses Durchgangs hatten Sie Spaß.",
+  },
+  "question.unfairness": {
+    en: "During this trial, you felt like the situation was unfair.",
+    de: "Während dieses Durchgangs empfanden Sie die Situation als unfair.",
+  },
+  "question.awareness": {
+    en: "During this trial, you were always aware of bodily contacts with other participants.",
+    de: "Während dieses Durchgangs waren Sie sich Körperkontakten mit anderen Teilnehmenden stets bewusst.",
+  },
+  "question.discomfort.short": {
+    en: "Awkwardness/discomfort",
+    de: "Verlegenheit/Unwohlsein",
+  },
+  "question.fun.short": {
+    en: "Fun during the trial",
+    de: "Spaß während des Durchgangs",
+  },
+  "question.unfairness.short": {
+    en: "Unfairness of the situation",
+    de: "Unfairness der Situation",
+  },
+  "question.awareness.short": {
+    en: "Awareness of bodily contacts",
+    de: "Bewusstsein für Körperkontakte",
+  },
 
   // ---- Marking ----
   "section.contacts": {
@@ -292,52 +324,6 @@ const TRANSLATIONS = {
   "areas.incomplete": {
     en: "Ratings incomplete",
     de: "Bewertung unvollständig",
-  },
-
-  // ---- Questions after marking ----
-  "section.postMarking": {
-    en: "About your awareness during this trial",
-    de: "Zu Ihrer Wahrnehmung während dieses Durchgangs",
-  },
-  "question.awareness": {
-    en: "During this trial, you were always aware of bodily contacts with other participants.",
-    de: "Während dieses Durchgangs waren Sie sich Körperkontakten mit anderen Teilnehmenden stets bewusst.",
-  },
-  "question.acceptability": {
-    en: "During this trial, you felt that bodily interactions were acceptable.",
-    de: "Während dieses Durchgangs empfanden Sie körperliche Interaktionen als akzeptabel.",
-  },
-  "question.awareness.short": {
-    en: "Awareness of bodily contacts",
-    de: "Bewusstsein für Körperkontakte",
-  },
-  "question.acceptability.short": {
-    en: "Acceptability of bodily interactions",
-    de: "Akzeptanz körperlicher Interaktionen",
-  },
-  "question.discomfort": {
-    en: "During this trial, you felt awkward/uncomfortable.",
-    de: "Während dieses Durchgangs fühlten Sie sich verlegen/unwohl.",
-  },
-  "question.fun": {
-    en: "During this trial, you had fun.",
-    de: "Während dieses Durchgangs hatten Sie Spaß.",
-  },
-  "question.unfairness": {
-    en: "During this trial, you felt like the situation was unfair.",
-    de: "Während dieses Durchgangs empfanden Sie die Situation als unfair.",
-  },
-  "question.discomfort.short": {
-    en: "Awkwardness/discomfort",
-    de: "Verlegenheit/Unwohlsein",
-  },
-  "question.fun.short": {
-    en: "Fun during the trial",
-    de: "Spaß während des Durchgangs",
-  },
-  "question.unfairness.short": {
-    en: "Unfairness of the situation",
-    de: "Unfairness der Situation",
   },
 
   // ---- Comments ----

@@ -883,6 +883,10 @@
       <label class="question-text" data-i18n="question.unfairness">During this trial, you felt like the situation was unfair.</label>
       <div class="choice-options" id="unfairnessOptions"></div>
     </div>
+    <div class="question-block">
+      <label class="question-text" data-i18n="question.awareness">During this trial, you were always aware of bodily contacts with other participants.</label>
+      <div class="choice-options" id="awarenessOptions"></div>
+    </div>
   </div>
 
   <!-- Contact declaration -->
@@ -1015,19 +1019,6 @@
           <div class="empty-list" data-i18n="areas.empty">No contact areas recorded yet</div>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- Trial questions asked after marking -->
-  <div class="card">
-    <h3 data-i18n="section.postMarking">About your awareness during this trial</h3>
-    <div class="question-block">
-      <label class="question-text" data-i18n="question.awareness">During this trial, you were always aware of bodily contacts with other participants.</label>
-      <div class="choice-options" id="awarenessOptions"></div>
-    </div>
-    <div class="question-block">
-      <label class="question-text" data-i18n="question.acceptability">During this trial, you felt that bodily interactions were acceptable.</label>
-      <div class="choice-options" id="acceptabilityOptions"></div>
     </div>
   </div>
 
@@ -1309,11 +1300,10 @@
         trialNumber: trialNumber,
         distanceEstimate: null,
         comfortWithDistance: null,
-        awarenessOfContacts: null,
-        acceptabilityOfInteractions: null,
         overallDiscomfort: null,
         trialFun: null,
         unfairSituation: null,
+        awarenessOfContacts: null,
         noContactTouchedBy: false,
         noContactTouched: false,
         notes: "",
@@ -2130,11 +2120,10 @@
 
     const distanceOptionsEl = document.getElementById("distanceOptions");
     const comfortOptionsEl = document.getElementById("comfortOptions");
-    const awarenessOptionsEl = document.getElementById("awarenessOptions");
-    const acceptabilityOptionsEl = document.getElementById("acceptabilityOptions");
     const discomfortOptionsEl = document.getElementById("discomfortOptions");
     const funOptionsEl = document.getElementById("funOptions");
     const unfairnessOptionsEl = document.getElementById("unfairnessOptions");
+    const awarenessOptionsEl = document.getElementById("awarenessOptions");
 
     const ratingModalOverlay = document.getElementById("ratingModalOverlay");
     const ratingModalTitle = document.getElementById("ratingModalTitle");
@@ -2159,7 +2148,6 @@
       { field: "trialFun", container: funOptionsEl, options: AGREEMENT_OPTIONS, labelKey: "question.fun.short" },
       { field: "unfairSituation", container: unfairnessOptionsEl, options: AGREEMENT_OPTIONS, labelKey: "question.unfairness.short" },
       { field: "awarenessOfContacts", container: awarenessOptionsEl, options: AGREEMENT_OPTIONS, labelKey: "question.awareness.short" },
-      { field: "acceptabilityOfInteractions", container: acceptabilityOptionsEl, options: AGREEMENT_OPTIONS, labelKey: "question.acceptability.short" },
     ];
 
     function renderTrialQuestions() {
