@@ -360,8 +360,8 @@ const TRANSLATIONS = {
     de: "Intensität des Kontakts, den Sie an dieser Stelle gespürt haben",
   },
   "rating.duration": {
-    en: "Duration of contact you felt at this location.",
-    de: "Dauer des Kontakts, den Sie an dieser Stelle gespürt haben.",
+    en: "Estimated duration of the contact (in seconds).",
+    de: "Geschätzte Dauer des Kontakts (in Sekunden).",
   },
   "rating.expectation": {
     en: "Level of expectation you had about having contact at this location",
@@ -469,21 +469,21 @@ const TRANSLATIONS = {
     en: "Less than 1s",
     de: "Weniger als 1\u00a0s",
   },
-  "duration.less_3s": {
-    en: "Less than 3s",
-    de: "Weniger als 3\u00a0s",
+  "duration.1_to_2s": {
+    en: "1–2s",
+    de: "1–2\u00a0s",
   },
-  "duration.less_5s": {
-    en: "Less than 5s",
-    de: "Weniger als 5\u00a0s",
+  "duration.2_to_3s": {
+    en: "2–3s",
+    de: "2–3\u00a0s",
   },
-  "duration.less_10s": {
-    en: "Less than 10s",
-    de: "Weniger als 10\u00a0s",
+  "duration.3_to_4s": {
+    en: "3–4s",
+    de: "3–4\u00a0s",
   },
-  "duration.10s_or_more": {
-    en: "10s or more",
-    de: "10\u00a0s oder länger",
+  "duration.more_than_4s": {
+    en: "More than 4s",
+    de: "Mehr als 4\u00a0s",
   },
   "expectation.very_unexpected": {
     en: "Very unexpected",
