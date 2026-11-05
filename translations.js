@@ -23,7 +23,7 @@ const TRANSLATIONS = {
     de: "Sprache",
   },
 
-  // ---- Participant / trial identification ----
+  // ---- Participant identification ----
   "ident.participantId": {
     en: "Participant ID:",
     de: "Teilnehmer-ID:",
@@ -40,14 +40,6 @@ const TRANSLATIONS = {
     en: "e.g. R",
     de: "z. B. R",
   },
-  "ident.trialNumber": {
-    en: "Trial number:",
-    de: "Durchgangsnummer:",
-  },
-  "ident.trialNumberPlaceholder": {
-    en: "e.g. 2",
-    de: "z. B. 2",
-  },
   "field.participantId": {
     en: "Participant ID",
     de: "Teilnehmer-ID",
@@ -55,10 +47,6 @@ const TRANSLATIONS = {
   "field.familyNameLetter": {
     en: "Last letter of family name",
     de: "Letzter Buchstabe des Nachnamens",
-  },
-  "field.trialNumber": {
-    en: "Trial number",
-    de: "Durchgangsnummer",
   },
   "list.and": {
     en: " and ",
@@ -79,30 +67,6 @@ const TRANSLATIONS = {
   "status.letter.valid": {
     en: "✓ Letter is valid",
     de: "✓ Buchstabe ist gültig",
-  },
-  "status.trial.invalid": {
-    en: "❌ Trial number must be numeric",
-    de: "❌ Die Durchgangsnummer muss eine Zahl sein",
-  },
-  "status.trial.valid": {
-    en: "✓ Trial number is valid",
-    de: "✓ Durchgangsnummer ist gültig",
-  },
-  "status.trial.new": {
-    en: "✓ New trial",
-    de: "✓ Neuer Durchgang",
-  },
-  "status.trial.expired": {
-    en: "❌ Edit time limit expired (1 hour)",
-    de: "❌ Bearbeitungszeit abgelaufen (1 Stunde)",
-  },
-  "status.trial.editing": {
-    en: "✓ Editing enabled ({minutes} min remaining)",
-    de: "✓ Bearbeitung möglich (noch {minutes} Min.)",
-  },
-  "status.trial.alreadySent": {
-    en: "❌ Answers for this trial were already sent today. Please check the fields above: your answers on this page are kept.",
-    de: "❌ Für diesen Durchgang wurden heute bereits Antworten gesendet. Bitte prüfen Sie die Felder oben: Ihre Antworten auf dieser Seite bleiben erhalten.",
   },
 
   // ---- Requirement banners ----
@@ -267,14 +231,6 @@ const TRANSLATIONS = {
     en: "Please fill in the {fields} at the top of the page before answering the questions.",
     de: "Bitte geben Sie oben auf der Seite {fields} ein, bevor Sie die Fragen beantworten.",
   },
-  "status.expiredRecord": {
-    en: "❌ Edit time limit expired. Cannot record new areas.",
-    de: "❌ Bearbeitungszeit abgelaufen. Es können keine neuen Bereiche eingezeichnet werden.",
-  },
-  "status.expiredDelete": {
-    en: "❌ Edit time limit expired. Cannot delete areas.",
-    de: "❌ Bearbeitungszeit abgelaufen. Bereiche können nicht gelöscht werden.",
-  },
   "status.nothingToRecord": {
     en: "⚠️ Nothing to record there — that's outside the body outline or already marked. Try again.",
     de: "⚠️ Hier lässt sich nichts einzeichnen – die Stelle liegt außerhalb des Körperumrisses oder ist bereits markiert. Bitte versuchen Sie es erneut.",
@@ -290,10 +246,6 @@ const TRANSLATIONS = {
   "status.areasCleared": {
     en: "Cleared all areas of this section.",
     de: "Alle Bereiche dieses Abschnitts wurden gelöscht.",
-  },
-  "status.loadFailed": {
-    en: "❌ Failed to check existing data: {error}",
-    de: "❌ Vorhandene Daten konnten nicht geprüft werden: {error}",
   },
 
   // ---- Recorded areas list ----
@@ -520,12 +472,8 @@ const TRANSLATIONS = {
     de: "⚠️ Erneut versuchen",
   },
   "save.invalidIds": {
-    en: "Participant ID, trial number and last letter of family name must all be valid before saving.",
-    de: "Teilnehmer-ID, Durchgangsnummer und letzter Buchstabe des Nachnamens müssen gültig sein, bevor Sie speichern können.",
-  },
-  "save.alreadySent": {
-    en: "Answers for this participant ID, trial number and letter were already sent today. Please check these fields: sending now would replace those answers.",
-    de: "Für diese Teilnehmer-ID, Durchgangsnummer und diesen Buchstaben wurden heute bereits Antworten gesendet. Bitte prüfen Sie diese Felder: Ein Senden würde diese Antworten ersetzen.",
+    en: "Participant ID and last letter of family name must both be valid before saving.",
+    de: "Teilnehmer-ID und letzter Buchstabe des Nachnamens müssen gültig sein, bevor Sie speichern können.",
   },
   "save.incompleteIntro": {
     en: "Please complete the following before saving:",

@@ -6,10 +6,8 @@
       "$participant": {
         "trials": {
           "$trial": {
-            ".read": true,
-            ".write": "newData.exists()",
-            ".validate": "$participant.length <= 40 && $participant.matches(/^[0-9]+_[^_]+_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/) && $trial.length <= 6 && $trial.matches(/^[0-9]+$/) && newData.hasChildren(['trialNumber', 'distanceEstimate', 'comfortWithDistance', 'overallDiscomfort', 'trialFun', 'unfairSituation', 'awarenessOfContacts', 'noContactTouchedBy', 'noContactTouched', 'language', 'firstSavedAt', 'lastEdited'])",
-            "trialNumber": { ".validate": "newData.isString() && newData.val() === $trial" },
+            ".write": "!data.exists() && newData.exists()",
+            ".validate": "$participant.length <= 40 && $participant.matches(/^[0-9]+_[^_]+_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/) && $trial.length === 20 && $trial.matches(/^[0-9A-Za-z_-]+$/) && newData.hasChildren(['distanceEstimate', 'comfortWithDistance', 'overallDiscomfort', 'trialFun', 'unfairSituation', 'awarenessOfContacts', 'noContactTouchedBy', 'noContactTouched', 'language', 'startedAt', 'sentAt'])",
             "distanceEstimate": { ".validate": "newData.isString() && newData.val().matches(/^(direct_contact|less_20cm|less_50cm|less_1m|more_1m)$/)" },
             "comfortWithDistance": { ".validate": "newData.isString() && newData.val().matches(/^(strongly_disagree|disagree|neutral|agree|strongly_agree)$/)" },
             "overallDiscomfort": { ".validate": "newData.isString() && newData.val().matches(/^(strongly_disagree|disagree|neutral|agree|strongly_agree)$/)" },
@@ -20,8 +18,8 @@
             "noContactTouched": { ".validate": "newData.isBoolean()" },
             "notes": { ".validate": "newData.isString() && newData.val().length <= 2000" },
             "language": { ".validate": "newData.val() === 'de' || newData.val() === 'en'" },
-            "firstSavedAt": { ".validate": "newData.isString() && newData.val().matches(/^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]\\.[0-9][0-9][0-9]Z$/)" },
-            "lastEdited": { ".validate": "newData.isString() && newData.val().matches(/^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]\\.[0-9][0-9][0-9]Z$/)" },
+            "startedAt": { ".validate": "newData.isString() && newData.val().matches(/^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]\\.[0-9][0-9][0-9]Z$/)" },
+            "sentAt": { ".validate": "newData.isString() && newData.val().matches(/^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]\\.[0-9][0-9][0-9]Z$/)" },
             "areas": {
               "$area": {
                 ".validate": "$area.matches(/^[0-9][0-9]?$/) && newData.hasChildren(['number', 'figure', 'direction', 'maskDataUrl', 'bbox', 'centroid', 'intensity', 'duration', 'expectation', 'confidence', 'timestamp'])",

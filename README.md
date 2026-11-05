@@ -102,10 +102,6 @@ Pure state management class for the user session.
 - `collectedPoints[]` - Array of recorded interaction points
 - `idIsValid` - Boolean flag for participant ID validation
 - `nameIsValid` - Boolean flag for participant name validation
-- `isExistingSession` - Whether loading an existing session
-- `firstEntryTimestamp` - Timestamp of earliest point
-- `canEdit` - Whether session is still editable (1-hour window)
-- `editStatusTimer` - Timer reference for edit window countdown
 - `sessionNotes` - Participant notes
 - `sessionConfidence` - Confidence rating (1-5 stars)
 - `questionnaireResponses` - Object with questionnaire answers (q1-q4)
@@ -183,7 +179,7 @@ All canvas drawing and user interaction handling.
 
 **Interaction:**
 - `recordPoint(figureId, x, y)` - Record new point with validation
-  - Validates ID/name, edit window, marking mode
+  - Validates ID/name, marking mode
   - Normalizes coordinates
   - Supports both click and touch events
 
@@ -218,9 +214,8 @@ Each provides:
 - **Questionnaire Integration** - 4-question survey embedded in interface
 
 ### Data Management
-- **Participant Sessions** - Create new or load existing sessions
+- **One record per form sent** - Every form sent is saved as a new trial; answers already sent are never reopened or changed
 - **Persistent Storage** - Firebase Realtime Database integration
-- **Edit Window** - 1-hour edit period with countdown
 - **Session Notes** - Add participant notes with star confidence rating
 - **Data Validation** - Multi-level validation (ID, name, questionnaire, points)
 
@@ -255,7 +250,6 @@ Each provides:
 1. **Enter ID and Name**
    - ID must be numeric
    - Name cannot be empty
-   - System checks if you're a new or returning participant
 
 2. **Declare Contacts**
    - Answer the two yes/no questions: "your body was touched by other participants" and "you touched other participants"
@@ -274,16 +268,17 @@ Each provides:
    - Data saved to Firebase
    - Confirmation message appears
 
-### For Returning Participants
+### Trials and storage
 
-1. Enter your ID, the Trial number and the last letter of your family name
-2. System loads the answers you sent for that trial **today** (the same ID and trial number on another day start a new, empty trial)
-3. You have 1 hour to edit your session
-4. Continue where you left off
+Participants don't enter a trial number: they enter their ID and the last letter of their family name, and every form they send is saved as a **new** trial. Entering an ID and letter already used never reopens the answers sent with them, so answers can't be edited once sent. Each form is matched to its trial afterwards from the time it was sent, since the times at which participants are asked to fill in the form are known.
 
-Correcting the ID, trial number or letter after answering keeps the answers not sent yet: they move to the corrected trial. If the corrected fields point at a trial already sent today, the answers stay on the page but can't be sent there (they would replace the sent ones) until the fields are corrected again.
+Trials are stored per day under `data/{id}_{letter}_{YYYY-MM-DD}/trials/{trialKey}` (local date of the device), so a participant's trials on different experiment days, which reuse the same IDs, are kept apart. `{letter}` is the last letter of the participant's family name, lower-cased, so answers sent with a mistyped ID are only filed under another participant if that person's family name also ends with the same letter.
 
-Trials are stored per day under `data/{id}_{letter}_{YYYY-MM-DD}/trials/{trialNumber}` (local date of the device), so experiment days that reuse the same IDs and trial numbers never read or overwrite each other. `{letter}` is the last letter of the participant's family name, lower-cased: a participant who mistypes their ID only reaches someone else's answers if that person's family name also ends with the same letter.
+`{trialKey}` is a Firebase push key, made on the device when the form is first sent: sorting a participant's trials by key sorts them in the order they were sent. A participant's trials are never overwritten: each form sent gets a new key, a retry after a failed send reuses its own key (so a trial is never saved twice), and the database rules refuse writing to a key already saved.
+
+Each trial records two times, in UTC from the device's clock:
+- `startedAt`: when the participant gave the first answer of the form (moved a slider, answered a yes/no question, drew an area or typed a comment). Answers can only be given once the ID and letter are valid.
+- `sentAt`: when the form was sent (if a send failed and was retried, the retry that succeeded).
 
 ### Languages
 
@@ -440,13 +435,7 @@ const directionColors = {
 5. Add the field, with its allowed values, to `database.rules.json` and deploy it (`firebase deploy --only database`)
 
 ### Database Rules
-`database.rules.json` only accepts trials shaped exactly as the page saves them: the key formats above, the known fields with their allowed values (e.g. `strongly_agree`), notes up to 2000 characters, at most 100 areas, and area masks that are PNG data URIs under 300,000 characters. Any other field is refused, so a new field or answer option saved by the page needs a matching change in the rules, or saving fails.
-
-### Modifying Edit Time Limit
-Change constant at top of code:
-```javascript
-const EDIT_TIME_LIMIT = 60 * 60 * 1000; // milliseconds
-```
+`database.rules.json` only accepts trials shaped exactly as the page saves them, and only as new records: a trial already saved can't be overwritten, and the page can't read any trial back (export the data from the Firebase console). It checks the key formats above, the known fields with their allowed values (e.g. `strongly_agree`), notes up to 2000 characters, at most 100 areas, and area masks that are PNG data URIs under 300,000 characters. Any other field is refused, so a new field or answer option saved by the page needs a matching change in the rules, or saving fails.
 
 
 ---

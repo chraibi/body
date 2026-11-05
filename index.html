@@ -843,14 +843,8 @@
       <div class="id-status" id="idStatus"></div>
     </div>
 
-    <div class="control-group">
-      <label data-i18n="ident.trialNumber">Trial number:</label>
-      <input type="text" id="trialNumber" placeholder="e.g. 2" data-i18n-placeholder="ident.trialNumberPlaceholder" autocomplete="off" />
-      <div class="id-status" id="trialStatus"></div>
-    </div>
-
-    <!-- Part of the storage key with the ID, so a mistyped ID does not open or
-         overwrite another participant's answers. -->
+    <!-- Part of the storage key with the ID, so answers sent with a mistyped
+         ID are not filed under another participant. -->
     <div class="control-group">
       <label data-i18n="ident.familyNameLetter">Last letter of family name (for security):</label>
       <input type="text" id="familyNameLetter" placeholder="e.g. R" data-i18n-placeholder="ident.familyNameLetterPlaceholder" maxlength="1" autocapitalize="characters" autocomplete="off" />
@@ -902,8 +896,8 @@
       <div class="question-block">
         <label class="question-text" data-i18n="contact.touched_by.question">During this trial, your body was touched by other participants.</label>
         <div class="yes-no-options">
-          <label class="yes-no-option"><input type="radio" name="contactAnswer_touched_by" value="yes" /> <span data-i18n="answer.yes">Yes</span></label>
-          <label class="yes-no-option"><input type="radio" name="contactAnswer_touched_by" value="no" /> <span data-i18n="answer.no">No</span></label>
+          <label class="yes-no-option"><input type="radio" name="contactAnswer_touched_by" value="yes" autocomplete="off" /> <span data-i18n="answer.yes">Yes</span></label>
+          <label class="yes-no-option"><input type="radio" name="contactAnswer_touched_by" value="no" autocomplete="off" /> <span data-i18n="answer.no">No</span></label>
         </div>
       </div>
 
@@ -964,8 +958,8 @@
       <div class="question-block">
         <label class="question-text" data-i18n="contact.touched.question">During this trial, you touched other participants.</label>
         <div class="yes-no-options">
-          <label class="yes-no-option"><input type="radio" name="contactAnswer_touched" value="yes" /> <span data-i18n="answer.yes">Yes</span></label>
-          <label class="yes-no-option"><input type="radio" name="contactAnswer_touched" value="no" /> <span data-i18n="answer.no">No</span></label>
+          <label class="yes-no-option"><input type="radio" name="contactAnswer_touched" value="yes" autocomplete="off" /> <span data-i18n="answer.yes">Yes</span></label>
+          <label class="yes-no-option"><input type="radio" name="contactAnswer_touched" value="no" autocomplete="off" /> <span data-i18n="answer.no">No</span></label>
         </div>
       </div>
 
@@ -1207,9 +1201,7 @@
       return opt ? t(opt.labelKey) : value;
     }
 
-    // Trials come back from the database, which anyone with the page's address
-    // can write to: their values go through this before being put in HTML, so
-    // they always show as plain text.
+    // Values put in HTML go through this, so they always show as plain text.
     function escapeHtml(value) {
       const entities = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
       return String(value).replace(/[&<>"']/g, c => entities[c]);
@@ -1295,9 +1287,10 @@
     }
 
     // ============ SESSION STATE CLASS ============
-    function emptyTrial(trialNumber) {
+    // A trial is not numbered: each form sent is its own record, and is matched
+    // to its trial afterwards from the times it was answered and sent.
+    function emptyTrial() {
       return {
-        trialNumber: trialNumber,
         distanceEstimate: null,
         comfortWithDistance: null,
         overallDiscomfort: null,
@@ -1308,42 +1301,29 @@
         noContactTouched: false,
         notes: "",
         areas: [],
-        language: null, // "de" or "en": page language when the trial was last sent
-        firstSavedAt: null,
-        lastEdited: null,
+        language: null, // "de" or "en": page language when the trial was sent
+        startedAt: null, // first answer given (see markStarted)
+        sentAt: null, // sent: the attempt that succeeded, if a failed one was retried
       };
     }
 
     class SessionState {
       constructor() {
-        this.currentTrial = emptyTrial(null);
+        this.currentTrial = emptyTrial();
         this.nextAreaNumber = 1;
 
         this.idIsValid = false;
         this.letterIsValid = false;
-        this.trialIsValid = false;
 
-        // Day the current trial is stored under, fixed when it is loaded so a
-        // form sent just after midnight still goes to the record it reopened.
-        this.sessionDate = null;
-
-        this.isExistingSession = false;
-        this.canEdit = true;
-        this.editStatusTimer = null;
-
-        // True while the identification fields point at a trial already sent
-        // today but the page holds unsent answers: sending is blocked, as it
-        // would replace the answers already sent.
-        this.sentTrialConflict = false;
+        // Database key of the current trial and day it is filed under, set at
+        // its first attempt to send so that a retry can't save it twice.
+        this.trialKey = null;
+        this.trialDate = null;
 
         // "yes", "no" or null (not answered yet) for each contact direction.
         // Only a "no" is saved, as the trial's noContact* field; a "yes" shows
         // in the areas drawn in that direction.
         this.contactAnswers = { touched_by: null, touched: null };
-      }
-
-      isEditable() {
-        return !this.isExistingSession || this.canEdit;
       }
 
       addArea(area) {
@@ -1391,25 +1371,18 @@
         return this.currentTrial.areas.filter(a => !a.intensity || !a.duration || !a.expectation || !a.confidence);
       }
 
-      resetForNewTrial(trialNumber) {
-        this.currentTrial = emptyTrial(trialNumber);
-        this.nextAreaNumber = 1;
-        this.isExistingSession = false;
-        this.canEdit = true;
-        this.contactAnswers = { touched_by: null, touched: null };
-        if (this.editStatusTimer) {
-          clearInterval(this.editStatusTimer);
-          this.editStatusTimer = null;
-        }
+      // Records when the participant started answering: called by every
+      // answer (slider, yes/no, area drawn, comment), only the first one counts.
+      // Answers can't be given before the ID and letter are valid, and the page
+      // reloads after each form sent, so this is the start of the current form.
+      markStarted() {
+        if (!this.currentTrial.startedAt) this.currentTrial.startedAt = new Date().toISOString();
       }
     }
 
     const appState = new SessionState();
 
     // ============ CUSTOM ERROR CLASSES ============
-    class DataLoadError extends Error {
-      constructor(message) { super(message); this.name = "DataLoadError"; }
-    }
     class DataSaveError extends Error {
       constructor(message) { super(message); this.name = "DataSaveError"; }
     }
@@ -1433,43 +1406,30 @@
       }
 
       // Local date (YYYY-MM-DD). It is part of the participant key because the
-      // same IDs and trial numbers are reused on every experiment day: answers
-      // can only be reopened on the day they were given, and another day's
-      // answers are never shown or overwritten.
+      // same IDs are reused on every experiment day: each day's answers of an
+      // ID are filed apart.
       getSessionDate(now = new Date()) {
         const pad = n => String(n).padStart(2, "0");
         return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
       }
 
       // e.g. "12_r_2026-10-21". The family-name letter is lower-cased so "R" and
-      // "r" reopen the same record.
+      // "r" file answers under the same participant.
       getParticipantKey(id, letter, date) {
         return [id, letter.toLowerCase(), date].filter(Boolean).join("_");
       }
 
-      async loadExistingTrialData(id, letter, date, trialNumber) {
-        try {
-          const key = this.getParticipantKey(id, letter, date);
-          const snapshot = await this.db.ref(`data/${key}/trials/${trialNumber}`).once("value");
-
-          if (snapshot.exists()) {
-            const trial = snapshot.val();
-            trial.areas = Array.isArray(trial.areas) ? trial.areas : [];
-            return { exists: true, trial };
-          }
-          return { exists: false };
-        } catch (error) {
-          const dataLoadError = new DataLoadError(`Failed to load trial data for ${this.getParticipantKey(id, letter, date)} trial ${trialNumber}: ${error.message}`);
-          console.error(dataLoadError.name + ":", dataLoadError.message);
-          throw dataLoadError;
-        }
+      // A new, unique key for a trial: Firebase push keys are made on the
+      // device, without a request, and sort in the order they were made.
+      newTrialKey() {
+        return this.db.ref("data").push().key;
       }
 
-      async saveTrialData(id, letter, date, trial) {
+      async saveTrialData(id, letter, date, trialKey, trial) {
         try {
           const key = this.getParticipantKey(id, letter, date);
-          await this.db.ref(`data/${key}/trials/${trial.trialNumber}`).set(trial);
-          console.log(`Successfully saved trial ${trial.trialNumber} for participant ${key}`);
+          await this.db.ref(`data/${key}/trials/${trialKey}`).set(trial);
+          console.log(`Successfully saved trial ${trialKey} for participant ${key}`);
           return true;
         } catch (error) {
           const dataSaveError = new DataSaveError(`Failed to save data: ${error.message}`);
@@ -1705,24 +1665,6 @@
         });
       }
 
-      // Loads the stored (cropped) mask bitmaps for areas coming from an
-      // existing trial, so they're drawable and can be subtracted from when
-      // computing new areas, before the figures are first rendered.
-      async loadAreaMaskCache(areas) {
-        await Promise.all(areas.map(area => new Promise((resolve) => {
-          // Only the PNG data URIs this page creates: any other address would make
-          // the participant's phone fetch an image from another server.
-          if (this.areaMaskCache.has(area.number) || typeof area.maskDataUrl !== "string" || !area.maskDataUrl.startsWith("data:image/png;base64,")) return resolve();
-          const img = new Image();
-          img.onload = () => {
-            this.cacheAreaMask(area.number, img, area.bbox, area.direction);
-            resolve();
-          };
-          img.onerror = () => resolve();
-          img.src = area.maskDataUrl;
-        })));
-      }
-
       clearAreaMaskCache() {
         this.areaMaskCache.clear();
       }
@@ -1889,10 +1831,6 @@
         canvas.addEventListener("pointerdown", (event) => {
           if (this.activeDraw) return;
           if (!requireIdentification("status.fillInFirst", event)) return;
-          if (!this.appState.isEditable()) {
-            setDrawingStatus(view.direction, "status.expiredRecord");
-            return;
-          }
 
           event.preventDefault();
           canvas.setPointerCapture(event.pointerId);
@@ -2074,13 +2012,10 @@
     const idStatusEl = document.getElementById("idStatus");
     const letterInput = document.getElementById("familyNameLetter");
     const letterStatusEl = document.getElementById("letterStatus");
-    const trialInput = document.getElementById("trialNumber");
-    const trialStatusEl = document.getElementById("trialStatus");
-    // The fields that identify a trial, in page order, each with the appState flag
-    // that is true once it holds a valid value.
+    // The fields that identify the participant, in page order, each with the
+    // appState flag that is true once it holds a valid value.
     const IDENTIFICATION_FIELDS = [
       { input: participantInput, validFlag: "idIsValid", labelKey: "field.participantId" },
-      { input: trialInput, validFlag: "trialIsValid", labelKey: "field.trialNumber" },
       { input: letterInput, validFlag: "letterIsValid", labelKey: "field.familyNameLetter" },
     ];
     const requirementBannerTop = document.getElementById("requirementBannerTop");
@@ -2137,7 +2072,6 @@
     const noContactModalConfirmBtn = document.getElementById("noContactModalConfirmBtn");
     const noContactModalCancelBtn = document.getElementById("noContactModalCancelBtn");
 
-    const EDIT_TIME_LIMIT = 60 * 60 * 1000;
     let openAreaIndex = null;
 
     // ============ TRIAL-LEVEL QUESTIONS ============
@@ -2154,6 +2088,7 @@
       TRIAL_QUESTIONS.forEach(q => {
         renderSliderField(q.container, q.options, appState.currentTrial[q.field], (value) => {
           appState.currentTrial[q.field] = value;
+          appState.markStarted();
         }, q.defaultIndex);
       });
       updateTrialQuestionsEditability();
@@ -2170,18 +2105,16 @@
       });
     }
 
-    // Like the body figures, no answer can be given before the participant ID,
-    // trial number and family-name letter are valid, nor once the trial's edit
-    // window has closed.
+    // Like the body figures, no answer can be given before the participant ID
+    // and family-name letter are valid.
     function answersLocked() {
-      return missingIdentificationFields().length > 0 || !appState.isEditable();
+      return missingIdentificationFields().length > 0;
     }
 
     // Called when a locked slider or yes/no answer is pressed: tells the
     // participant why it can't be answered.
     function explainAnswerLock(pointerdownEvent) {
-      if (!requireIdentification("status.fillInFirstQuestions", pointerdownEvent)) return;
-      if (!appState.isEditable()) setStatus("status.trial.expired");
+      requireIdentification("status.fillInFirstQuestions", pointerdownEvent);
     }
 
     // ============ AREAS LIST + RATING PANEL ============
@@ -2209,6 +2142,7 @@
         timestamp: new Date().toISOString(),
       };
       appState.addArea(area);
+      appState.markStarted();
       canvasManager.cacheAreaMask(area.number, result.canvas, result.bbox, direction);
       updateAreasList();
       canvasManager.redrawAllFigures();
@@ -2266,10 +2200,10 @@
 
       RATING_GROUPS.forEach(g => renderSliderField(g.container, g.options, area[g.field], (value) => {
         appState.currentTrial.areas[index][g.field] = value;
+        appState.markStarted();
       }, g.defaultIndex));
       const locked = answersLocked();
       RATING_GROUPS.forEach(g => g.container.querySelectorAll("input").forEach(input => { input.disabled = locked; }));
-      ratingModalDeleteBtn.disabled = !appState.isEditable();
 
       ratingModalOverlay.hidden = false;
     }
@@ -2281,8 +2215,8 @@
     }
 
     // "Done" only closes the panel once every slider has been answered. When the
-    // sliders are locked (edit window closed) the ratings can't be completed
-    // anymore, so the panel closes regardless.
+    // sliders are locked (an identification field emptied or made invalid since)
+    // the ratings can't be completed there, so the panel closes regardless.
     ratingModalDoneBtn.addEventListener("click", () => {
       const area = appState.currentTrial.areas[openAreaIndex];
       const missingFields = area && !answersLocked() ? RATING_GROUPS.filter(g => !area[g.field]).map(g => t(g.labelKey)) : [];
@@ -2302,10 +2236,6 @@
     function deleteArea(index) {
       const area = appState.currentTrial.areas[index];
       if (!area) return;
-      if (!appState.isEditable()) {
-        setDrawingStatus(area.direction, "status.expiredDelete");
-        return;
-      }
       canvasManager.renumberAreaMasks(appState.removeArea(index));
       updateAreasList();
       canvasManager.redrawAllFigures();
@@ -2319,10 +2249,6 @@
     }
 
     function clearAreas(direction) {
-      if (!appState.isEditable()) {
-        setDrawingStatus(direction, "status.expiredDelete");
-        return;
-      }
       if (confirm(t("areas.confirmClear"))) {
         deleteAreasInDirection(direction);
         setDrawingStatus(direction, "status.areasCleared");
@@ -2336,14 +2262,9 @@
     // ============ COMMENTS ============
     notesTextarea.addEventListener("input", () => {
       appState.currentTrial.notes = notesTextarea.value;
+      appState.markStarted();
       charCountEl.textContent = notesTextarea.value.length;
     });
-
-    function updateNotesDisplay() {
-      notesTextarea.value = appState.currentTrial.notes || "";
-      charCountEl.textContent = notesTextarea.value.length;
-      notesTextarea.disabled = !appState.isEditable();
-    }
 
     // ============ STATUS HELPERS ============
     // Takes a translation key (+ params) or a function building the text.
@@ -2367,16 +2288,6 @@
     // answering "No" deletes the areas drawn there, so the two can't contradict.
     function areasInDirection(direction) {
       return appState.currentTrial.areas.filter(a => a.direction === direction).length;
-    }
-
-    // The answers of a trial already sent: "yes" where it has areas, "no"
-    // where its "no contact" field is set.
-    function contactAnswersFromTrial(trial) {
-      const answers = {};
-      Object.entries(NO_CONTACT_FIELDS).forEach(([direction, field]) => {
-        answers[direction] = trial.areas.some(a => a.direction === direction) ? "yes" : trial[field] ? "no" : null;
-      });
-      return answers;
     }
 
     function updateContactSections() {
@@ -2419,50 +2330,16 @@
             setDrawingStatus(cs.direction, null);
           }
           appState.contactAnswers[cs.direction] = radio.value;
+          appState.markStarted();
           appState.currentTrial[NO_CONTACT_FIELDS[cs.direction]] = radio.value === "no";
           updateContactSections();
         });
       });
     });
 
-    // ============ EDIT WINDOW ============
-    function updateEditStatus() {
-      if (!appState.isExistingSession) {
-        setLiveText(trialStatusEl, "status.trial.new");
-        trialStatusEl.className = "id-status id-valid";
-        return;
-      }
-
-      const elapsed = Date.now() - new Date(appState.currentTrial.firstSavedAt).getTime();
-      const remaining = EDIT_TIME_LIMIT - elapsed;
-
-      if (remaining <= 0) {
-        appState.canEdit = false;
-        setLiveText(trialStatusEl, "status.trial.expired");
-        trialStatusEl.className = "id-status id-invalid";
-      } else {
-        appState.canEdit = true;
-        const minutesRemaining = Math.ceil(remaining / 60000);
-        setLiveText(trialStatusEl, "status.trial.editing", { minutes: minutesRemaining });
-        trialStatusEl.className = "id-status id-valid";
-      }
-
-      updateEditability();
-    }
-
-    function updateEditability() {
-      updateNotesDisplay();
-      updateTrialQuestionsEditability();
-    }
-
-    function startEditStatusTimer() {
-      if (appState.editStatusTimer) clearInterval(appState.editStatusTimer);
-      appState.editStatusTimer = setInterval(() => {
-        if (appState.isExistingSession) updateEditStatus();
-      }, 30000);
-    }
-
-    // ============ PARTICIPANT / TRIAL IDENTIFICATION ============
+    // ============ PARTICIPANT IDENTIFICATION ============
+    // The ID and letter only say whose answers these are: they never open
+    // answers already sent, and every form sent is saved as a new trial.
     function missingIdentificationFields() {
       return IDENTIFICATION_FIELDS.filter(field => !appState[field.validFlag]);
     }
@@ -2489,26 +2366,7 @@
       return false;
     }
 
-    // True when the page holds answers for a trial that hasn't been sent yet.
-    function hasUnsentAnswers() {
-      const trial = appState.currentTrial;
-      return !appState.isExistingSession && (
-        TRIAL_QUESTIONS.some(q => trial[q.field] != null) ||
-        trial.areas.length > 0 ||
-        Object.values(appState.contactAnswers).some(answer => answer !== null) ||
-        trial.notes.trim() !== ""
-      );
-    }
-
-    function refreshUiForCurrentTrial() {
-      renderTrialQuestions();
-      updateNotesDisplay();
-      updateContactSections();
-      updateAreasList();
-      canvasManager.redrawAllFigures();
-    }
-
-    async function updateIdStatus() {
+    function updateIdStatus() {
       const id = participantInput.value.trim();
       if (!id) {
         appState.idIsValid = false;
@@ -2525,10 +2383,9 @@
       appState.idIsValid = true;
       setLiveText(idStatusEl, "status.id.valid");
       idStatusEl.className = "id-status id-valid";
-      updateCombinedKeyStatus();
     }
 
-    async function updateLetterStatus() {
+    function updateLetterStatus() {
       const letter = letterInput.value.trim();
       if (!letter) {
         appState.letterIsValid = false;
@@ -2545,83 +2402,6 @@
       appState.letterIsValid = true;
       setLiveText(letterStatusEl, "status.letter.valid");
       letterStatusEl.className = "id-status id-valid";
-      updateCombinedKeyStatus();
-    }
-
-    async function updateTrialStatus() {
-      const trial = trialInput.value.trim();
-      if (!trial) {
-        appState.trialIsValid = false;
-        setLiveText(trialStatusEl, null);
-        trialStatusEl.className = "id-status";
-        return;
-      }
-      if (!dataService.isValidNumericId(trial)) {
-        appState.trialIsValid = false;
-        setLiveText(trialStatusEl, "status.trial.invalid");
-        trialStatusEl.className = "id-status id-invalid";
-        return;
-      }
-      appState.trialIsValid = true;
-      setLiveText(trialStatusEl, "status.trial.valid");
-      trialStatusEl.className = "id-status id-valid";
-      updateCombinedKeyStatus();
-    }
-
-    async function updateCombinedKeyStatus() {
-      if (missingIdentificationFields().length) return;
-
-      const id = participantInput.value.trim();
-      const letter = letterInput.value.trim();
-      const trialNumber = trialInput.value.trim();
-      const date = dataService.getSessionDate();
-
-      let result;
-      try {
-        result = await dataService.loadExistingTrialData(id, letter, date, trialNumber);
-      } catch (error) {
-        setStatus("status.loadFailed", { error: error.message });
-        return;
-      }
-
-      // Every keystroke starts a lookup: ignore this one if the fields changed
-      // while it ran, so a late answer for an earlier value can't win.
-      if (id !== participantInput.value.trim() || letter !== letterInput.value.trim() || trialNumber !== trialInput.value.trim()) return;
-
-      appState.sessionDate = date;
-      appState.sentTrialConflict = false;
-
-      // Unsent answers follow the identification fields, so correcting a
-      // mistake in them midway keeps the answers already given.
-      const keepUnsentAnswers = hasUnsentAnswers();
-
-      if (result.exists && keepUnsentAnswers) {
-        appState.sentTrialConflict = true;
-        setLiveText(trialStatusEl, "status.trial.alreadySent");
-        trialStatusEl.className = "id-status id-invalid";
-      } else if (result.exists) {
-        canvasManager.clearAreaMaskCache();
-        appState.isExistingSession = true;
-        appState.currentTrial = result.trial;
-        appState.contactAnswers = contactAnswersFromTrial(result.trial);
-        appState.currentTrial.areas.forEach(a => { appState.nextAreaNumber = Math.max(appState.nextAreaNumber, (a.number || 0) + 1); });
-
-        await canvasManager.loadAreaMaskCache(appState.currentTrial.areas);
-        updateEditStatus();
-        startEditStatusTimer();
-        refreshUiForCurrentTrial();
-        if (!appState.canEdit) setLiveText(trialStatusEl, "status.trial.expired");
-      } else if (keepUnsentAnswers) {
-        appState.currentTrial.trialNumber = trialNumber;
-        setLiveText(trialStatusEl, "status.trial.new");
-        trialStatusEl.className = "id-status id-valid";
-      } else {
-        canvasManager.clearAreaMaskCache();
-        appState.resetForNewTrial(trialNumber);
-        setLiveText(trialStatusEl, "status.trial.new");
-        trialStatusEl.className = "id-status id-valid";
-        refreshUiForCurrentTrial();
-      }
     }
 
     function updateRequirementBanner() {
@@ -2639,13 +2419,12 @@
 
     participantInput.addEventListener("input", () => { updateIdStatus(); updateRequirementBanner(); updateTrialQuestionsEditability(); });
     letterInput.addEventListener("input", () => {
-      // Shown as a capital whatever the case typed ("s" and "S" open the same
-      // record anyway). ß has no one-letter capital, so it stays as typed.
+      // Shown as a capital whatever the case typed ("s" and "S" are saved the
+      // same anyway). ß has no one-letter capital, so it stays as typed.
       const upper = letterInput.value.toUpperCase();
       if (upper.length === 1) letterInput.value = upper;
       updateLetterStatus(); updateRequirementBanner(); updateTrialQuestionsEditability();
     });
-    trialInput.addEventListener("input", () => { updateTrialStatus(); updateRequirementBanner(); updateTrialQuestionsEditability(); });
 
     // iOS Safari doesn't move focus when a slider (or canvas) is tapped, so a text
     // field stays focused and the keyboard pops back up after every slider move.
@@ -2809,11 +2588,6 @@
         return;
       }
 
-      if (appState.sentTrialConflict) {
-        alert(t("save.alreadySent"));
-        return;
-      }
-
       const missingQuestions = TRIAL_QUESTIONS.filter(q => !appState.currentTrial[q.field]).map(q => t(q.labelKey));
       const missingDeclarations = getMissingContactDeclarations();
       const incompleteAreas = appState.getIncompleteAreas().map(area => {
@@ -2855,36 +2629,38 @@
 
         const id = participantInput.value.trim();
         const letter = letterInput.value.trim();
-        const nowIso = new Date().toISOString();
+        const now = new Date();
+        const nowIso = now.toISOString();
 
         appState.currentTrial.notes = notesTextarea.value;
         appState.currentTrial.language = currentLanguage;
-        if (!appState.currentTrial.firstSavedAt) appState.currentTrial.firstSavedAt = nowIso;
-        appState.currentTrial.lastEdited = nowIso;
+        // The trial's key and day are set at its first attempt to send and
+        // kept for the retries, so it is never saved twice.
+        if (!appState.trialKey) {
+          appState.trialDate = dataService.getSessionDate(now);
+          appState.trialKey = dataService.newTrialKey();
+        }
+        appState.currentTrial.sentAt = nowIso;
 
-        const date = appState.sessionDate || dataService.getSessionDate();
-
-        await dataService.saveTrialData(id, letter, date, appState.currentTrial);
+        await dataService.saveTrialData(id, letter, appState.trialDate, appState.trialKey, appState.currentTrial);
 
         appState.clearAllAreas();
         canvasManager.clearAreaMaskCache();
         updateAreasList();
         canvasManager.redrawAllFigures();
+        appState.contactAnswers = { touched_by: null, touched: null };
+        updateContactSections();
 
         participantInput.value = "";
         letterInput.value = "";
-        trialInput.value = "";
         notesTextarea.value = "";
         charCountEl.textContent = "0";
         setLiveText(idStatusEl, null);
         idStatusEl.className = "id-status";
         setLiveText(letterStatusEl, null);
         letterStatusEl.className = "id-status";
-        setLiveText(trialStatusEl, null);
-        trialStatusEl.className = "id-status";
         appState.idIsValid = false;
         appState.letterIsValid = false;
-        appState.trialIsValid = false;
         updateRequirementBanner();
 
         setSyncStatus("synced");
@@ -2928,6 +2704,9 @@
     // ============ INIT ============
     renderTrialQuestions();
     updateRequirementBanner();
+    // Some browsers restore the yes/no answers of the form sent before the
+    // reload: start from the (empty) answers of the new form instead.
+    updateContactSections();
     (async () => {
       await Promise.all([canvasManager.preloadImages(), canvasManager.preloadBodyMasks()]);
       Object.values(contactSections).forEach(cs => {
