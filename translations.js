@@ -86,7 +86,7 @@ const TRANSLATIONS = {
   // ---- Questions before marking ----
   "section.preMarking": {
     en: "About this trial",
-    de: "Zu diesem Durchgang",
+    de: "Zu diesem Versuch",
   },
   "question.distance": {
     en: "Before the perturbation (\"push\"), what was the estimated distance between you and your first neighbour?",
@@ -106,19 +106,19 @@ const TRANSLATIONS = {
   },
   "question.discomfort": {
     en: "During this trial, you felt awkward/uncomfortable.",
-    de: "Während dieses Durchgangs fühlten Sie sich verlegen/unwohl.",
+    de: "Während dieses Versuchs fühlten Sie sich verlegen/unwohl.",
   },
   "question.fun": {
     en: "During this trial, you had fun.",
-    de: "Während dieses Durchgangs hatten Sie Spaß.",
+    de: "Während dieses Versuchs hatten Sie Spaß.",
   },
   "question.unfairness": {
     en: "During this trial, you felt like the situation was unfair.",
-    de: "Während dieses Durchgangs empfanden Sie die Situation als unfair.",
+    de: "Während dieses Versuchs empfanden Sie die Situation als unfair.",
   },
   "question.awareness": {
-    en: "During this trial, you were always aware of bodily contacts with other participants.",
-    de: "Während dieses Durchgangs waren Sie sich Körperkontakten mit anderen Teilnehmenden stets bewusst.",
+    en: "During this trial, you felt always aware of potential bodily contacts with other participants.",
+    de: "Während dieses Versuchs fühlten Sie sich möglicher Körperkontakte mit anderen Teilnehmenden stets bewusst.",
   },
   "question.discomfort.short": {
     en: "Awkwardness/discomfort",
@@ -126,7 +126,7 @@ const TRANSLATIONS = {
   },
   "question.fun.short": {
     en: "Fun during the trial",
-    de: "Spaß während des Durchgangs",
+    de: "Spaß während des Versuchs",
   },
   "question.unfairness.short": {
     en: "Unfairness of the situation",
@@ -140,7 +140,7 @@ const TRANSLATIONS = {
   // ---- Marking ----
   "section.contacts": {
     en: "Declaration of contacts perceived during the trial",
-    de: "Angabe der während des Durchgangs wahrgenommenen Kontakte",
+    de: "Angabe der während des Versuchs wahrgenommenen Kontakte",
   },
   "answer.yes": {
     en: "Yes",
@@ -157,7 +157,7 @@ const TRANSLATIONS = {
   },
   "contact.touched_by.question": {
     en: "During this trial, your body was touched by other participants.",
-    de: "Während dieses Durchgangs wurde Ihr Körper von anderen Teilnehmenden berührt.",
+    de: "Während dieses Versuchs wurde Ihr Körper von anderen Teilnehmenden berührt.",
   },
   // Shown above the figures once the question is answered "Yes".
   "contact.touched_by.instruction": {
@@ -171,7 +171,7 @@ const TRANSLATIONS = {
   },
   "contact.touched.question": {
     en: "During this trial, you touched other participants.",
-    de: "Während dieses Durchgangs haben Sie andere Teilnehmende berührt.",
+    de: "Während dieses Versuchs haben Sie andere Teilnehmende berührt.",
   },
   "contact.touched.instruction": {
     en: "Draw, on the outlines, the area of <strong>your body</strong> which made contact with other participants.<br>(You can also tap to create a small area)",
@@ -311,7 +311,7 @@ const TRANSLATIONS = {
   },
   "rating.expectation": {
     en: "Before the start of the run, you were expecting to be touched at this location.",
-    de: "Vor Beginn des Durchgangs haben Sie erwartet, an dieser Stelle berührt zu werden.",
+    de: "Vor Beginn des Versuchs haben Sie erwartet, an dieser Stelle berührt zu werden.",
   },
   "rating.confidence": {
     en: "You are confident in your declaration of this contact.",
@@ -461,7 +461,7 @@ const TRANSLATIONS = {
   },
   "save.retrying": {
     en: "Retrying...",
-    de: "Neuer Versuch …",
+    de: "Wird erneut gespeichert …",
   },
   "save.saved": {
     en: "✅ Saved!",

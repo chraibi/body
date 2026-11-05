@@ -878,7 +878,7 @@
       <div class="choice-options" id="unfairnessOptions"></div>
     </div>
     <div class="question-block">
-      <label class="question-text" data-i18n="question.awareness">During this trial, you were always aware of bodily contacts with other participants.</label>
+      <label class="question-text" data-i18n="question.awareness">During this trial, you felt always aware of potential bodily contacts with other participants.</label>
       <div class="choice-options" id="awarenessOptions"></div>
     </div>
   </div>
@@ -2045,7 +2045,8 @@
           const wrapper = section.querySelector(`.figure-wrapper[data-figure="${fc.id}"]`);
           return { id: fc.id, direction, wrapper, canvas: wrapper.querySelector("canvas") };
         }),
-        activeFigureId: "back",
+        // "I touched" opens on the front view, "I was touched" on the back view.
+        activeFigureId: direction === "touched" ? "front" : "back",
         zoom: 1.15, // keep in sync with --main-figure-height in :root
       };
     });
