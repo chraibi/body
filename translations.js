@@ -33,8 +33,8 @@ const TRANSLATIONS = {
     de: "z. B. 001",
   },
   "ident.familyNameLetter": {
-    en: "Last letter of family name (for security):",
-    de: "Letzter Buchstabe des Nachnamens (zur Sicherheit):",
+    en: "Last letter of family name:",
+    de: "Letzter Buchstabe des Nachnamens:",
   },
   "ident.familyNameLetterPlaceholder": {
     en: "e.g. R",
@@ -152,8 +152,8 @@ const TRANSLATIONS = {
   },
   // Section about the contacts other participants made on the participant's body.
   "contact.touched_by.heading": {
-    en: "Being touched by others",
-    de: "Von anderen berührt werden",
+    en: "Contacts from others",
+    de: "Kontakte von anderen",
   },
   "contact.touched_by.question": {
     en: "During this trial, your body was touched by other participants.",
@@ -166,8 +166,8 @@ const TRANSLATIONS = {
   },
   // Section about the parts of the participant's body that touched others.
   "contact.touched.heading": {
-    en: "Touching others",
-    de: "Andere berühren",
+    en: "Contacts to others",
+    de: "Kontakte zu anderen",
   },
   "contact.touched.question": {
     en: "During this trial, you touched other participants.",

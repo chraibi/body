@@ -326,6 +326,12 @@
       margin: 0 auto 1.5rem;
     }
 
+    /* Before the section is answered "Yes" (or after "No"), its figures are
+       shown as a preview of the drawing step but can't be used. */
+    .figures[inert] {
+      opacity: 0.4;
+    }
+
     .figure-main-slot {
       flex: 0 0 auto;
       position: relative;
@@ -859,7 +865,7 @@
     <!-- Part of the storage key with the ID, so answers sent with a mistyped
          ID are not filed under another participant. -->
     <div class="control-group">
-      <label data-i18n="ident.familyNameLetter">Last letter of family name (for security):</label>
+      <label data-i18n="ident.familyNameLetter">Last letter of family name:</label>
       <input type="text" id="familyNameLetter" placeholder="e.g. R" data-i18n-placeholder="ident.familyNameLetterPlaceholder" maxlength="1" autocapitalize="characters" autocomplete="off" />
       <div class="id-status" id="letterStatus"></div>
     </div>
@@ -900,12 +906,14 @@
   <div class="card" id="contactDeclaration">
     <h3 data-i18n="section.contacts">Declaration of contacts perceived during the trial</h3>
 
-    <!-- One section per contact direction: a yes/no question and, once answered
-         "Yes", the figures to draw the contact areas on and the list of the areas
-         drawn there. The two sections have the same markup; the script finds
-         their parts by class, within each section. -->
+    <!-- One section per contact direction: a yes/no question and the figures to
+         draw the contact areas on. The figures are always shown, so the
+         participant sees that drawing comes next, but stay dimmed and inert
+         until the question is answered "Yes"; the instruction and the list of
+         the areas drawn (.yes-only) only appear then. The two sections have the
+         same markup; the script finds their parts by class, within each section. -->
     <div class="contact-section" data-direction="touched_by">
-      <h4 data-i18n="contact.touched_by.heading">Being touched by others</h4>
+      <h4 data-i18n="contact.touched_by.heading">Contacts from others</h4>
       <div class="question-block">
         <label class="question-text" data-i18n="contact.touched_by.question">During this trial, your body was touched by other participants.</label>
         <div class="yes-no-options">
@@ -914,10 +922,10 @@
         </div>
       </div>
 
-      <div class="contact-drawing" hidden>
-        <p class="drawing-instruction" data-i18n-html="contact.touched_by.instruction">Draw, on the outlines, the area of <strong>your body</strong> where you felt contact from other participants.<br>(You can also tap to create a small area)</p>
+      <div class="contact-drawing">
+        <p class="drawing-instruction yes-only" hidden data-i18n-html="contact.touched_by.instruction">Draw, on the outlines, the area of <strong>your body</strong> where you felt contact from other participants.<br>(You can also tap to create a small area)</p>
 
-        <div class="figures">
+        <div class="figures" inert>
           <div class="figure-main-slot">
             <div class="zoom-control">
               <button type="button" class="zoom-btn zoom-btn-out" aria-label="Decrease outline size" title="Decrease outline size" data-i18n-aria-label="zoom.out" data-i18n-title="zoom.out">
@@ -954,20 +962,22 @@
           </div>
         </div>
 
-        <div class="status drawing-status"></div>
+        <div class="yes-only" hidden>
+          <div class="status drawing-status"></div>
 
-        <div class="card-header-row">
-          <h5 data-i18n="areas.heading">Recorded Contact Areas</h5>
-          <button type="button" class="secondary clear-areas" data-i18n="areas.clearAll">Clear all areas</button>
-        </div>
-        <div class="areas-list">
-          <div class="empty-list" data-i18n="areas.empty">No contact areas recorded yet</div>
+          <div class="card-header-row">
+            <h5 data-i18n="areas.heading">Recorded Contact Areas</h5>
+            <button type="button" class="secondary clear-areas" data-i18n="areas.clearAll">Clear all areas</button>
+          </div>
+          <div class="areas-list">
+            <div class="empty-list" data-i18n="areas.empty">No contact areas recorded yet</div>
+          </div>
         </div>
       </div>
     </div>
 
     <div class="contact-section" data-direction="touched">
-      <h4 data-i18n="contact.touched.heading">Touching others</h4>
+      <h4 data-i18n="contact.touched.heading">Contacts to others</h4>
       <div class="question-block">
         <label class="question-text" data-i18n="contact.touched.question">During this trial, you touched other participants.</label>
         <div class="yes-no-options">
@@ -976,10 +986,10 @@
         </div>
       </div>
 
-      <div class="contact-drawing" hidden>
-        <p class="drawing-instruction" data-i18n-html="contact.touched.instruction">Draw, on the outlines, the area of <strong>your body</strong> which made contact with other participants.<br>(You can also tap to create a small area)</p>
+      <div class="contact-drawing">
+        <p class="drawing-instruction yes-only" hidden data-i18n-html="contact.touched.instruction">Draw, on the outlines, the area of <strong>your body</strong> which made contact with other participants.<br>(You can also tap to create a small area)</p>
 
-        <div class="figures">
+        <div class="figures" inert>
           <div class="figure-main-slot">
             <div class="zoom-control">
               <button type="button" class="zoom-btn zoom-btn-out" aria-label="Decrease outline size" title="Decrease outline size" data-i18n-aria-label="zoom.out" data-i18n-title="zoom.out">
@@ -1016,14 +1026,16 @@
           </div>
         </div>
 
-        <div class="status drawing-status"></div>
+        <div class="yes-only" hidden>
+          <div class="status drawing-status"></div>
 
-        <div class="card-header-row">
-          <h5 data-i18n="areas.heading">Recorded Contact Areas</h5>
-          <button type="button" class="secondary clear-areas" data-i18n="areas.clearAll">Clear all areas</button>
-        </div>
-        <div class="areas-list">
-          <div class="empty-list" data-i18n="areas.empty">No contact areas recorded yet</div>
+          <div class="card-header-row">
+            <h5 data-i18n="areas.heading">Recorded Contact Areas</h5>
+            <button type="button" class="secondary clear-areas" data-i18n="areas.clearAll">Clear all areas</button>
+          </div>
+          <div class="areas-list">
+            <div class="empty-list" data-i18n="areas.empty">No contact areas recorded yet</div>
+          </div>
         </div>
       </div>
     </div>
@@ -1875,6 +1887,8 @@
 
         canvas.addEventListener("pointerdown", (event) => {
           if (this.activeDraw) return;
+          // The figures are inert until then; this is a second guard.
+          if (this.appState.contactAnswers[view.direction] !== "yes") return;
           if (!requireIdentification("status.fillInFirst", event)) return;
 
           event.preventDefault();
@@ -2126,7 +2140,7 @@
         questionBlock: section.querySelector(".question-block"),
         answerOptionsEl: section.querySelector(".yes-no-options"),
         answerRadios: section.querySelectorAll(".yes-no-options input"),
-        drawingEl: section.querySelector(".contact-drawing"),
+        yesOnlyEls: section.querySelectorAll(".yes-only"),
         figuresEl: section.querySelector(".figures"),
         mainSlot: section.querySelector(".figure-main-slot"),
         thumbsRail: section.querySelector(".figure-thumbs-rail"),
@@ -2424,8 +2438,9 @@
 
     // ============ CONTACT ANSWERS ============
     // Each direction must be declared: "No", or "Yes" with at least one area
-    // drawn. A section's figures are only shown once it is answered "Yes", and
-    // answering "No" deletes the areas drawn there, so the two can't contradict.
+    // drawn. A section's figures can only be drawn on once it is answered "Yes"
+    // (before that they are shown dimmed), and answering "No" deletes the areas
+    // drawn there, so the two can't contradict.
     function areasInDirection(direction) {
       return appState.currentTrial.areas.filter(a => a.direction === direction).length;
     }
@@ -2435,12 +2450,9 @@
         const answer = appState.contactAnswers[cs.direction];
         cs.answerRadios.forEach(radio => { radio.checked = radio.value === answer; });
         cs.questionBlock.classList.toggle("is-answered", answer !== null);
-        const show = answer === "yes";
-        if (cs.drawingEl.hidden === show) {
-          cs.drawingEl.hidden = !show;
-          // Its canvases were sized while hidden, to nothing: size them now.
-          if (show) setActiveFigure(cs, cs.activeFigureId);
-        }
+        const canDraw = answer === "yes";
+        cs.figuresEl.inert = !canDraw;
+        cs.yesOnlyEls.forEach(el => { el.hidden = !canDraw; });
       });
     }
 

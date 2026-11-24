@@ -221,7 +221,7 @@ Each provides:
 
 ### User Experience
 - **Real-time Feedback** - Points appear immediately on figures
-- **Separate Contact Sections** - "Being touched by others" and "Touching others", each with its own yes/no question and its own set of figures
+- **Separate Contact Sections** - "Contacts from others" and "Contacts to others", each with its own yes/no question and its own set of figures (always shown, but dimmed and locked until the question is answered "Yes")
 - **Touch Optimization** - Smart touch handling with scroll detection
 - **Responsive Design** - Works on desktop and mobile
 - **Error Handling** - Clear error messages with retry capability
@@ -423,8 +423,8 @@ isValidCustomField(value) {
 Update the `directionColors` object in `index.html`, as `#rrggbb` values. It sets the colour of the areas drawn, of their swatch in the areas list, and of each contact section's top border and instruction box:
 ```javascript
 const directionColors = {
-  touched: "#3498db",        // "Touching others" (blue)
-  touched_by: "#e74c3c"      // "Being touched by others" (red)
+  touched: "#3498db",        // "Contacts to others" (blue)
+  touched_by: "#e74c3c"      // "Contacts from others" (red)
 };
 ```
 
