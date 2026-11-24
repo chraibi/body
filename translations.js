@@ -292,6 +292,20 @@ const TRANSLATIONS = {
     de: "Weitere Anmerkungen zu Ihren Angaben …",
   },
 
+  // ---- Drawn-area check (shown before the rating panel) ----
+  "areaConfirm.title": {
+    en: "Drawn contact area",
+    de: "Eingezeichneter Kontaktbereich",
+  },
+  "areaConfirm.cancel": {
+    en: "Cancel",
+    de: "Abbrechen",
+  },
+  "areaConfirm.validate": {
+    en: "Confirm",
+    de: "Bestätigen",
+  },
+
   // ---- Area rating panel ----
   "rating.title": {
     en: "Area #{n} — {figure} ({direction})",
@@ -355,17 +369,17 @@ const TRANSLATIONS = {
     en: "Direct contacts",
     de: "Direkter Kontakt",
   },
-  "distance.less_20cm": {
-    en: "Less than 20cm",
-    de: "Weniger als 20\u00a0cm",
+  "distance.0_to_20cm": {
+    en: "0–20cm",
+    de: "0–20\u00a0cm",
   },
-  "distance.less_50cm": {
-    en: "Less than 50cm",
-    de: "Weniger als 50\u00a0cm",
+  "distance.20_to_50cm": {
+    en: "20–50cm",
+    de: "20–50\u00a0cm",
   },
-  "distance.less_1m": {
-    en: "Less than 1m",
-    de: "Weniger als 1\u00a0m",
+  "distance.50cm_to_1m": {
+    en: "50cm–1m",
+    de: "50\u00a0cm–1\u00a0m",
   },
   "distance.more_1m": {
     en: "More than 1m",

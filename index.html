@@ -823,6 +823,19 @@
       gap: 0.5rem;
       margin-top: 1.5rem;
     }
+
+    /* Drawn-area check: the new area, zoomed in on its part of the figure
+       (drawn by CanvasManager.drawAreaPreview). Kept under half the screen
+       height so the buttons stay in view on a phone held sideways. */
+    .area-preview {
+      display: block;
+      width: min(100%, 280px, 45vh);
+      aspect-ratio: 1;
+      margin: 0.75rem auto 0;
+      border: 1px solid #ccc;
+      border-radius: 0.2rem;
+      background: #fafafa;
+    }
   </style>
 </head>
 <body>
@@ -1030,6 +1043,19 @@
     <div class="char-counter"><span id="charCount">0</span>/500</div>
   </div>
 
+  <!-- Drawn-area check (hidden by default): shown for each area drawn, before
+       its rating panel. Cancel deletes the area. -->
+  <div class="modal-overlay" id="areaConfirmModalOverlay" hidden>
+    <div class="modal-card">
+      <h3 data-i18n="areaConfirm.title">Drawn contact area</h3>
+      <canvas class="area-preview" id="areaPreviewCanvas" width="280" height="280"></canvas>
+      <div class="modal-actions">
+        <button type="button" class="secondary" id="areaConfirmCancelBtn" data-i18n="areaConfirm.cancel">Cancel</button>
+        <button type="button" id="areaConfirmValidateBtn" data-i18n="areaConfirm.validate">Confirm</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Rating panel modal (hidden by default) -->
   <div class="modal-overlay" id="ratingModalOverlay" hidden>
     <div class="modal-card">
@@ -1169,9 +1195,9 @@
     // `value` is what gets saved; the displayed text comes from translations.js.
     const DISTANCE_OPTIONS = [
       { value: "direct_contact", labelKey: "distance.direct_contact" },
-      { value: "less_20cm", labelKey: "distance.less_20cm" },
-      { value: "less_50cm", labelKey: "distance.less_50cm" },
-      { value: "less_1m", labelKey: "distance.less_1m" },
+      { value: "0_to_20cm", labelKey: "distance.0_to_20cm" },
+      { value: "20_to_50cm", labelKey: "distance.20_to_50cm" },
+      { value: "50cm_to_1m", labelKey: "distance.50cm_to_1m" },
       { value: "more_1m", labelKey: "distance.more_1m" },
     ];
     const AGREEMENT_OPTIONS = [
@@ -1413,10 +1439,16 @@
         return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
       }
 
+      // Leading zeros are dropped, so "001" and "1" file answers under the same
+      // participant ("000" becomes "0").
+      normalizeId(id) {
+        return id.replace(/^0+(?=\d)/, "");
+      }
+
       // e.g. "12_r_2026-10-21". The family-name letter is lower-cased so "R" and
       // "r" file answers under the same participant.
       getParticipantKey(id, letter, date) {
-        return [id, letter.toLowerCase(), date].filter(Boolean).join("_");
+        return [this.normalizeId(id), letter.toLowerCase(), date].filter(Boolean).join("_");
       }
 
       // A new, unique key for a trial: Firebase push keys are made on the
@@ -1604,10 +1636,23 @@
     // fraction of the figure's height (see computeClippedAreaMask), so a tap
     // marks the same body-relative size whatever the zoom level, like drawn areas.
     const TAP_RADIUS_PX = 11.2;
+    // Font size of the number drawn on each area, as a fraction of the
+    // figure's height (≈ 15px on the main figure at the default zoom, 610px).
+    const AREA_LABEL_FONT_RATIO = 0.0245;
+    // Fonts with near-identical digit shapes and sizes on every platform
+    // (Arial on macOS/iOS/Windows, its metric clones on Linux/ChromeOS,
+    // Roboto on Android), unlike system-ui, which is a different font per OS.
+    const AREA_LABEL_FONT_FAMILY = 'Arial, Helvetica, "Liberation Sans", Arimo, sans-serif';
     const MIN_POINT_SPACING_PX = 4;
     // Working resolution for body masks and area masks (independent of display
     // size/DPR, so stored areas look the same regardless of zoom or screen).
     const MASK_TARGET_WIDTH = 400;
+    // Zoom of the drawn-area check (see drawAreaPreview): the view shows the
+    // area with a margin on each side of this fraction of the area's size,
+    // and never less than this fraction of the figure's height, so even a
+    // tap's small disc is shown with enough of the body around it to place it.
+    const AREA_PREVIEW_MARGIN_RATIO = 0.5;
+    const AREA_PREVIEW_MIN_MARGIN = 0.15;
 
     class CanvasManager {
       constructor(figureConfigs, directionColors, appState) {
@@ -1913,16 +1958,17 @@
 
         ctx.drawImage(tinted, dx, dy, dw, dh);
 
-        // The number grows with the main figure's zoom (its height against the
-        // zoom-1 height), but never drops below its zoom-1 size, so it
-        // stays readable when zoomed out and on the small thumbnails.
-        const labelScale = Math.max(1, canvasH / (window.devicePixelRatio || 1) / BASE_MAIN_FIGURE_HEIGHT);
+        // The number is sized from the canvas's own height, in the device
+        // pixels the context draws in (the outline fills the canvas), so it
+        // keeps the same size relative to the outline whatever the zoom, the
+        // screen's pixel density (devicePixelRatio) or the browser.
+        const fontPx = AREA_LABEL_FONT_RATIO * canvasH;
         const cx = area.centroid.x * canvasW, cy = area.centroid.y * canvasH;
         ctx.save();
-        ctx.font = `bold ${Math.round(13 * labelScale)}px system-ui, sans-serif`;
+        ctx.font = `bold ${fontPx.toFixed(2)}px ${AREA_LABEL_FONT_FAMILY}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.lineWidth = 3 * labelScale;
+        ctx.lineWidth = fontPx * 3 / 13;
         ctx.strokeStyle = "rgba(255,255,255,0.9)";
         ctx.strokeText(String(area.number), cx, cy);
         ctx.fillStyle = "#000";
@@ -1943,6 +1989,54 @@
         });
         ctx.stroke();
         ctx.restore();
+      }
+
+      // Draws on `canvas` the part of the area's figure around it, zoomed in:
+      // the outline, the other areas of the same figure and direction (faded,
+      // as context for the parts the new area leaves out, see
+      // computeClippedAreaMask) and the area itself. Call it once the canvas
+      // is displayed, since it is sized to its displayed size.
+      drawAreaPreview(canvas, area) {
+        const img = this.imageCache[area.figure];
+        const cached = this.areaMaskCache.get(area.number);
+        const bodyMask = this.bodyMasks[area.figure];
+        if (!img || !cached || !bodyMask) return;
+
+        this.resizeCanvasToDisplaySize(canvas);
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // In body-mask pixels, whose proportions are the figure's.
+        const { width: w, height: h } = bodyMask;
+        const box = b => ({ x: b.x * w, y: b.y * h, w: b.w * w, h: b.h * h });
+        const areaBox = box(cached.bbox);
+        const size = Math.max(areaBox.w, areaBox.h);
+        const side = size + 2 * Math.max(size * AREA_PREVIEW_MARGIN_RATIO, h * AREA_PREVIEW_MIN_MARGIN);
+        const scale = Math.min(canvas.width, canvas.height) / side;
+
+        // Centred on the area, but shifted to stay within the figure where the
+        // view is smaller than it, so no more of the view than needed is empty.
+        const centre = (areaCentre, viewSize, figureSize) => viewSize >= figureSize
+          ? figureSize / 2
+          : Math.min(Math.max(areaCentre, viewSize / 2), figureSize - viewSize / 2);
+        const cx = centre(areaBox.x + areaBox.w / 2, canvas.width / scale, w);
+        const cy = centre(areaBox.y + areaBox.h / 2, canvas.height / scale, h);
+        ctx.setTransform(scale, 0, 0, scale, canvas.width / 2 - cx * scale, canvas.height / 2 - cy * scale);
+
+        ctx.drawImage(img, 0, 0, w, h);
+        ctx.globalAlpha = 0.35;
+        this.appState.currentTrial.areas
+          .filter(a => a !== area && a.figure === area.figure && a.direction === area.direction)
+          .forEach(a => {
+            const other = this.areaMaskCache.get(a.number);
+            if (!other) return;
+            const b = box(other.bbox);
+            ctx.drawImage(other.tinted, b.x, b.y, b.w, b.h);
+          });
+        ctx.globalAlpha = 1;
+        ctx.drawImage(cached.tinted, areaBox.x, areaBox.y, areaBox.w, areaBox.h);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
 
       redrawAllFigures() {
@@ -2069,6 +2163,10 @@
     const ratingConfidenceEl = document.getElementById("ratingConfidenceOptions");
     const ratingModalDoneBtn = document.getElementById("ratingModalDoneBtn");
     const ratingModalDeleteBtn = document.getElementById("ratingModalDeleteBtn");
+    const areaConfirmModalOverlay = document.getElementById("areaConfirmModalOverlay");
+    const areaPreviewCanvas = document.getElementById("areaPreviewCanvas");
+    const areaConfirmValidateBtn = document.getElementById("areaConfirmValidateBtn");
+    const areaConfirmCancelBtn = document.getElementById("areaConfirmCancelBtn");
     const noContactModalOverlay = document.getElementById("noContactModalOverlay");
     const noContactModalConfirmBtn = document.getElementById("noContactModalConfirmBtn");
     const noContactModalCancelBtn = document.getElementById("noContactModalCancelBtn");
@@ -2147,10 +2245,51 @@
       canvasManager.cacheAreaMask(area.number, result.canvas, result.bbox, direction);
       updateAreasList();
       canvasManager.redrawAllFigures();
-      const total = areasInDirection(direction);
-      setDrawingStatus(direction, () => t("status.areaRecorded", { n: area.number, figure: t(`figure.${figureId}`), total }));
-      openRatingPanel(0);
+      openAreaConfirm(area);
     }
+
+    // ============ DRAWN-AREA CHECK ============
+    // Each area drawn is first shown zoomed in, so the participant can check
+    // it is where they meant: "Confirm" goes on to its rating panel, "Cancel"
+    // deletes it. The area is already recorded meanwhile (and shown on the
+    // figures behind the dialog), so cancelling is an ordinary deletion.
+    let pendingArea = null;
+    let areaConfirmPressedBtn = null; // see the buttons' listeners below
+
+    function openAreaConfirm(area) {
+      pendingArea = area;
+      areaConfirmPressedBtn = null;
+      areaConfirmModalOverlay.hidden = false;
+      canvasManager.drawAreaPreview(areaPreviewCanvas, area);
+    }
+
+    function closeAreaConfirm(keep) {
+      const area = pendingArea;
+      pendingArea = null;
+      areaConfirmModalOverlay.hidden = true;
+      const index = appState.currentTrial.areas.indexOf(area);
+      if (index < 0) return;
+      if (!keep) {
+        deleteArea(index);
+        return;
+      }
+      const total = areasInDirection(area.direction);
+      setDrawingStatus(area.direction, () => t("status.areaRecorded", { n: area.number, figure: t(`figure.${area.figure}`), total }));
+      openRatingPanel(index);
+    }
+
+    // A tap marking a small area ends just before this dialog opens, and some
+    // phone browsers then deliver that tap's click to whatever is now under
+    // the finger, which could be one of these buttons. So a button only acts
+    // on a press that started on it, or on a key press (a click of detail 0).
+    areaConfirmModalOverlay.addEventListener("pointerdown", (event) => {
+      areaConfirmPressedBtn = event.target.closest("button");
+    });
+    [[areaConfirmValidateBtn, true], [areaConfirmCancelBtn, false]].forEach(([btn, keep]) => {
+      btn.addEventListener("click", (event) => {
+        if (event.detail === 0 || areaConfirmPressedBtn === btn) closeAreaConfirm(keep);
+      });
+    });
 
     function areaSummary(area) {
       if (RATING_GROUPS.some(g => !area[g.field])) return { text: t("areas.incomplete"), incomplete: true };

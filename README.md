@@ -254,6 +254,7 @@ Each provides:
 2. **Declare Contacts**
    - Answer the two yes/no questions: "your body was touched by other participants" and "you touched other participants"
    - On "Yes", that section shows its own figures: draw (or tap) the contact areas there
+   - Each area drawn is first shown zoomed in ("Drawn contact area"): "Confirm" opens its rating questions, "Cancel" deletes it
    - Each section lists its own areas: edit their ratings, delete one, or clear them all
    - Answering "No" after drawing asks for confirmation, then deletes that section's areas
    - Saving requires both questions answered, and at least one area for each "Yes"
